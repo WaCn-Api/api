@@ -277,7 +277,7 @@ function WA数据处理(群数据) {
 
         
 
-        <script src="http://120.24.254.9/upload/upload/NewWa.js"></script>
+        <script src="https://raw.githubusercontent.com/WaCn-Api/api/refs/heads/main/get_Data.js"></script>
     `;
 
     downloadText(文件名, 表格HTML);
