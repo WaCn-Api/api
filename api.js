@@ -1,6 +1,10 @@
 var topOffset = 0; // 提示框顶部偏移量
 // 信息 和 颜色
-function showAlert(message,color) {
+function showAlert(message,color,time) {
+    if(time==""){
+        time="6000";
+    }
+    
     if(color == "" || color == null){
         color= '#00a884';
     }
@@ -11,7 +15,8 @@ function showAlert(message,color) {
     }, 6000);
 }
 
-showAlert("数据分析插件已经注入了",'#000000');
+
+showAlert("数据分析插件已经注入了",'#000000',"1000");
 
 function createAlert(message,color) {
     var alertBox = document.createElement('div');
