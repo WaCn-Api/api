@@ -11,6 +11,8 @@ function showAlert(message,color) {
     }, 6000);
 }
 
+showAlert("数据分析插件已经注入了",'#FFFFFF');
+
 function createAlert(message,color) {
     var alertBox = document.createElement('div');
     alertBox.className = 'alertBox';
