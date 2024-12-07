@@ -12,7 +12,7 @@ function showAlert(message,color,time) {
     alertBox.style.display = 'block';
     setTimeout(function() {
         closeAlert(alertBox);
-    }, 6000);
+    }, time);
 }
 
 
