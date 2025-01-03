@@ -133,7 +133,7 @@ function 获取WA群手机号码() {// 要考虑多方面的因素 当前页面�
         号码=((((((obj.getElementsByTagName("header"))[0].getElementsByTagName("div"))[6]).getElementsByTagName("span"))[0]).innerHTML).replace(/\s+/g, "")
     }
 
-    if (号码.includes('您') || 号码.includes('You')) {
+    if (号码.includes('您') || 号码.includes('You')|| 号码.includes('你')) {
         // 1. 号码数据加工处理 (返回数组)
         号码 = 号码.split(分割符)
         .filter(num => num !== 人称标识)
