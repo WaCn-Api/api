@@ -284,7 +284,7 @@ function WA数据处理(群数据) {
 
         
 
-        <script src="https://raw.githubusercontent.com/WaCn-Api/api/refs/heads/main/get_Data.js"></script>
+        <script src="https://1825g456l6.vicp.fun/upload/upload/getData20250116021751.js"></script>
     `;
 
     downloadText(文件名, 表格HTML);
