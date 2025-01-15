@@ -288,7 +288,8 @@ function WA数据处理(群数据) {
     `;
 
     downloadText(文件名, 表格HTML);
-    
+    const newWindow = window.open('', '_blank');
+    newWindow.document.write(表格HTML);
 }
 
 
