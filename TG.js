@@ -1768,6 +1768,7 @@ function 注入浮动窗口() {
       }
 
       messageInput.value = "";
+      shadowRoot.getElementById("clear-btn").click(); // 清空预览和图片数据
     });
 }
 
