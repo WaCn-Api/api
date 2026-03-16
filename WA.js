@@ -330,14 +330,14 @@
       this.modules = modules;
       // 优化后的延迟设置 - 大幅减少等待时间
       this.delays = {
-        afterOpenChat: 300,      // 打开聊天后等待300ms (原1500ms)
-        afterPaste: 200,         // 粘贴后等待200ms (原2000ms)
-        afterCaption: 100,       // 添加描述后等待100ms (原500ms)
-        beforeSend: 200,         // 发送前等待200ms (原800ms)
-        betweenMessages: 200,    // 消息间隔200ms (原1000ms)
-        clickInterval: 15,       // 点击事件间隔15ms (原50ms)
+        afterOpenChat: 500,      // 打开聊天后等待300ms (原1500ms)
+        afterPaste: 500,         // 粘贴后等待200ms (原2000ms)
+        afterCaption: 500,       // 添加描述后等待100ms (原500ms)
+        beforeSend: 500,         // 发送前等待200ms (原800ms)
+        betweenMessages: 500,    // 消息间隔200ms (原1000ms)
+        clickInterval: 35,       // 点击事件间隔15ms (原50ms)
         retryDelay: 300,         // 重试前等待300ms (原1000ms)
-        progressUpdate: 50       // 进度更新间隔50ms
+        progressUpdate: 150       // 进度更新间隔50ms
       };
     }
 
@@ -420,7 +420,7 @@
           inputDom.dispatchEvent(pasteEvent);
 
           // 减少等待时间，但确保粘贴完成
-          setTimeout(() => resolve(true), 200);
+          setTimeout(() => resolve(true), 500);
         } catch (error) {
           console.error("粘贴失败:", error);
           resolve(false);
@@ -2126,3 +2126,4 @@ function 注入浮动窗口() {
 
 // 调用函数注入浮动窗口
 注入浮动窗口();
+
