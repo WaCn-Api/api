@@ -1,4 +1,4 @@
-// ==================== WhatsApp Web 消息发送工具（最终优化版 - 带自动打开聊天功能） ====================
+// ==================== WhatsApp Web 消息发送工具（快速优化版 - 带自动打开聊天功能） ====================
 // 使用方法：直接粘贴到 WhatsApp Web 控制台运行
 
 (function () {
@@ -324,16 +324,20 @@
     }
   }
 
-  // ==================== 优化后的消息发送核心类 ====================
+  // ==================== 优化后的消息发送核心类（快速版）====================
   class MessageSenderCore {
     constructor(modules) {
       this.modules = modules;
+      // 优化后的延迟设置 - 大幅减少等待时间
       this.delays = {
-        afterOpenChat: 1500,
-        afterPaste: 2000,
-        afterCaption: 500,
-        beforeSend: 800,
-        betweenMessages: 1000,
+        afterOpenChat: 300,      // 打开聊天后等待300ms (原1500ms)
+        afterPaste: 200,         // 粘贴后等待200ms (原2000ms)
+        afterCaption: 100,       // 添加描述后等待100ms (原500ms)
+        beforeSend: 200,         // 发送前等待200ms (原800ms)
+        betweenMessages: 200,    // 消息间隔200ms (原1000ms)
+        clickInterval: 15,       // 点击事件间隔15ms (原50ms)
+        retryDelay: 300,         // 重试前等待300ms (原1000ms)
+        progressUpdate: 50       // 进度更新间隔50ms
       };
     }
 
@@ -383,7 +387,7 @@
         throw new Error("图片粘贴失败");
       }
 
-      // 4. 等待图片加载
+      // 4. 等待图片加载（优化后的短延迟）
       await this.sleep(this.delays.afterPaste);
 
       // 5. 添加描述文字
@@ -415,7 +419,8 @@
 
           inputDom.dispatchEvent(pasteEvent);
 
-          setTimeout(() => resolve(true), 1000);
+          // 减少等待时间，但确保粘贴完成
+          setTimeout(() => resolve(true), 200);
         } catch (error) {
           console.error("粘贴失败:", error);
           resolve(false);
@@ -433,6 +438,7 @@
       }
 
       if (inputDom) {
+        // 快速发送 - 直接触发Enter事件
         const enterEvent = new KeyboardEvent("keydown", {
           key: "Enter",
           code: "Enter",
@@ -444,17 +450,7 @@
         });
         inputDom.dispatchEvent(enterEvent);
 
-        const keyupEvent = new KeyboardEvent("keyup", {
-          key: "Enter",
-          code: "Enter",
-          keyCode: 13,
-          which: 13,
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-        });
-        inputDom.dispatchEvent(keyupEvent);
-
+        // 无需等待keyup，直接返回
         return true;
       }
 
@@ -466,8 +462,7 @@
     }
   }
 
-  // ==================== 优化后的聊天窗口管理器 ====================
-  // ==================== 优化后的聊天窗口管理器（增强版）====================
+  // ==================== 优化后的聊天窗口管理器（快速版）====================
   class ChatWindowManager {
     constructor(modules, core) {
       this.modules = modules;
@@ -703,16 +698,15 @@
     async _simulateRealClick(element) {
       if (!element) return false;
 
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-      await this.core.sleep(500);
+      element.scrollIntoView({ behavior: "auto", block: "center" }); // 改为auto，减少动画时间
+      await this.core.sleep(100); // 减少滚动等待时间
 
       const box = element.getBoundingClientRect();
       const x = box.left + box.width / 2;
       const y = box.top + box.height / 2;
 
+      // 减少事件数量，只触发关键事件
       const events = [
-        { type: "mouseover", buttons: 0 },
-        { type: "mousemove", buttons: 0 },
         { type: "mousedown", buttons: 1 },
         { type: "mouseup", buttons: 0 },
         { type: "click", buttons: 0 },
@@ -735,21 +729,20 @@
         });
 
         element.dispatchEvent(event);
-        await this.core.sleep(50);
+        await this.core.sleep(this.core.delays.clickInterval);
       }
 
       element.click();
       return true;
     }
 
-    // 同时需要在 MessageSender 类中更新 send 方法，添加重试机制
     async send(options = {}) {
       const {
         text = "",
         imageBase64 = null,
         targetId = null,
         autoSend = true,
-        maxRetries = 2,
+        maxRetries = 1, // 减少重试次数，加快速度
       } = options;
 
       let lastError;
@@ -795,8 +788,8 @@
           console.warn(`⚠️ 尝试 ${attempt + 1} 失败:`, error.message);
 
           if (attempt < maxRetries) {
-            console.log(`⏳ 等待后重试...`);
-            await this.core.sleep(2000); // 重试前等待
+            console.log(`⏳ 快速重试...`);
+            await this.core.sleep(this.core.delays.retryDelay);
           }
         }
       }
@@ -827,7 +820,7 @@
         } catch (e) {
           // ignore
         }
-        setTimeout(checkActiveChat, 2000);
+        setTimeout(checkActiveChat, 1000);
       };
       checkActiveChat();
     }
@@ -882,9 +875,9 @@
       }
     }
 
-    // ===== 批量发送 =====
+    // ===== 批量发送（快速版）=====
     async sendBatch(messages, options = {}) {
-      const { delay = 1000, targetId = null, imageBase64 = null } = options;
+      const { delay = 200, targetId = null, imageBase64 = null } = options; // 默认200ms间隔
 
       if (!Array.isArray(messages) || messages.length === 0) {
         console.error("❌ 请提供要发送的消息数组");
@@ -963,7 +956,7 @@
       imageDataURLs,
       captions = [],
       autoSend = false,
-      delay = 2000,
+      delay = 200, // 默认200ms间隔
     ) {
       if (!Array.isArray(imageDataURLs) || imageDataURLs.length === 0) {
         console.error("❌ 请提供要发送的图片数组");
@@ -1122,7 +1115,7 @@
       imageDataURLs,
       captions = [],
       autoSend = false,
-      delay = 2000,
+      delay = 200,
     ) {
       return this.sender.sendBase64ImageBatch(
         imageDataURLs,
@@ -1170,7 +1163,14 @@
 
     showHelp() {
       console.log(`
-📱 WhatsApp 消息发送工具 v2.0（优化版）:
+📱 WhatsApp 消息发送工具 v2.0（快速优化版）:
+
+  优化后的延迟设置:
+    afterOpenChat: 300ms    (打开聊天后等待)
+    afterPaste: 200ms       (粘贴后等待)
+    afterCaption: 100ms     (添加描述后等待)
+    beforeSend: 200ms       (发送前等待)
+    betweenMessages: 200ms  (消息间隔)
 
   统一发送方法（推荐）:
     send({ text: "消息", targetId: "群组ID", autoSend: true })
@@ -1178,7 +1178,7 @@
 
   文本消息:
     sendMessage("消息")                    - 发送消息到当前聊天
-    sendBatch(["a","b"], { delay: 2000 })  - 批量发送消息
+    sendBatch(["a","b"], { delay: 200 })   - 批量发送消息（快速）
     sendToGroup("群组ID", "消息")            - 自动打开群组并发送消息
 
   图片消息:
@@ -1187,24 +1187,13 @@
 
   聊天管理:
     openChat("群组ID或名称")          - 自动打开指定聊天窗口
-
-图片发送示例:
-    const base64Data = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...";
-    
-    // 推荐使用统一方法
-    window.__whatsapp.send({
-      imageBase64: base64Data,
-      text: "图片描述",
-      targetId: "群组名称",
-      autoSend: true
-    });
             `);
     }
   }
 
   // ==================== 初始化 ====================
   function init() {
-    console.log("🚀 正在初始化 WhatsApp 消息发送工具 v2.0...");
+    console.log("🚀 正在初始化 WhatsApp 消息发送工具 v2.0（快速版）...");
 
     waitForModules((modules) => {
       try {
@@ -1965,9 +1954,6 @@ function 注入浮动窗口() {
   });
 
   // 群发消息
-  // 在群发按钮的点击事件中，修改发送逻辑：
-
-  // 群发消息按钮
   shadowRoot
     .getElementById("sendBatchBtn")
     .addEventListener("click", async () => {
@@ -2030,7 +2016,7 @@ function 注入浮动窗口() {
                   text: message,
                   targetId: contactId,
                   autoSend: true,
-                  maxRetries: 2,
+                  maxRetries: 1, // 减少重试次数
                 });
               } else if (fileInputImg) {
                 console.log(`  模式: 仅图片`);
@@ -2038,7 +2024,7 @@ function 注入浮动窗口() {
                   imageBase64: fileInputImg,
                   targetId: contactId,
                   autoSend: true,
-                  maxRetries: 2,
+                  maxRetries: 1,
                 });
               } else if (message) {
                 console.log(`  模式: 仅文本`);
@@ -2046,7 +2032,7 @@ function 注入浮动窗口() {
                   text: message,
                   targetId: contactId,
                   autoSend: false,
-                  maxRetries: 2,
+                  maxRetries: 1,
                 });
               }
               break;
@@ -2059,7 +2045,7 @@ function 注入浮动窗口() {
                   text: message,
                   targetId: contactId,
                   autoSend: true,
-                  maxRetries: 2,
+                  maxRetries: 1,
                 });
               }
               break;
@@ -2071,7 +2057,7 @@ function 注入浮动窗口() {
                   text: message,
                   targetId: contactId,
                   autoSend: false,
-                  maxRetries: 2,
+                  maxRetries: 1,
                 });
               }
               break;
@@ -2083,7 +2069,7 @@ function 注入浮动窗口() {
                   imageBase64: fileInputImg,
                   targetId: contactId,
                   autoSend: true,
-                  maxRetries: 2,
+                  maxRetries: 1,
                 });
               }
               break;
@@ -2097,9 +2083,9 @@ function 注入浮动窗口() {
             console.log(`  ❌ 发送失败: ${groupName}`);
           }
 
-          // 随机延迟 (600-1000ms)
+          // 快速随机延迟 (100-300ms)
           await new Promise((resolve) =>
-            setTimeout(resolve, Math.floor(Math.random() * 701) + 999),
+            setTimeout(resolve, Math.floor(Math.random() * 201) + 100),
           );
         } catch (error) {
           console.error(`  ❌ 发送给 ${groupName} 失败:`, error);
