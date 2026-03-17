@@ -330,14 +330,14 @@
       this.modules = modules;
       // 优化后的延迟设置 - 大幅减少等待时间
       this.delays = {
-        afterOpenChat: 500,      // 打开聊天后等待300ms (原1500ms)
-        afterPaste: 500,         // 粘贴后等待200ms (原2000ms)
-        afterCaption: 500,       // 添加描述后等待100ms (原500ms)
-        beforeSend: 500,         // 发送前等待200ms (原800ms)
-        betweenMessages: 500,    // 消息间隔200ms (原1000ms)
-        clickInterval: 35,       // 点击事件间隔15ms (原50ms)
-        retryDelay: 300,         // 重试前等待300ms (原1000ms)
-        progressUpdate: 150       // 进度更新间隔50ms
+        afterOpenChat: 500, // 打开聊天后等待300ms (原1500ms)
+        afterPaste: 500, // 粘贴后等待200ms (原2000ms)
+        afterCaption: 500, // 添加描述后等待100ms (原500ms)
+        beforeSend: 500, // 发送前等待200ms (原800ms)
+        betweenMessages: 500, // 消息间隔200ms (原1000ms)
+        clickInterval: 35, // 点击事件间隔15ms (原50ms)
+        retryDelay: 300, // 重试前等待300ms (原1000ms)
+        progressUpdate: 150, // 进度更新间隔50ms
       };
     }
 
@@ -599,6 +599,123 @@
       }
     }
 
+    // async _findChatByPartialId(partialId) {
+    //   if (!partialId || partialId.length < 5) return false;
+
+    //   console.log(`🔍 尝试通过部分ID查找: ${partialId}`);
+
+    //   // 查找所有聊天项
+    //   const chatRows = document.querySelectorAll('[role="row"]');
+
+    //   for (let row of chatRows) {
+    //     const fullText = row.textContent || "";
+    //     const dataAttrs = Array.from(row.querySelectorAll("[data-id], [id]"))
+    //       .map((el) => el.getAttribute("data-id") || el.id)
+    //       .join(" ");
+
+    //     const combinedText = fullText + " " + dataAttrs;
+
+    //     // 如果文本中包含部分ID
+    //     if (combinedText.includes(partialId)) {
+    //       console.log("✅ 通过部分ID匹配成功");
+    //       const clickable = row.querySelector('[role="gridcell"]') || row;
+    //       await this._simulateRealClick(clickable);
+    //       return true;
+    //     }
+    //   }
+
+    //   return false;
+    // }
+
+    // async _findAndClickChatExact(exactName) {
+    //   if (!exactName) return false;
+
+    //   // 策略A：先尝试 title 属性匹配（包含表情符号）
+    //   const titleElements = document.querySelectorAll(
+    //     'span[dir="auto"][title]',
+    //   );
+    //   for (let el of titleElements) {
+    //     const title = el.getAttribute("title") || "";
+    //     if (this._normalizeString(title) === this._normalizeString(exactName)) {
+    //       console.log("✅ 通过title属性匹配成功:", title);
+    //       const clickable = this._findClickableElement(el);
+    //       if (clickable) {
+    //         await this._simulateRealClick(clickable);
+    //         return true;
+    //       }
+    //     }
+    //   }
+
+    //   // 策略B：获取完整文本内容（包含表情符号）
+    //   const nameElements = document.querySelectorAll(
+    //     '._ak8q span, .x1iyjqo2, span[dir="auto"]',
+    //   );
+    //   for (let el of nameElements) {
+    //     // 获取完整文本，包括子节点中的表情符号
+    //     const fullText = this._getFullTextWithEmoji(el);
+    //     const titleAttr = el.getAttribute("title") || "";
+
+    //     // 组合所有可能的文本表示
+    //     const textVariants = [
+    //       fullText,
+    //       titleAttr,
+    //       el.textContent?.trim() || "",
+    //     ].filter((v) => v); // 移除空值
+
+    //     // 检查是否有任一变体匹配
+    //     const isMatch = textVariants.some(
+    //       (variant) =>
+    //         this._normalizeString(variant) === this._normalizeString(exactName),
+    //     );
+
+    //     if (isMatch) {
+    //       console.log("✅ 通过完整文本匹配成功:", fullText);
+    //       const clickable = this._findClickableElement(el);
+    //       if (clickable) {
+    //         await this._simulateRealClick(clickable);
+    //         return true;
+    //       }
+    //     }
+    //   }
+
+    //   return false;
+    // }
+
+    // 获取包含表情符号的完整文本
+    _getFullTextWithEmoji(element) {
+      if (!element) return "";
+
+      let fullText = "";
+
+      // 遍历所有子节点
+      for (const node of element.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          fullText += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.tagName === "IMG" && node.classList.contains("emoji")) {
+            // 是表情符号，使用 alt 属性
+            fullText += node.getAttribute("alt") || "";
+          } else {
+            // 递归处理子元素
+            fullText += this._getFullTextWithEmoji(node);
+          }
+        }
+      }
+
+      return fullText;
+    }
+
+    // 标准化字符串用于比较
+    _normalizeString(str) {
+      if (!str) return "";
+
+      // 移除多余空格，但保留表情符号（它们已经是 Unicode 字符）
+      return str
+        .replace(/\s+/g, " ") // 合并多个空格
+        .trim(); // 去除首尾空格
+    }
+
+    // 增强的 ID 匹配方法
     async _findChatByPartialId(partialId) {
       if (!partialId || partialId.length < 5) return false;
 
@@ -608,7 +725,8 @@
       const chatRows = document.querySelectorAll('[role="row"]');
 
       for (let row of chatRows) {
-        const fullText = row.textContent || "";
+        // 获取完整的文本（包括表情）
+        const fullText = this._getFullTextFromRow(row);
         const dataAttrs = Array.from(row.querySelectorAll("[data-id], [id]"))
           .map((el) => el.getAttribute("data-id") || el.id)
           .join(" ");
@@ -627,42 +745,15 @@
       return false;
     }
 
-    async _findAndClickChatExact(exactName) {
-      if (!exactName) return false;
-
-      // 策略A：通过title属性匹配
-      const titleElements = document.querySelectorAll(
-        'span[dir="auto"][title]',
+    // 从整行获取完整文本
+    _getFullTextFromRow(row) {
+      const nameElement = row.querySelector(
+        'span[dir="auto"][title], ._ak8q span, .x1iyjqo2',
       );
-      for (let el of titleElements) {
-        const title = el.getAttribute("title") || "";
-        if (title === exactName || title.includes(exactName)) {
-          console.log("✅ 通过title属性匹配成功:", title);
-          const clickable = this._findClickableElement(el);
-          if (clickable) {
-            await this._simulateRealClick(clickable);
-            return true;
-          }
-        }
+      if (nameElement) {
+        return this._getFullTextWithEmoji(nameElement);
       }
-
-      // 策略B：通过名称容器匹配
-      const nameElements = document.querySelectorAll(
-        '._ak8q span, .x1iyjqo2, span[dir="auto"]',
-      );
-      for (let el of nameElements) {
-        const name = el.textContent?.trim() || el.getAttribute("title") || "";
-        if (name === exactName || name.includes(exactName)) {
-          console.log("✅ 通过名称容器匹配成功:", name);
-          const clickable = this._findClickableElement(el);
-          if (clickable) {
-            await this._simulateRealClick(clickable);
-            return true;
-          }
-        }
-      }
-
-      return false;
+      return row.textContent || "";
     }
 
     async _listAvailableChats() {
@@ -795,6 +886,136 @@
       }
 
       console.error("❌ 发送失败，已达最大重试次数:", lastError);
+      return false;
+    }
+
+    // 1. 获取包含表情符号的完整文本
+    _getFullTextWithEmoji(element) {
+      if (!element) return "";
+
+      let fullText = "";
+
+      // 遍历所有子节点
+      for (const node of element.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          fullText += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.tagName === "IMG" && node.classList.contains("emoji")) {
+            // 是表情符号，使用 alt 属性
+            fullText += node.getAttribute("alt") || "";
+          } else {
+            // 递归处理子元素
+            fullText += this._getFullTextWithEmoji(node);
+          }
+        }
+      }
+
+      return fullText;
+    }
+
+    // 2. 标准化字符串用于比较
+    _normalizeString(str) {
+      if (!str) return "";
+
+      // 移除多余空格，但保留表情符号（它们已经是 Unicode 字符）
+      return str
+        .replace(/\s+/g, " ") // 合并多个空格
+        .trim(); // 去除首尾空格
+    }
+
+    // 3. 从整行获取完整文本（辅助方法）
+    _getFullTextFromRow(row) {
+      const nameElement = row.querySelector(
+        'span[dir="auto"][title], ._ak8q span, .x1iyjqo2',
+      );
+      if (nameElement) {
+        return this._getFullTextWithEmoji(nameElement);
+      }
+      return row.textContent || "";
+    }
+
+    // 4. 修改现有的 _findAndClickChatExact 方法（替换原来的）
+    async _findAndClickChatExact(exactName) {
+      if (!exactName) return false;
+
+      // 策略A：先尝试 title 属性匹配（包含表情符号）
+      const titleElements = document.querySelectorAll(
+        'span[dir="auto"][title]',
+      );
+      for (let el of titleElements) {
+        const title = el.getAttribute("title") || "";
+        if (this._normalizeString(title) === this._normalizeString(exactName)) {
+          console.log("✅ 通过title属性匹配成功:", title);
+          const clickable = this._findClickableElement(el);
+          if (clickable) {
+            await this._simulateRealClick(clickable);
+            return true;
+          }
+        }
+      }
+
+      // 策略B：获取完整文本内容（包含表情符号）
+      const nameElements = document.querySelectorAll(
+        '._ak8q span, .x1iyjqo2, span[dir="auto"]',
+      );
+      for (let el of nameElements) {
+        // 获取完整文本，包括子节点中的表情符号
+        const fullText = this._getFullTextWithEmoji(el);
+        const titleAttr = el.getAttribute("title") || "";
+
+        // 组合所有可能的文本表示
+        const textVariants = [
+          fullText,
+          titleAttr,
+          el.textContent?.trim() || "",
+        ].filter((v) => v); // 移除空值
+
+        // 检查是否有任一变体匹配
+        const isMatch = textVariants.some(
+          (variant) =>
+            this._normalizeString(variant) === this._normalizeString(exactName),
+        );
+
+        if (isMatch) {
+          console.log("✅ 通过完整文本匹配成功:", fullText);
+          const clickable = this._findClickableElement(el);
+          if (clickable) {
+            await this._simulateRealClick(clickable);
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
+    // 5. 修改现有的 _findChatByPartialId 方法（替换原来的）
+    async _findChatByPartialId(partialId) {
+      if (!partialId || partialId.length < 5) return false;
+
+      console.log(`🔍 尝试通过部分ID查找: ${partialId}`);
+
+      // 查找所有聊天项
+      const chatRows = document.querySelectorAll('[role="row"]');
+
+      for (let row of chatRows) {
+        // 获取完整的文本（包括表情）
+        const fullText = this._getFullTextFromRow(row);
+        const dataAttrs = Array.from(row.querySelectorAll("[data-id], [id]"))
+          .map((el) => el.getAttribute("data-id") || el.id)
+          .join(" ");
+
+        const combinedText = fullText + " " + dataAttrs;
+
+        // 如果文本中包含部分ID
+        if (combinedText.includes(partialId)) {
+          console.log("✅ 通过部分ID匹配成功");
+          const clickable = row.querySelector('[role="gridcell"]') || row;
+          await this._simulateRealClick(clickable);
+          return true;
+        }
+      }
+
       return false;
     }
   }
@@ -1004,6 +1225,46 @@
         inputDomFound: !!getInputDom(),
         sendButtonFound: !!getSendButton(),
       };
+    }
+
+    // 添加辅助查找方法（可选）
+    async findGroupByNameOrId(nameOrId) {
+      // 先通过 API 获取所有群组
+      const groups = this.groupManager.getAllGroups();
+
+      // 尝试精确匹配
+      let found = groups.find(
+        (g) =>
+          g.id === nameOrId ||
+          this._normalizeString(g.name) === this._normalizeString(nameOrId),
+      );
+
+      if (found) {
+        console.log("✅ 找到群组:", found);
+        return found;
+      }
+
+      // 尝试部分匹配
+      const normalizedSearch = this._normalizeString(nameOrId);
+      found = groups.find(
+        (g) =>
+          this._normalizeString(g.name).includes(normalizedSearch) ||
+          g.id.includes(nameOrId),
+      );
+
+      if (found) {
+        console.log("✅ 找到近似群组:", found);
+        return found;
+      }
+
+      console.log("❌ 未找到群组");
+      return null;
+    }
+
+    // 添加标准化方法
+    _normalizeString(str) {
+      if (!str) return "";
+      return str.replace(/\s+/g, " ").trim().toLowerCase();
     }
   }
 
@@ -1601,7 +1862,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块1.2 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块1.3.1 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -2126,4 +2387,3 @@ function 注入浮动窗口() {
 
 // 调用函数注入浮动窗口
 注入浮动窗口();
-
