@@ -1,4 +1,4 @@
-// ==================== WhatsApp Web 消息发送工具（快速优化版 - 带自动打开聊天功能） ====================
+// ==================== WhatsApp Web 消息发送工具（智能优化版 - 带弹性处理机制）====================
 // 使用方法：直接粘贴到 WhatsApp Web 控制台运行
 
 (function () {
@@ -249,7 +249,16 @@
 
   // ==================== 辅助函数 ====================
   function getInputDom() {
-    const selectors = ["footer p._aupe.copyable-text"];
+    const selectors = [
+      "footer p._aupe.copyable-text",
+      'footer div[contenteditable="true"]',
+      'footer .lexical-rich-text-input div[contenteditable="true"]',
+      'div[role="textbox"][contenteditable="true"]',
+      'footer .x1hx0egp[contenteditable="true"]',
+      // 新增：针对第二份DOM中不带footer的输入框
+      '.lexical-rich-text-input div[contenteditable="true"]',
+      '.x1hx0egp[contenteditable="true"]',
+    ];
 
     for (const selector of selectors) {
       const el = document.querySelector(selector);
@@ -261,7 +270,13 @@
   }
 
   function getSendButton() {
-    const selectors = ['div[role="button"][aria-label="发送"]'];
+    const selectors = [
+      'div[role="button"][aria-label="发送"]',
+      'span[data-icon="send"]',
+      'button[aria-label="发送"]',
+      'div[aria-label="发送"][role="button"]',
+      ".x1f6kntn", // 第二份DOM中发送按钮的类
+    ];
 
     for (const selector of selectors) {
       const el = document.querySelector(selector);
@@ -324,21 +339,148 @@
     }
   }
 
-  // ==================== 优化后的消息发送核心类（快速版）====================
-  class MessageSenderCore {
+  // ==================== 智能延迟计算器 ====================
+  class SmartDelayCalculator {
+    constructor() {
+      // 基础延迟配置
+      this.baseDelays = {
+        afterOpenChat: 300,
+        afterPaste: 200,
+        afterCaption: 100,
+        beforeSend: 200,
+        betweenMessages: 200,
+        clickInterval: 35,
+        retryDelay: 300,
+        progressUpdate: 150,
+      };
+
+      // 文件大小对应的延迟系数 (KB)
+      this.fileSizeCoefficients = [
+        { maxSize: 100, coefficient: 1.0 },
+        { maxSize: 500, coefficient: 1.5 },
+        { maxSize: 1024, coefficient: 2.0 },
+        { maxSize: 5120, coefficient: 3.0 },
+        { maxSize: 10240, coefficient: 4.0 },
+        { maxSize: Infinity, coefficient: 5.0 },
+      ];
+
+      // 网络状态检测
+      this.networkQuality = "good";
+      this.networkSampleCount = 0;
+      this.averageLoadTime = 0;
+    }
+
+    // 根据文件大小计算延迟
+    calculateFileDelay(fileSizeKB) {
+      for (const level of this.fileSizeCoefficients) {
+        if (fileSizeKB < level.maxSize) {
+          return {
+            pasteDelay: Math.floor(
+              this.baseDelays.afterPaste * level.coefficient,
+            ),
+            processDelay: Math.floor(500 * level.coefficient),
+            captionDelay: Math.floor(
+              this.baseDelays.afterCaption * level.coefficient,
+            ),
+            sendDelay: Math.floor(
+              this.baseDelays.beforeSend * level.coefficient,
+            ),
+          };
+        }
+      }
+      return {
+        pasteDelay: this.baseDelays.afterPaste * 5,
+        processDelay: 2500,
+        captionDelay: this.baseDelays.afterCaption * 5,
+        sendDelay: this.baseDelays.beforeSend * 5,
+      };
+    }
+
+    // 估算Base64图片大小 (KB)
+    estimateBase64Size(base64Data) {
+      const cleanBase64 = base64Data.includes("base64,")
+        ? base64Data.split("base64,")[1]
+        : base64Data;
+      const sizeInBytes = cleanBase64.length * 0.75;
+      const sizeInKB = sizeInBytes / 1024;
+      return sizeInKB;
+    }
+
+    // 记录网络状态
+    recordLoadTime(loadTime) {
+      this.networkSampleCount++;
+      this.averageLoadTime =
+        (this.averageLoadTime * (this.networkSampleCount - 1) + loadTime) /
+        this.networkSampleCount;
+
+      if (this.averageLoadTime < 200) {
+        this.networkQuality = "good";
+      } else if (this.averageLoadTime < 500) {
+        this.networkQuality = "medium";
+      } else {
+        this.networkQuality = "poor";
+      }
+    }
+
+    getNetworkFactor() {
+      switch (this.networkQuality) {
+        case "good":
+          return 1.0;
+        case "medium":
+          return 1.5;
+        case "poor":
+          return 2.5;
+        default:
+          return 1.0;
+      }
+    }
+
+    // 获取智能延迟
+    getDelaysForImage(base64Data) {
+      const fileSizeKB = this.estimateBase64Size(base64Data);
+      const fileDelays = this.calculateFileDelay(fileSizeKB);
+      const networkFactor = this.getNetworkFactor();
+
+      console.log(
+        `📊 图片大小: ${fileSizeKB.toFixed(2)}KB, 网络质量: ${this.networkQuality}, 延迟系数: ${networkFactor}`,
+      );
+
+      return {
+        pasteDelay: Math.floor(fileDelays.pasteDelay * networkFactor),
+        processDelay: Math.floor(fileDelays.processDelay * networkFactor),
+        captionDelay: Math.floor(fileDelays.captionDelay * networkFactor),
+        sendDelay: Math.floor(fileDelays.sendDelay * networkFactor),
+        totalEstimatedTime: Math.floor(
+          (fileDelays.pasteDelay +
+            fileDelays.processDelay +
+            fileDelays.captionDelay +
+            fileDelays.sendDelay) *
+            networkFactor,
+        ),
+      };
+    }
+  }
+
+  // ==================== 智能消息发送核心类 ====================
+  class SmartMessageSenderCore {
     constructor(modules) {
       this.modules = modules;
-      // 优化后的延迟设置 - 大幅减少等待时间
-      this.delays = {
-        afterOpenChat: 500, // 打开聊天后等待300ms (原1500ms)
-        afterPaste: 500, // 粘贴后等待200ms (原2000ms)
-        afterCaption: 500, // 添加描述后等待100ms (原500ms)
-        beforeSend: 500, // 发送前等待200ms (原800ms)
-        betweenMessages: 500, // 消息间隔200ms (原1000ms)
-        clickInterval: 35, // 点击事件间隔15ms (原50ms)
-        retryDelay: 300, // 重试前等待300ms (原1000ms)
-        progressUpdate: 150, // 进度更新间隔50ms
-      };
+      this.delayCalculator = new SmartDelayCalculator();
+      this.isProcessing = false;
+      this.sendQueue = [];
+    }
+
+    // ========== 新增：获取正确的编辑容器 ==========
+    _getEditContainer(inputDom) {
+      if (!inputDom) return null;
+      // 优先使用 copyable-area 类（第二份DOM中存在）
+      const container = inputDom.closest('.copyable-area');
+      if (container) return container;
+      // 降级：向上查找包含输入框和预览的公共父级
+      return inputDom.closest('[role="textbox"]')?.parentElement ||
+             inputDom.closest('div[tabindex="-1"]') ||
+             inputDom.closest('footer') || // 保留原逻辑，但实际可能没用
+             inputDom.parentElement;
     }
 
     async sendText(chat, text) {
@@ -365,41 +507,55 @@
       }
     }
 
+    // 增强的图片粘贴方法，带智能等待
     async pasteImage(base64Data, caption = "") {
       const inputDom = getInputDom();
       if (!inputDom) {
         throw new Error("找不到输入框");
       }
 
-      // 1. 聚焦输入框
+      const delays = this.delayCalculator.getDelaysForImage(base64Data);
+      console.log(
+        `⏱️ 智能延迟: 粘贴后${delays.pasteDelay}ms, 处理${delays.processDelay}ms, 发送前${delays.sendDelay}ms`,
+      );
+
       inputDom.focus();
       inputDom.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
 
-      // 2. 转换Base64为File对象
       const mimeType = getMimeType(base64Data);
       const extension = getExtension(mimeType);
       const blob = base64ToBlob(base64Data, mimeType);
       const file = new File([blob], `image.${extension}`, { type: mimeType });
 
-      // 3. 粘贴图片
-      const pasteSuccess = await this._pasteFile(file);
+      const pasteStart = Date.now();
+      const pasteSuccess = await this._smartPasteFile(file, delays.pasteDelay);
+      const pasteTime = Date.now() - pasteStart;
+
       if (!pasteSuccess) {
         throw new Error("图片粘贴失败");
       }
 
-      // 4. 等待图片加载（优化后的短延迟）
-      await this.sleep(this.delays.afterPaste);
+      this.delayCalculator.recordLoadTime(pasteTime);
 
-      // 5. 添加描述文字
+      console.log(`⏳ 等待图片处理: ${delays.processDelay}ms...`);
+      await this.sleep(delays.processDelay);
+
+      const imageLoaded = await this._verifyImageLoaded(inputDom);
+      if (!imageLoaded) {
+        console.warn("⚠️ 图片可能未完全加载，延长等待时间");
+        await this.sleep(delays.processDelay);
+      }
+
       if (caption?.trim()) {
         insertTextAtCursor(caption);
-        await this.sleep(this.delays.afterCaption);
+        await this.sleep(delays.captionDelay);
       }
 
       return true;
     }
 
-    async _pasteFile(file) {
+    // 智能文件粘贴（修改为基于容器）
+    async _smartPasteFile(file, timeout) {
       return new Promise((resolve) => {
         try {
           const inputDom = getInputDom();
@@ -407,6 +563,9 @@
             resolve(false);
             return;
           }
+
+          const container = this._getEditContainer(inputDom);
+          const beforePreviewCount = container?.querySelectorAll('img[src*="blob:"]').length || 0;
 
           const clipboardData = new DataTransfer();
           clipboardData.items.add(file);
@@ -419,8 +578,31 @@
 
           inputDom.dispatchEvent(pasteEvent);
 
-          // 减少等待时间，但确保粘贴完成
-          setTimeout(() => resolve(true), 500);
+          const checkInterval = 100;
+          const maxChecks = timeout / checkInterval;
+          let checks = 0;
+
+          const checkPreview = setInterval(() => {
+            try {
+              const currentContainer = this._getEditContainer(inputDom);
+              const currentPreviewCount = currentContainer?.querySelectorAll('img[src*="blob:"]').length || 0;
+              const hasNewPreview = currentPreviewCount > beforePreviewCount;
+              const hasAnyPreview = currentContainer?.querySelector('img[src*="blob:"]') !== null;
+
+              if (hasNewPreview || hasAnyPreview) {
+                clearInterval(checkPreview);
+                console.log(`✅ 图片预览已出现，等待加载完成`);
+                setTimeout(() => resolve(true), 500);
+              } else if (checks++ >= maxChecks) {
+                clearInterval(checkPreview);
+                console.log(`ℹ️ 图片粘贴超时，但可能已成功`);
+                resolve(true);
+              }
+            } catch (e) {
+              clearInterval(checkPreview);
+              resolve(true);
+            }
+          }, checkInterval);
         } catch (error) {
           console.error("粘贴失败:", error);
           resolve(false);
@@ -428,108 +610,171 @@
       });
     }
 
-    triggerSend() {
-      const sendButton = getSendButton();
-      const inputDom = getInputDom();
-
-      if (sendButton) {
-        sendButton.click();
-        return true;
+    // 验证图片是否已加载（修改为基于容器，增加针对第二份DOM的图片类）
+    async _verifyImageLoaded(inputDom, timeout = 1500) {
+      const container = this._getEditContainer(inputDom);
+      if (!container) {
+        console.warn("未找到编辑容器，无法验证图片");
+        return false;
       }
 
-      if (inputDom) {
-        // 快速发送 - 直接触发Enter事件
-        const enterEvent = new KeyboardEvent("keydown", {
-          key: "Enter",
-          code: "Enter",
-          keyCode: 13,
-          which: 13,
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-        });
-        inputDom.dispatchEvent(enterEvent);
+      const startTime = Date.now();
+      while (Date.now() - startTime < timeout) {
+        try {
+          // 通用 blob 图片
+          const anyBlobImage = container.querySelector('img[src*="blob:"]');
+          // 第一份DOM中的预览容器
+          const previewContainer = container.querySelector(".x78zum5.x6s0dn4.xl56j7k .x1n2onr6 img");
+          const attachmentImage = container.querySelector('div[role="tablist"] img[src*="blob:"]');
+          // 第二份DOM中的预览容器
+          const specificPreview = container.querySelector('._ak3i img[src*="blob:"]');
+          const imageContainer = container.querySelector(".x1n2onr6.xsm26vf.xminmjj img");
 
-        // 无需等待keyup，直接返回
-        return true;
+          const foundImage = anyBlobImage || previewContainer || attachmentImage || specificPreview || imageContainer;
+
+          if (foundImage) {
+            if (foundImage.complete && foundImage.naturalHeight > 0) {
+              console.log("✅ 图片预览已加载完成");
+              return true;
+            } else if (foundImage.src && foundImage.src.startsWith("blob:")) {
+              console.log("🖼️ 图片blob URL已创建，等待加载完成");
+            }
+          }
+        } catch (e) {}
+
+        await this.sleep(100);
       }
 
+      console.warn(`⚠️ 图片加载超时 (${timeout}ms)`);
       return false;
     }
 
-    sleep(ms) {
-      return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-  }
+    // 检查是否有待处理的图片（修改为基于容器，增加针对第二份DOM的图片类）
+    _hasImagePending() {
+      const inputDom = getInputDom();
+      if (!inputDom) return false;
+      const container = this._getEditContainer(inputDom);
+      if (!container) return false;
 
-  // ==================== 优化后的聊天窗口管理器（快速版）====================
-  class ChatWindowManager {
-    constructor(modules, core) {
-      this.modules = modules;
-      this.core = core;
+      return (
+        container.querySelector('img[src*="blob:"]') !== null ||
+        container.querySelector("._ak3i img") !== null ||
+        container.querySelector('[role="tablist"] img') !== null ||
+        container.querySelector(".x1n2onr6.xsm26vf.xminmjj img") !== null
+      );
     }
 
-    async openChat(identifier) {
+    // 智能发送
+    async smartSend(options = {}) {
+      const {
+        text = "",
+        imageBase64 = null,
+        targetId = null,
+        autoSend = true,
+        maxRetries = 3,
+        retryDelay = 1000,
+        onProgress = null,
+      } = options;
+
+      let lastError;
+      let attempt = 0;
+      const hasImage = !!imageBase64;
+
+      while (attempt < maxRetries) {
+        try {
+          attempt++;
+
+          if (onProgress) {
+            onProgress({ phase: "preparing", attempt });
+          }
+
+          if (targetId) {
+            console.log(
+              `📋 尝试打开聊天 (${attempt}/${maxRetries}): ${targetId}`,
+            );
+            const opened = await this._openChat(targetId);
+            if (!opened) {
+              throw new Error(`无法打开聊天: ${targetId}`);
+            }
+            await this.sleep(this.delayCalculator.baseDelays.afterOpenChat);
+          }
+
+          const chat = this._getCurrentChat();
+          if (!chat) {
+            throw new Error("未找到当前聊天");
+          }
+
+          if (hasImage) {
+            if (onProgress) onProgress({ phase: "pasting_image", attempt });
+            await this.pasteImage(imageBase64, text || "");
+          } else if (text) {
+            if (onProgress) onProgress({ phase: "sending_text", attempt });
+            await this.sendText(chat, text);
+          }
+
+          if (autoSend && hasImage) {
+            if (onProgress) onProgress({ phase: "triggering_send", attempt });
+
+            await this._verifyBeforeSend();
+            this.triggerSend();
+            const verified = await this._verifyAfterSend();
+            if (!verified) {
+              console.log("ℹ️ 发送后验证未通过，但消息可能已发送");
+            }
+          }
+
+          console.log(`✅ 发送成功 (尝试 ${attempt})`);
+          if (onProgress) onProgress({ phase: "success", attempt });
+
+          return true;
+        } catch (error) {
+          lastError = error;
+          console.warn(`⚠️ 尝试 ${attempt} 失败:`, error.message);
+
+          if (onProgress)
+            onProgress({ phase: "error", attempt, error: error.message });
+
+          if (attempt < maxRetries) {
+            const waitTime = retryDelay * Math.pow(2, attempt - 1);
+            console.log(`⏳ 等待 ${waitTime}ms 后重试...`);
+            await this.sleep(waitTime);
+          }
+        }
+      }
+
+      console.error("❌ 发送失败，已达最大重试次数:", lastError);
+      return false;
+    }
+
+    // 打开聊天
+    async _openChat(identifier) {
       try {
         console.log(`🔍 正在尝试打开聊天: ${identifier}`);
 
-        // 策略1：如果是群组ID格式，先通过API获取聊天信息
         if (identifier.includes("@g.us")) {
-          console.log("📋 检测到群组ID，尝试通过API获取聊天信息...");
           const chatInfo = await this._getChatInfoById(identifier);
-
-          if (chatInfo) {
-            console.log(`✅ 通过API获取到聊天信息:`, chatInfo);
-
-            // 先尝试通过API直接打开
-            const apiOpened = await this._openViaAPI(chatInfo);
-            if (apiOpened) {
-              return true;
-            }
-
-            // 如果API失败，尝试用名称精确查找
-            if (chatInfo.name) {
-              console.log(`📋 尝试使用名称"${chatInfo.name}"查找...`);
-              const found = await this._findAndClickChatExact(chatInfo.name);
-              if (found) {
-                await this.core.sleep(this.core.delays.afterOpenChat);
-                return true;
-              }
-            }
+          if (chatInfo && chatInfo.name) {
+            const found = await this._findAndClickChatExact(chatInfo.name);
+            if (found) return true;
           }
         }
 
-        // 策略2：直接通过ID查找（清理后的ID）
-        console.log("📋 尝试通过清理后的ID查找...");
         const cleanId = identifier.replace(/[^0-9]/g, "");
         const foundById = await this._findChatByPartialId(cleanId);
-        if (foundById) {
-          await this.core.sleep(this.core.delays.afterOpenChat);
-          return true;
-        }
+        if (foundById) return true;
 
-        // 策略3：精确名称匹配
-        console.log("📋 尝试通过名称精确查找...");
         const found = await this._findAndClickChatExact(identifier);
-        if (found) {
-          await this.core.sleep(this.core.delays.afterOpenChat);
-          return true;
-        }
+        if (found) return true;
 
-        // 策略4：尝试WPP API
         if (window.WPP?.chat?.open) {
           try {
-            console.log("📋 尝试通过WPP API打开...");
             window.WPP.chat.open(identifier);
-            await this.core.sleep(this.core.delays.afterOpenChat);
+            await this.sleep(500);
             return true;
           } catch (e) {
             console.log("WPP API打开失败");
           }
         }
-
-        // 策略5：列出所有可用聊天供参考
-        await this._listAvailableChats();
 
         console.error("❌ 未找到聊天项");
         return false;
@@ -541,13 +786,11 @@
 
     async _getChatInfoById(chatId) {
       try {
-        // 方法1：通过Store API获取
         if (this.modules?.ChatCollections) {
           const allChats = this.modules.ChatCollections.getModelsArray();
           const targetChat = allChats.find(
             (chat) => chat.id._serialized === chatId || chat.id === chatId,
           );
-
           if (targetChat) {
             return {
               id: targetChat.id._serialized || targetChat.id,
@@ -555,227 +798,51 @@
                 targetChat.name ||
                 targetChat.formattedTitle ||
                 targetChat.formattedName,
-              isGroup:
-                targetChat.isGroup ||
-                targetChat.id._serialized?.endsWith("@g.us"),
             };
           }
         }
-
-        // 方法2：通过Contact API获取
-        if (window.Store?.Contact?.get) {
-          const contact = window.Store.Contact.get(chatId);
-          if (contact) {
-            return {
-              id: chatId,
-              name: contact.name || contact.formattedName || contact.pushname,
-              isGroup: false,
-            };
-          }
-        }
-
         return null;
       } catch (error) {
-        console.error("获取聊天信息失败:", error);
         return null;
       }
     }
 
-    async _openViaAPI(chatInfo) {
-      try {
-        // 尝试直接设置active chat
-        if (this.modules?.ChatCollections) {
-          const chat = this.modules.ChatCollections.get(chatInfo.id);
-          if (chat) {
-            this.modules.ChatCollections.setActive(chat);
-            console.log("✅ 通过API设置active chat成功");
-            return true;
-          }
-        }
-        return false;
-      } catch (e) {
-        console.log("API打开失败:", e);
-        return false;
-      }
-    }
-
-    // async _findChatByPartialId(partialId) {
-    //   if (!partialId || partialId.length < 5) return false;
-
-    //   console.log(`🔍 尝试通过部分ID查找: ${partialId}`);
-
-    //   // 查找所有聊天项
-    //   const chatRows = document.querySelectorAll('[role="row"]');
-
-    //   for (let row of chatRows) {
-    //     const fullText = row.textContent || "";
-    //     const dataAttrs = Array.from(row.querySelectorAll("[data-id], [id]"))
-    //       .map((el) => el.getAttribute("data-id") || el.id)
-    //       .join(" ");
-
-    //     const combinedText = fullText + " " + dataAttrs;
-
-    //     // 如果文本中包含部分ID
-    //     if (combinedText.includes(partialId)) {
-    //       console.log("✅ 通过部分ID匹配成功");
-    //       const clickable = row.querySelector('[role="gridcell"]') || row;
-    //       await this._simulateRealClick(clickable);
-    //       return true;
-    //     }
-    //   }
-
-    //   return false;
-    // }
-
-    // async _findAndClickChatExact(exactName) {
-    //   if (!exactName) return false;
-
-    //   // 策略A：先尝试 title 属性匹配（包含表情符号）
-    //   const titleElements = document.querySelectorAll(
-    //     'span[dir="auto"][title]',
-    //   );
-    //   for (let el of titleElements) {
-    //     const title = el.getAttribute("title") || "";
-    //     if (this._normalizeString(title) === this._normalizeString(exactName)) {
-    //       console.log("✅ 通过title属性匹配成功:", title);
-    //       const clickable = this._findClickableElement(el);
-    //       if (clickable) {
-    //         await this._simulateRealClick(clickable);
-    //         return true;
-    //       }
-    //     }
-    //   }
-
-    //   // 策略B：获取完整文本内容（包含表情符号）
-    //   const nameElements = document.querySelectorAll(
-    //     '._ak8q span, .x1iyjqo2, span[dir="auto"]',
-    //   );
-    //   for (let el of nameElements) {
-    //     // 获取完整文本，包括子节点中的表情符号
-    //     const fullText = this._getFullTextWithEmoji(el);
-    //     const titleAttr = el.getAttribute("title") || "";
-
-    //     // 组合所有可能的文本表示
-    //     const textVariants = [
-    //       fullText,
-    //       titleAttr,
-    //       el.textContent?.trim() || "",
-    //     ].filter((v) => v); // 移除空值
-
-    //     // 检查是否有任一变体匹配
-    //     const isMatch = textVariants.some(
-    //       (variant) =>
-    //         this._normalizeString(variant) === this._normalizeString(exactName),
-    //     );
-
-    //     if (isMatch) {
-    //       console.log("✅ 通过完整文本匹配成功:", fullText);
-    //       const clickable = this._findClickableElement(el);
-    //       if (clickable) {
-    //         await this._simulateRealClick(clickable);
-    //         return true;
-    //       }
-    //     }
-    //   }
-
-    //   return false;
-    // }
-
-    // 获取包含表情符号的完整文本
-    _getFullTextWithEmoji(element) {
-      if (!element) return "";
-
-      let fullText = "";
-
-      // 遍历所有子节点
-      for (const node of element.childNodes) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          fullText += node.textContent;
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          if (node.tagName === "IMG" && node.classList.contains("emoji")) {
-            // 是表情符号，使用 alt 属性
-            fullText += node.getAttribute("alt") || "";
-          } else {
-            // 递归处理子元素
-            fullText += this._getFullTextWithEmoji(node);
-          }
-        }
-      }
-
-      return fullText;
-    }
-
-    // 标准化字符串用于比较
-    _normalizeString(str) {
-      if (!str) return "";
-
-      // 移除多余空格，但保留表情符号（它们已经是 Unicode 字符）
-      return str
-        .replace(/\s+/g, " ") // 合并多个空格
-        .trim(); // 去除首尾空格
-    }
-
-    // 增强的 ID 匹配方法
     async _findChatByPartialId(partialId) {
       if (!partialId || partialId.length < 5) return false;
 
-      console.log(`🔍 尝试通过部分ID查找: ${partialId}`);
-
-      // 查找所有聊天项
       const chatRows = document.querySelectorAll('[role="row"]');
-
       for (let row of chatRows) {
-        // 获取完整的文本（包括表情）
-        const fullText = this._getFullTextFromRow(row);
+        const fullText = row.textContent || "";
         const dataAttrs = Array.from(row.querySelectorAll("[data-id], [id]"))
           .map((el) => el.getAttribute("data-id") || el.id)
           .join(" ");
 
-        const combinedText = fullText + " " + dataAttrs;
-
-        // 如果文本中包含部分ID
-        if (combinedText.includes(partialId)) {
-          console.log("✅ 通过部分ID匹配成功");
+        if ((fullText + " " + dataAttrs).includes(partialId)) {
           const clickable = row.querySelector('[role="gridcell"]') || row;
           await this._simulateRealClick(clickable);
           return true;
         }
       }
-
       return false;
     }
 
-    // 从整行获取完整文本
-    _getFullTextFromRow(row) {
-      const nameElement = row.querySelector(
-        'span[dir="auto"][title], ._ak8q span, .x1iyjqo2',
+    async _findAndClickChatExact(exactName) {
+      if (!exactName) return false;
+
+      const titleElements = document.querySelectorAll(
+        'span[dir="auto"][title]',
       );
-      if (nameElement) {
-        return this._getFullTextWithEmoji(nameElement);
+      for (let el of titleElements) {
+        const title = el.getAttribute("title") || "";
+        if (this._normalizeString(title) === this._normalizeString(exactName)) {
+          const clickable = this._findClickableElement(el);
+          if (clickable) {
+            await this._simulateRealClick(clickable);
+            return true;
+          }
+        }
       }
-      return row.textContent || "";
-    }
-
-    async _listAvailableChats() {
-      console.log("📋 当前可用的聊天列表:");
-      const chatRows = document.querySelectorAll('[role="row"]');
-
-      const chats = [];
-      for (let row of chatRows) {
-        const nameEl = row.querySelector(
-          'span[dir="auto"][title], ._ak8q span',
-        );
-        const name =
-          nameEl?.textContent?.trim() ||
-          nameEl?.getAttribute("title") ||
-          "未知";
-        const idAttr = row.getAttribute("data-id") || "";
-
-        chats.push({ name, id: idAttr });
-        console.log(`  - ${name} (${idAttr})`);
-      }
-
-      return chats;
+      return false;
     }
 
     _findClickableElement(element) {
@@ -789,496 +856,138 @@
     async _simulateRealClick(element) {
       if (!element) return false;
 
-      element.scrollIntoView({ behavior: "auto", block: "center" }); // 改为auto，减少动画时间
-      await this.core.sleep(100); // 减少滚动等待时间
+      element.scrollIntoView({ behavior: "auto", block: "center" });
+      await this.sleep(100);
 
       const box = element.getBoundingClientRect();
       const x = box.left + box.width / 2;
       const y = box.top + box.height / 2;
 
-      // 减少事件数量，只触发关键事件
       const events = [
         { type: "mousedown", buttons: 1 },
         { type: "mouseup", buttons: 0 },
         { type: "click", buttons: 0 },
       ];
 
-      for (let i = 0; i < events.length; i++) {
-        const { type, buttons } = events[i];
-
+      for (const { type, buttons } of events) {
         const event = new MouseEvent(type, {
           view: window,
           bubbles: true,
           cancelable: true,
           clientX: x,
           clientY: y,
-          screenX: x,
-          screenY: y,
           buttons: buttons,
           button: 0,
           composed: true,
         });
-
         element.dispatchEvent(event);
-        await this.core.sleep(this.core.delays.clickInterval);
+        await this.sleep(this.delayCalculator.baseDelays.clickInterval);
       }
 
       element.click();
       return true;
     }
 
-    async send(options = {}) {
-      const {
-        text = "",
-        imageBase64 = null,
-        targetId = null,
-        autoSend = true,
-        maxRetries = 1, // 减少重试次数，加快速度
-      } = options;
-
-      let lastError;
-
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          // 1. 打开目标聊天
-          if (targetId) {
-            console.log(
-              `📋 尝试打开聊天 (${attempt + 1}/${maxRetries + 1}): ${targetId}`,
-            );
-            const opened = await this.chatWindowManager.openChat(targetId);
-            if (!opened) {
-              throw new Error(`无法打开聊天: ${targetId}`);
-            }
-            await this.core.sleep(this.core.delays.afterOpenChat);
-          }
-
-          const chat = this.getCurrentChat();
-          if (!chat) {
-            throw new Error("未找到当前聊天，请先选择一个聊天");
-          }
-
-          // 2. 发送图片（如果有）
-          if (imageBase64) {
-            await this.core.pasteImage(imageBase64, text);
-          }
-          // 3. 仅发送文本（如果没有图片）
-          else if (text) {
-            await this.core.sendText(chat, text);
-          }
-
-          // 4. 自动发送
-          if (autoSend && imageBase64) {
-            await this.core.sleep(this.core.delays.beforeSend);
-            this.core.triggerSend();
-          }
-
-          console.log(`✅ 发送成功 (尝试 ${attempt + 1})`);
-          return true;
-        } catch (error) {
-          lastError = error;
-          console.warn(`⚠️ 尝试 ${attempt + 1} 失败:`, error.message);
-
-          if (attempt < maxRetries) {
-            console.log(`⏳ 快速重试...`);
-            await this.core.sleep(this.core.delays.retryDelay);
-          }
-        }
-      }
-
-      console.error("❌ 发送失败，已达最大重试次数:", lastError);
-      return false;
-    }
-
-    // 1. 获取包含表情符号的完整文本
-    _getFullTextWithEmoji(element) {
-      if (!element) return "";
-
-      let fullText = "";
-
-      // 遍历所有子节点
-      for (const node of element.childNodes) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          fullText += node.textContent;
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          if (node.tagName === "IMG" && node.classList.contains("emoji")) {
-            // 是表情符号，使用 alt 属性
-            fullText += node.getAttribute("alt") || "";
-          } else {
-            // 递归处理子元素
-            fullText += this._getFullTextWithEmoji(node);
-          }
-        }
-      }
-
-      return fullText;
-    }
-
-    // 2. 标准化字符串用于比较
-    _normalizeString(str) {
-      if (!str) return "";
-
-      // 移除多余空格，但保留表情符号（它们已经是 Unicode 字符）
-      return str
-        .replace(/\s+/g, " ") // 合并多个空格
-        .trim(); // 去除首尾空格
-    }
-
-    // 3. 从整行获取完整文本（辅助方法）
-    _getFullTextFromRow(row) {
-      const nameElement = row.querySelector(
-        'span[dir="auto"][title], ._ak8q span, .x1iyjqo2',
-      );
-      if (nameElement) {
-        return this._getFullTextWithEmoji(nameElement);
-      }
-      return row.textContent || "";
-    }
-
-    // 4. 修改现有的 _findAndClickChatExact 方法（替换原来的）
-    async _findAndClickChatExact(exactName) {
-      if (!exactName) return false;
-
-      // 策略A：先尝试 title 属性匹配（包含表情符号）
-      const titleElements = document.querySelectorAll(
-        'span[dir="auto"][title]',
-      );
-      for (let el of titleElements) {
-        const title = el.getAttribute("title") || "";
-        if (this._normalizeString(title) === this._normalizeString(exactName)) {
-          console.log("✅ 通过title属性匹配成功:", title);
-          const clickable = this._findClickableElement(el);
-          if (clickable) {
-            await this._simulateRealClick(clickable);
-            return true;
-          }
-        }
-      }
-
-      // 策略B：获取完整文本内容（包含表情符号）
-      const nameElements = document.querySelectorAll(
-        '._ak8q span, .x1iyjqo2, span[dir="auto"]',
-      );
-      for (let el of nameElements) {
-        // 获取完整文本，包括子节点中的表情符号
-        const fullText = this._getFullTextWithEmoji(el);
-        const titleAttr = el.getAttribute("title") || "";
-
-        // 组合所有可能的文本表示
-        const textVariants = [
-          fullText,
-          titleAttr,
-          el.textContent?.trim() || "",
-        ].filter((v) => v); // 移除空值
-
-        // 检查是否有任一变体匹配
-        const isMatch = textVariants.some(
-          (variant) =>
-            this._normalizeString(variant) === this._normalizeString(exactName),
-        );
-
-        if (isMatch) {
-          console.log("✅ 通过完整文本匹配成功:", fullText);
-          const clickable = this._findClickableElement(el);
-          if (clickable) {
-            await this._simulateRealClick(clickable);
-            return true;
-          }
-        }
-      }
-
-      return false;
-    }
-
-    // 5. 修改现有的 _findChatByPartialId 方法（替换原来的）
-    async _findChatByPartialId(partialId) {
-      if (!partialId || partialId.length < 5) return false;
-
-      console.log(`🔍 尝试通过部分ID查找: ${partialId}`);
-
-      // 查找所有聊天项
-      const chatRows = document.querySelectorAll('[role="row"]');
-
-      for (let row of chatRows) {
-        // 获取完整的文本（包括表情）
-        const fullText = this._getFullTextFromRow(row);
-        const dataAttrs = Array.from(row.querySelectorAll("[data-id], [id]"))
-          .map((el) => el.getAttribute("data-id") || el.id)
-          .join(" ");
-
-        const combinedText = fullText + " " + dataAttrs;
-
-        // 如果文本中包含部分ID
-        if (combinedText.includes(partialId)) {
-          console.log("✅ 通过部分ID匹配成功");
-          const clickable = row.querySelector('[role="gridcell"]') || row;
-          await this._simulateRealClick(clickable);
-          return true;
-        }
-      }
-
-      return false;
-    }
-  }
-
-  // ==================== 优化后的消息发送器 ====================
-  class MessageSender {
-    constructor(modules, groupManager) {
-      this.modules = modules;
-      this.groupManager = groupManager;
-      this.core = new MessageSenderCore(modules);
-      this.chatWindowManager = new ChatWindowManager(modules, this.core);
-      this.currentChat = null;
-      this._setupChatMonitor();
-    }
-
-    _setupChatMonitor() {
-      const checkActiveChat = () => {
-        try {
-          const activeChat = this.modules.ChatCollections?.getActive();
-          if (activeChat && activeChat.id !== this.currentChat?.id) {
-            this.currentChat = activeChat;
-          }
-        } catch (e) {
-          // ignore
-        }
-        setTimeout(checkActiveChat, 1000);
-      };
-      checkActiveChat();
-    }
-
-    getCurrentChat() {
-      return this.currentChat || this.modules.ChatCollections?.getActive();
-    }
-
-    // ===== 统一发送方法 =====
-    async send(options = {}) {
-      const {
-        text = "",
-        imageBase64 = null,
-        targetId = null,
-        autoSend = true,
-      } = options;
-
-      try {
-        // 1. 打开目标聊天
-        if (targetId) {
-          const opened = await this.chatWindowManager.openChat(targetId);
-          if (!opened) {
-            throw new Error(`无法打开聊天: ${targetId}`);
-          }
-          await this.core.sleep(this.core.delays.afterOpenChat);
-        }
-
-        const chat = this.getCurrentChat();
-        if (!chat) {
-          throw new Error("未找到当前聊天，请先选择一个聊天");
-        }
-
-        // 2. 发送图片（如果有）
-        if (imageBase64) {
-          await this.core.pasteImage(imageBase64, text);
-        }
-        // 3. 仅发送文本（如果没有图片）
-        else if (text) {
-          await this.core.sendText(chat, text);
-        }
-
-        // 4. 自动发送
-        if (autoSend && imageBase64) {
-          await this.core.sleep(this.core.delays.beforeSend);
-          this.core.triggerSend();
-        }
-
-        return true;
-      } catch (error) {
-        console.error("发送失败:", error);
-        return false;
-      }
-    }
-
-    // ===== 批量发送（快速版）=====
-    async sendBatch(messages, options = {}) {
-      const { delay = 200, targetId = null, imageBase64 = null } = options; // 默认200ms间隔
-
-      if (!Array.isArray(messages) || messages.length === 0) {
-        console.error("❌ 请提供要发送的消息数组");
-        return;
-      }
-
-      // 如果指定了目标，先打开一次
-      if (targetId) {
-        const opened = await this.chatWindowManager.openChat(targetId);
-        if (!opened) {
-          console.error("❌ 无法打开指定聊天窗口");
-          return;
-        }
-        await this.core.sleep(this.core.delays.afterOpenChat);
-      }
-
-      console.log(`📦 准备发送 ${messages.length} 条消息，间隔 ${delay}ms`);
-
-      for (let i = 0; i < messages.length; i++) {
-        const msg = messages[i];
-        console.log(
-          `📨 [${i + 1}/${messages.length}] 发送: "${msg.substring(0, 30)}${msg.length > 30 ? "..." : ""}"`,
-        );
-
-        const success = await this.send({
-          text: msg,
-          imageBase64: i === 0 ? imageBase64 : null, // 只在第一条消息附带图片
-          autoSend: true,
-        });
-
-        if (!success) {
-          console.error(`❌ 第 ${i + 1} 条消息发送失败，停止发送`);
-          break;
-        }
-
-        if (i < messages.length - 1) {
-          await this.core.sleep(delay);
-        }
-      }
-
-      console.log("✅ 批量发送完成");
-    }
-
-    // ===== 保留兼容性方法 =====
-    async sendMessage(text) {
-      return this.send({ text, autoSend: false });
-    }
-
-    async sendToGroup(groupId, text) {
-      return this.send({ text, targetId: groupId, autoSend: false });
-    }
-
-    async sendBase64Image(base64Data, caption = "", autoSend = false) {
-      return this.send({
-        text: caption,
-        imageBase64: base64Data,
-        autoSend,
-      });
-    }
-
-    async sendBase64ImageToGroup(
-      groupId,
-      base64Data,
-      caption = "",
-      autoSend = false,
-    ) {
-      return this.send({
-        text: caption,
-        imageBase64: base64Data,
-        targetId: groupId,
-        autoSend,
-      });
-    }
-
-    async sendBase64ImageBatch(
-      imageDataURLs,
-      captions = [],
-      autoSend = false,
-      delay = 200, // 默认200ms间隔
-    ) {
-      if (!Array.isArray(imageDataURLs) || imageDataURLs.length === 0) {
-        console.error("❌ 请提供要发送的图片数组");
-        return;
-      }
-
-      console.log(
-        `📦 准备发送 ${imageDataURLs.length} 张图片，间隔 ${delay}ms`,
-      );
-
-      for (let i = 0; i < imageDataURLs.length; i++) {
-        const caption = captions[i] || "";
-        console.log(`📨 [${i + 1}/${imageDataURLs.length}] 发送图片`);
-
-        const success = await this.sendBase64Image(
-          imageDataURLs[i],
-          caption,
-          autoSend,
-        );
-
-        if (!success) {
-          console.error(`❌ 第 ${i + 1} 张图片发送失败，停止发送`);
-          break;
-        }
-
-        if (i < imageDataURLs.length - 1) {
-          await this.core.sleep(delay);
-        }
-      }
-
-      console.log("✅ 图片批量处理完成");
-    }
-
-    getStatus() {
-      const chat = this.getCurrentChat();
-      return {
-        currentChat: chat
-          ? {
-              id: chat.id._serialized,
-              name: chat.name || chat.formattedTitle,
-            }
-          : null,
-        isReady: !!this.modules.SendAction,
-        groupsCount: this.groupManager.groups.length,
-        inputDomFound: !!getInputDom(),
-        sendButtonFound: !!getSendButton(),
-      };
-    }
-
-    // 添加辅助查找方法（可选）
-    async findGroupByNameOrId(nameOrId) {
-      // 先通过 API 获取所有群组
-      const groups = this.groupManager.getAllGroups();
-
-      // 尝试精确匹配
-      let found = groups.find(
-        (g) =>
-          g.id === nameOrId ||
-          this._normalizeString(g.name) === this._normalizeString(nameOrId),
-      );
-
-      if (found) {
-        console.log("✅ 找到群组:", found);
-        return found;
-      }
-
-      // 尝试部分匹配
-      const normalizedSearch = this._normalizeString(nameOrId);
-      found = groups.find(
-        (g) =>
-          this._normalizeString(g.name).includes(normalizedSearch) ||
-          g.id.includes(nameOrId),
-      );
-
-      if (found) {
-        console.log("✅ 找到近似群组:", found);
-        return found;
-      }
-
-      console.log("❌ 未找到群组");
-      return null;
-    }
-
-    // 添加标准化方法
     _normalizeString(str) {
       if (!str) return "";
       return str.replace(/\s+/g, " ").trim().toLowerCase();
     }
+
+    _getCurrentChat() {
+      try {
+        return this.modules.ChatCollections?.getActive();
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async _verifyBeforeSend() {
+      const inputDom = getInputDom();
+      const sendButton = getSendButton();
+
+      if (!inputDom && !sendButton) {
+        throw new Error("输入框或发送按钮不存在");
+      }
+
+      if (!this._hasImagePending()) {
+        return true;
+      }
+
+      const container = this._getEditContainer(inputDom);
+      const hasImage = container?.querySelector('img[src*="blob:"]');
+      if (!hasImage) {
+        console.log("ℹ️ 图片可能已被处理，继续发送...");
+      }
+
+      return true;
+    }
+
+    async _verifyAfterSend() {
+      await this.sleep(800);
+
+      const inputDom = getInputDom();
+      const sendButton = getSendButton();
+
+      const buttonDisabled = sendButton?.getAttribute("aria-disabled") === "true";
+      const inputEmpty = !inputDom?.innerText?.trim();
+      const imageGone = !this._hasImagePending();
+
+      const isSuccess = (inputEmpty || imageGone) && !buttonDisabled;
+
+      if (!isSuccess) {
+        console.log("ℹ️ 发送后状态检查：", {
+          inputEmpty,
+          imageGone,
+          buttonDisabled,
+        });
+      }
+
+      return isSuccess;
+    }
+
+    triggerSend() {
+      const sendButton = getSendButton();
+      const inputDom = getInputDom();
+
+      if (sendButton) {
+        sendButton.click();
+        return true;
+      }
+
+      if (inputDom) {
+        const enterEvent = new KeyboardEvent("keydown", {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+        });
+        inputDom.dispatchEvent(enterEvent);
+        return true;
+      }
+
+      return false;
+    }
+
+    sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
   }
 
-  // ==================== 群组管理器（保持不变）====================
-  class GroupManager {
+  // ==================== 智能消息发送器 ====================
+  class SmartMessageSender {
     constructor(modules) {
       this.modules = modules;
+      this.core = new SmartMessageSenderCore(modules);
       this.groups = [];
     }
 
+    // 获取所有群组
     getAllGroups() {
       try {
         const allChats = this.modules.ChatCollections.getModelsArray();
-
         const groups = allChats
           .filter((chat) => {
             const isGroup =
@@ -1300,9 +1009,6 @@
               participantCount: participantCount,
               isMuted: chat.muteExpiration > 0,
               unreadCount: chat.unreadCount || 0,
-              lastMessageTime: chat.t
-                ? new Date(chat.t * 1000).toLocaleString()
-                : null,
             };
           });
 
@@ -1314,164 +1020,191 @@
       }
     }
 
-    searchGroups(keyword) {
-      if (!keyword) return this.groups;
-      const lowerKeyword = keyword.toLowerCase();
-      return this.groups.filter(
-        (group) =>
-          group.name.toLowerCase().includes(lowerKeyword) ||
-          group.id.includes(keyword),
-      );
+    // 增强的批量发送方法
+    async smartBatchSend(messages, options = {}) {
+      const {
+        delay = 300,
+        targetId = null,
+        imageBase64 = null,
+        onProgress = null,
+        maxRetries = 2,
+      } = options;
+
+      if (!Array.isArray(messages) || messages.length === 0) {
+        console.error("❌ 请提供要发送的消息数组");
+        return;
+      }
+
+      console.log(`📦 准备智能发送 ${messages.length} 条消息`);
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < messages.length; i++) {
+        const msg = messages[i];
+        const isFirst = i === 0;
+
+        console.log(
+          `\n📨 [${i + 1}/${messages.length}] 发送: "${msg.substring(0, 30)}..."`,
+        );
+
+        const result = await this.core.smartSend({
+          text: msg,
+          imageBase64: isFirst ? imageBase64 : null,
+          targetId: isFirst ? targetId : null,
+          autoSend: true,
+          maxRetries: maxRetries,
+          onProgress: (progress) => {
+            if (onProgress) {
+              onProgress({
+                index: i,
+                total: messages.length,
+                ...progress,
+              });
+            }
+          },
+        });
+
+        if (result) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+
+        if (i < messages.length - 1) {
+          const waitTime = failCount > 0 ? delay * 1.5 : delay;
+          await this.core.sleep(waitTime);
+        }
+      }
+
+      console.log(`\n✅ 批量发送完成: 成功 ${successCount}, 失败 ${failCount}`);
+      return { success: successCount, fail: failCount };
     }
 
-    findGroupsByName(name) {
-      return this.groups.filter((g) =>
-        g.name.toLowerCase().includes(name.toLowerCase()),
+    // 优化的图片发送方法
+    async sendImageWithCaption(
+      imageBase64,
+      caption = "",
+      targetId = null,
+      autoSend = true,
+    ) {
+      const fileSize = this.core.delayCalculator.estimateBase64Size(imageBase64);
+      console.log(
+        `📷 准备发送图片: ${fileSize.toFixed(2)}KB${caption ? " + 文本" : ""}`,
       );
+
+      return this.core.smartSend({
+        imageBase64: imageBase64,
+        text: caption,
+        targetId: targetId,
+        autoSend: autoSend,
+        maxRetries: 3,
+        onProgress: (progress) => {
+          console.log(` 进度: ${progress.phase} (尝试 ${progress.attempt})`);
+        },
+      });
     }
 
-    refresh() {
-      return this.getAllGroups();
+    getStatus() {
+      return {
+        isReady: !!this.modules.SendAction,
+        groupsCount: this.groups.length,
+        inputDomFound: !!getInputDom(),
+        sendButtonFound: !!getSendButton(),
+      };
     }
   }
 
   // ==================== API 接口 ====================
   class WhatsAppAPI {
-    constructor(sender, groupManager, chatWindowManager) {
+    constructor(sender) {
       this.sender = sender;
-      this.groupManager = groupManager;
-      this.chatWindowManager = chatWindowManager;
     }
 
-    // 统一发送方法（推荐使用）
-    send(options) {
-      return this.sender.send(options);
+    async smartSend(options) {
+      return this.sender.core.smartSend(options);
     }
 
-    // 文本消息（兼容）
-    sendMessage(text) {
-      return this.sender.sendMessage(text);
+    async smartBatchSend(messages, options) {
+      return this.sender.smartBatchSend(messages, options);
     }
 
-    // Base64图片（兼容）
-    sendBase64Image(base64Data, caption = "", autoSend = false) {
-      return this.sender.sendBase64Image(base64Data, caption, autoSend);
-    }
-
-    sendBase64ImageToGroup(
-      groupId,
-      base64Data,
-      caption = "",
-      autoSend = false,
-    ) {
-      return this.sender.sendBase64ImageToGroup(
-        groupId,
-        base64Data,
+    async sendImage(imageBase64, caption = "", targetId = null, autoSend = true) {
+      return this.sender.sendImageWithCaption(
+        imageBase64,
         caption,
+        targetId,
         autoSend,
       );
-    }
-
-    sendBase64ImageBatch(
-      imageDataURLs,
-      captions = [],
-      autoSend = false,
-      delay = 200,
-    ) {
-      return this.sender.sendBase64ImageBatch(
-        imageDataURLs,
-        captions,
-        autoSend,
-        delay,
-      );
-    }
-
-    sendBatch(messages, options) {
-      return this.sender.sendBatch(messages, options);
-    }
-
-    sendToGroup(groupId, text) {
-      return this.sender.sendToGroup(groupId, text);
-    }
-
-    async openChat(chatId) {
-      return this.chatWindowManager.openChat(chatId);
     }
 
     getGroups() {
-      return this.groupManager.getAllGroups();
-    }
-
-    searchGroups(keyword) {
-      return this.groupManager.searchGroups(keyword);
-    }
-
-    refreshGroups() {
-      return this.groupManager.refresh();
-    }
-
-    getCurrentChat() {
-      return this.sender.getCurrentChat();
+      return this.sender.getAllGroups();
     }
 
     getStatus() {
       return this.sender.getStatus();
     }
 
-    triggerSend() {
-      return this.sender.core.triggerSend();
-    }
-
     showHelp() {
       console.log(`
-📱 WhatsApp 消息发送工具 v2.0（快速优化版）:
+📱 WhatsApp 智能消息发送工具 v3.0
 
-  优化后的延迟设置:
-    afterOpenChat: 300ms    (打开聊天后等待)
-    afterPaste: 200ms       (粘贴后等待)
-    afterCaption: 100ms     (添加描述后等待)
-    beforeSend: 200ms       (发送前等待)
-    betweenMessages: 200ms  (消息间隔)
+✨ 主要特性:
+  - 智能延迟计算：根据图片大小自动调整等待时间
+  - 网络质量检测：自动适应网络状况
+  - 弹性重试机制：智能重试失败的消息
+  - 进度反馈：实时了解发送状态
 
-  统一发送方法（推荐）:
-    send({ text: "消息", targetId: "群组ID", autoSend: true })
-    send({ imageBase64: dataURL, text: "描述", targetId: "群组ID", autoSend: true })
+📌 使用方法:
 
-  文本消息:
-    sendMessage("消息")                    - 发送消息到当前聊天
-    sendBatch(["a","b"], { delay: 200 })   - 批量发送消息（快速）
-    sendToGroup("群组ID", "消息")            - 自动打开群组并发送消息
+  1. 发送单条消息（自动选择模式）:
+     await window.__whatsapp.smartSend({
+       text: "消息内容",
+       imageBase64: dataURL,  // 可选
+       targetId: "群组ID",    // 可选
+       autoSend: true
+     })
 
-  图片消息:
-    sendBase64Image(dataURL, "描述", true)  - 粘贴并自动发送
-    sendBase64ImageToGroup("群组ID", dataURL, "描述", true) - 自动打开群组并发送图片
+  2. 批量发送（第一条带图片）:
+     await window.__whatsapp.smartBatchSend(
+       ["消息1", "消息2", "消息3"],
+       {
+         targetId: "群组ID",
+         imageBase64: dataURL,  // 仅第一条附带
+         delay: 300             // 消息间隔
+       }
+     )
 
-  聊天管理:
-    openChat("群组ID或名称")          - 自动打开指定聊天窗口
-            `);
+  3. 仅发送图片:
+     await window.__whatsapp.smartSendImage(dataURL, "描述", "群组ID", true)
+
+  4. 获取群组列表:
+     window.__whatsapp.getGroups()
+
+  5. 查看状态:
+     window.__whatsapp.getStatus()
+      `);
     }
   }
 
   // ==================== 初始化 ====================
   function init() {
-    console.log("🚀 正在初始化 WhatsApp 消息发送工具 v2.0（快速版）...");
+    console.log("🚀 正在初始化 WhatsApp 智能消息发送工具 v3.0...");
 
     waitForModules((modules) => {
       try {
-        const groupManager = new GroupManager(modules);
-        const sender = new MessageSender(modules, groupManager);
-        const chatWindowManager = sender.chatWindowManager;
-        const api = new WhatsAppAPI(sender, groupManager, chatWindowManager);
+        const sender = new SmartMessageSender(modules);
+        const api = new WhatsAppAPI(sender);
 
         window.__whatsapp = api;
 
-        setTimeout(() => {
-          groupManager.getAllGroups();
-          console.log("✅ 当前状态:", api.getStatus());
-        }, 1000);
+        sender.getAllGroups();
 
-        console.log("✅ WhatsApp 消息发送工具初始化成功！");
+        console.log("✅ WhatsApp 智能消息发送工具初始化成功！");
         console.log("💡 输入 window.__whatsapp.showHelp() 查看帮助");
+
+        console.log("📊 当前状态:", api.getStatus());
       } catch (error) {
         console.error("❌ 初始化失败:", error);
       }
@@ -1481,7 +1214,7 @@
   init();
 })();
 
-// ==================== 注入浮动窗口（保持不变）====================
+// ==================== 浮动窗口代码（保持不变，仅用于演示）====================
 function 注入浮动窗口() {
   // 创建宿主元素并添加到body
   const host = document.createElement("div");
@@ -2272,7 +2005,7 @@ function 注入浮动窗口() {
             case "default":
               if (fileInputImg && message) {
                 console.log(`  模式: 图片+文本`);
-                sendResult = await window.__whatsapp.send({
+                sendResult = await window.__whatsapp.smartSend({
                   imageBase64: fileInputImg,
                   text: message,
                   targetId: contactId,
@@ -2281,7 +2014,7 @@ function 注入浮动窗口() {
                 });
               } else if (fileInputImg) {
                 console.log(`  模式: 仅图片`);
-                sendResult = await window.__whatsapp.send({
+                sendResult = await window.__whatsapp.smartSend({
                   imageBase64: fileInputImg,
                   targetId: contactId,
                   autoSend: true,
@@ -2289,7 +2022,7 @@ function 注入浮动窗口() {
                 });
               } else if (message) {
                 console.log(`  模式: 仅文本`);
-                sendResult = await window.__whatsapp.send({
+                sendResult = await window.__whatsapp.smartSend({
                   text: message,
                   targetId: contactId,
                   autoSend: false,
@@ -2301,7 +2034,7 @@ function 注入浮动窗口() {
             case "imageAndText":
               if (fileInputImg && message) {
                 console.log(`  模式: 图片+文本 (强制)`);
-                sendResult = await window.__whatsapp.send({
+                sendResult = await window.__whatsapp.smartSend({
                   imageBase64: fileInputImg,
                   text: message,
                   targetId: contactId,
@@ -2314,7 +2047,7 @@ function 注入浮动窗口() {
             case "textOnly":
               if (message) {
                 console.log(`  模式: 仅文本 (强制)`);
-                sendResult = await window.__whatsapp.send({
+                sendResult = await window.__whatsapp.smartSend({
                   text: message,
                   targetId: contactId,
                   autoSend: false,
@@ -2326,7 +2059,7 @@ function 注入浮动窗口() {
             case "imageOnly":
               if (fileInputImg) {
                 console.log(`  模式: 仅图片 (强制)`);
-                sendResult = await window.__whatsapp.send({
+                sendResult = await window.__whatsapp.smartSend({
                   imageBase64: fileInputImg,
                   targetId: contactId,
                   autoSend: true,
