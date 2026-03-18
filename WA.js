@@ -1691,7 +1691,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块2.1.0 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块 v2.1.0 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
