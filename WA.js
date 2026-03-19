@@ -1,3 +1,90 @@
+// ==================== 本地数据库管理 ====================
+
+// 数据库名称和版本
+const DB_NAME = "WhatsAppCustomerDB";
+const DB_VERSION = 1;
+const STORE_NAME = "uniqueNumbers";
+
+// 初始化数据库
+async function 初始化数据库() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+
+      // 创建存储独立号码的对象仓库
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: "号码" });
+        store.createIndex("群组", "所在群组", { unique: false });
+        store.createIndex("采集时间", "采集时间", { unique: false });
+      }
+    };
+  });
+}
+
+// 保存独立号码到数据库
+async function 保存独立号码到数据库(uniqueNumbers) {
+  try {
+    const db = await 初始化数据库();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+
+    // 清空旧数据（可选，根据需求决定）
+    await store.clear();
+
+    // 添加新数据
+    const timestamp = new Date().toISOString();
+    for (const item of uniqueNumbers) {
+      await store.add({
+        ...item,
+        采集时间: timestamp,
+        标记状态: "客户", // 默认标记为客户
+      });
+    }
+
+    await tx.done;
+    console.log(`✅ 已保存 ${uniqueNumbers.length} 个独立号码到数据库`);
+    return true;
+  } catch (error) {
+    console.error("❌ 保存到数据库失败:", error);
+    return false;
+  }
+}
+
+// 查询号码是否在数据库中
+async function 查询号码是否客户(phoneNumber) {
+  try {
+    const db = await 初始化数据库();
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const store = tx.objectStore(STORE_NAME);
+
+    const result = await store.get(phoneNumber);
+    return result ? true : false;
+  } catch (error) {
+    console.error("❌ 查询数据库失败:", error);
+    return false;
+  }
+}
+
+// 获取所有客户号码
+async function 获取所有客户号码() {
+  try {
+    const db = await 初始化数据库();
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const store = tx.objectStore(STORE_NAME);
+
+    const allRecords = await store.getAll();
+    return allRecords.map((record) => record.号码);
+  } catch (error) {
+    console.error("❌ 获取客户号码失败:", error);
+    return [];
+  }
+}
+
 // ==================== 群组成员号码采集器 ====================
 async function 获取未归档群数据报表() {
   // 模拟真实点击
@@ -668,6 +755,17 @@ async function 获取未归档群数据报表() {
     });
 
     const analysis = 分析号码重复(results);
+    // ✅ 在这里添加保存到数据库
+    if (analysis.uniqueNumbers && analysis.uniqueNumbers.length > 0) {
+      try {
+        await 保存独立号码到数据库(analysis.uniqueNumbers);
+        console.log(
+          `📦 已将 ${analysis.uniqueNumbers.length} 个独立号码存入本地数据库`,
+        );
+      } catch (error) {
+        console.error("❌ 保存到数据库失败:", error);
+      }
+    }
     const html = 生成报告(results, analysis);
 
     const a = document.createElement("a");
@@ -699,6 +797,337 @@ async function 获取未归档群数据报表() {
 
   // 执行并返回结果
   return await 采集群组号码并生成报告();
+}
+
+// ==================== 客户标记开关（使用您的滚动监听方法） ====================
+
+let 客户标记监控开启 = false;
+let 已标记消息的ID集合 = new Set();
+let 标记防抖定时器 = null;
+let 滚动监听定时器 = null;
+
+async function 标记客户(开启 = true) {
+  console.log("标记客户被调用，开启:", 开启);
+
+  if (开启) {
+    if (客户标记监控开启) {
+      console.log("⚠️ 客户标记已经开启");
+      return;
+    }
+
+    try {
+      // 1. 从IndexedDB加载客户号码
+      const 客户号码 = await new Promise((resolve) => {
+        const request = indexedDB.open("WhatsAppCustomerDB", 1);
+
+        request.onsuccess = () => {
+          const db = request.result;
+          const tx = db.transaction("uniqueNumbers", "readonly");
+          const store = tx.objectStore("uniqueNumbers");
+          const getAll = store.getAll();
+
+          getAll.onsuccess = () => {
+            const numbers = getAll.result.map((item) => item.号码);
+            console.log("📊 数据库中的客户:", numbers);
+            resolve(numbers);
+          };
+
+          getAll.onerror = () => resolve([]);
+        };
+
+        request.onerror = () => resolve([]);
+        request.onupgradeneeded = () => resolve([]);
+      });
+
+      window.__客户号码列表 = new Set(客户号码);
+      console.log(`📚 已加载 ${客户号码.length} 个客户号码`);
+
+      // 2. 启动滚动监听（使用您的代码）
+      启动滚动监听();
+
+      // 3. 监听聊天列表点击
+      document.addEventListener("click", 监听聊天点击, true);
+
+      客户标记监控开启 = true;
+      console.log("✅ 客户标记已开启");
+
+      // 4. 初始标记
+      标记聊天列表();
+      标记当前聊天窗口();
+      标记当前可见消息();
+    } catch (error) {
+      console.error("❌ 开启失败:", error);
+    }
+  } else {
+    // 关闭所有监听
+    document.removeEventListener("click", 监听聊天点击, true);
+
+    if (滚动监听定时器) {
+      clearInterval(滚动监听定时器);
+      滚动监听定时器 = null;
+    }
+
+    if (标记防抖定时器) {
+      clearTimeout(标记防抖定时器);
+      标记防抖定时器 = null;
+    }
+
+    document
+      .querySelectorAll(
+        ".customer-badge, .chat-customer-badge, .header-customer-badge",
+      )
+      .forEach((el) => el.remove());
+    已标记消息的ID集合.clear();
+    客户标记监控开启 = false;
+    window.__客户号码列表 = null;
+    console.log("🛑 客户标记已关闭");
+  }
+}
+
+// 启动滚动监听（使用您的代码）
+function 启动滚动监听() {
+  const containerClass =
+    'div[data-scrolltracepolicy="wa.web.conversation.messages"]';
+
+  // 停止之前的定时器
+  if (滚动监听定时器) {
+    clearInterval(滚动监听定时器);
+  }
+
+  滚动监听定时器 = setInterval(() => {
+    const container = document.querySelector(containerClass);
+    if (!container) return;
+
+    console.log("✅ 找到消息列表容器，开始监听滚动");
+
+    // 移除可能存在的旧监听器（避免重复）
+    container.removeEventListener("scroll", 处理滚动);
+
+    // 添加新的滚动监听
+    container.addEventListener("scroll", 处理滚动);
+
+    clearInterval(滚动监听定时器); // 绑定成功后停止轮询
+    滚动监听定时器 = null;
+  }, 200);
+}
+
+// 处理滚动事件
+function 处理滚动() {
+  if (标记防抖定时器) {
+    clearTimeout(标记防抖定时器);
+  }
+
+  标记防抖定时器 = setTimeout(() => {
+    console.log("📜 检测到滚动，标记新加载的消息");
+    标记当前可见消息();
+    标记防抖定时器 = null;
+  }, 200);
+}
+
+// 监听聊天点击
+function 监听聊天点击(event) {
+  const chatItem = event.target.closest(
+    '[role="row"], [role="listitem"], ._ak8q, [data-testid="chat-list-item"]',
+  );
+
+  if (chatItem) {
+    console.log("🖱️ 检测到聊天被点击，准备标记...");
+
+    // 立即标记聊天列表
+    标记聊天列表();
+
+    // 延迟等待聊天内容加载
+    setTimeout(() => {
+      console.log("⏳ 聊天内容加载完成，开始标记...");
+      标记当前聊天窗口();
+      标记当前可见消息();
+
+      // 重新启动滚动监听（因为切换聊天后容器可能变化）
+      启动滚动监听();
+
+      console.log("✅ 聊天标记完成");
+    }, 800);
+  }
+}
+
+// 标记聊天列表
+function 标记聊天列表() {
+  const chatItems = document.querySelectorAll(
+    '[role="row"], [role="listitem"], ._ak8q, [data-testid="chat-list-item"]',
+  );
+  let 标记数量 = 0;
+
+  chatItems.forEach((item) => {
+    // 移除旧的标记
+    item.querySelectorAll(".chat-customer-badge").forEach((el) => el.remove());
+
+    // 从聊天项中查找号码
+    const numberSpan = item.querySelector(
+      'span[data-testid="selectable-text"]',
+    );
+    if (numberSpan) {
+      const text = numberSpan.textContent || "";
+      const matches = text.match(/\+[\d\s\(\)\-]{9,20}/g);
+
+      if (matches) {
+        for (const match of matches) {
+          const 号码 = match.replace(/[\s\(\)\-]/g, "");
+
+          if (window.__客户号码列表?.has(号码)) {
+            const nameEl = item.querySelector('span[dir="auto"], div[title]');
+            if (nameEl) {
+              const badge = document.createElement("span");
+              badge.className = "chat-customer-badge customer-badge";
+              badge.innerHTML = "⭐";
+              badge.title = "客户";
+              badge.style.cssText = `
+                background: #25D366;
+                color: white;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-size: 11px;
+                margin-left: 5px;
+                display: inline-block;
+                pointer-events: none;
+              `;
+              nameEl.parentNode.appendChild(badge);
+              标记数量++;
+              console.log(`✅ 聊天列表标记客户: ${号码}`);
+              break;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (标记数量 > 0) {
+    console.log(`📊 聊天列表标记完成，共标记 ${标记数量} 个客户`);
+  }
+}
+
+// 标记当前聊天窗口
+function 标记当前聊天窗口() {
+  const header = document.querySelector("header");
+  if (!header) return;
+
+  // 移除旧的窗口标记
+  header
+    .querySelectorAll(".header-customer-badge")
+    .forEach((el) => el.remove());
+
+  // 从群组头部获取号码
+  const numberSpan = document.querySelector(
+    'header span[data-testid="selectable-text"]',
+  );
+  if (numberSpan) {
+    const text = numberSpan.textContent || "";
+    const matches = text.match(/\+[\d\s\(\)\-]{9,20}/g);
+
+    if (matches) {
+      for (const match of matches) {
+        const 号码 = match.replace(/[\s\(\)\-]/g, "");
+
+        if (window.__客户号码列表?.has(号码)) {
+          const nameEl = header.querySelector(
+            'span[dir="auto"]:not([data-testid])',
+          );
+          if (nameEl) {
+            const badge = document.createElement("span");
+            badge.className = "header-customer-badge customer-badge";
+            badge.innerHTML = "⭐ 客户";
+            badge.style.cssText = `
+              background: #25D366;
+              color: white;
+              padding: 2px 8px;
+              border-radius: 12px;
+              font-size: 12px;
+              margin-left: 10px;
+              font-weight: bold;
+              display: inline-block;
+              pointer-events: none;
+            `;
+            nameEl.parentNode.appendChild(badge);
+            console.log(`✅ 聊天窗口标记客户: ${号码}`);
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 标记当前可见的消息（处理懒加载）
+function 标记当前可见消息() {
+  const messages = document.querySelectorAll("div[data-pre-plain-text]");
+  let 新标记数量 = 0;
+
+  messages.forEach((msg) => {
+    // 检查消息是否在视口中
+    const rect = msg.getBoundingClientRect();
+    const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+
+    if (!isVisible) return;
+
+    if (!msg.__msgId) {
+      msg.__msgId = `msg_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    if (已标记消息的ID集合.has(msg.__msgId)) return;
+
+    const preText = msg.getAttribute("data-pre-plain-text") || "";
+    const match = preText.match(/\+[\d\s\(\)\-]{9,20}/);
+    if (!match) return;
+
+    const 号码 = match[0].replace(/[\s\(\)\-]/g, "");
+
+    if (window.__客户号码列表?.has(号码)) {
+      const senderArea =
+        msg.closest("._amk4") || msg.closest('[class*="message"]');
+      if (!senderArea) return;
+
+      if (senderArea.querySelector(".customer-badge")) return;
+
+      const nameEl = senderArea.querySelector(
+        '._ahxy, span[dir="auto"][aria-label]',
+      );
+      if (!nameEl) return;
+
+      const badge = document.createElement("span");
+      badge.className = "customer-badge";
+      badge.innerHTML = "⭐ 客户";
+      badge.style.cssText = `
+        background: #25D366;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 11px;
+        margin-left: 8px;
+        font-weight: bold;
+        display: inline-block;
+        pointer-events: none;
+      `;
+
+      nameEl.parentNode.appendChild(badge);
+      已标记消息的ID集合.add(msg.__msgId);
+      新标记数量++;
+      console.log(`✅ 标记客户消息: ${号码}`);
+    }
+  });
+
+  if (新标记数量 > 0) {
+    console.log(
+      `📊 本次标记 ${新标记数量} 条新客户消息，总计 ${已标记消息的ID集合.size} 条`,
+    );
+  }
+}
+
+// 手动触发标记（用于测试）
+function 手动标记测试() {
+  console.log("🔧 手动触发标记测试");
+  标记聊天列表();
+  标记当前聊天窗口();
+  标记当前可见消息();
 }
 
 // ==================== 通用工具函数 ====================
@@ -1650,7 +2079,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.1.3 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.1.4 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -1698,6 +2127,15 @@ function 注入浮动窗口() {
               </div>
             </div>
           </div>
+
+          <!-- 👇 在这里添加客户标记控制按钮 -->
+      <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="startCustomerMark" style="background-color: #25D366; flex: 1;">⭐ 开启客户标记</button>
+          <button id="stopCustomerMark" style="background-color: #f44336; flex: 1;">⏹️ 关闭客户标记</button>
+        </div>
+      </div>
+      <!-- 👆 客户标记控制按钮结束 -->
 
           <div id="dbzt">
             <div id="dbzt-s" style="margin: 10px;">
@@ -2017,6 +2455,22 @@ function 注入浮动窗口() {
     更新状态消息("已清空所有选择", "success");
   });
 
+  // 👇 在这里添加客户标记按钮事件
+  // 开启客户标记
+  shadowRoot
+    .getElementById("startCustomerMark")
+    .addEventListener("click", () => {
+      标记客户(true);
+      更新状态消息("⭐ 客户标记已开启", "success");
+    });
+
+  // 关闭客户标记
+  shadowRoot
+    .getElementById("stopCustomerMark")
+    .addEventListener("click", () => {
+      标记客户(false);
+      更新状态消息("⏹️ 客户标记已关闭", "success");
+    });
   // 群发消息
   shadowRoot
     .getElementById("sendBatchBtn")
