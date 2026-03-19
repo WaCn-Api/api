@@ -445,6 +445,19 @@ async function 获取未归档群数据报表() {
     a.click();
     URL.revokeObjectURL(a.href);
 
+    const newWindow = window.open();
+    if (newWindow) {
+      newWindow.document.write(html);
+      newWindow.document.title = `whatsapp_群组号码报告_${new Date().toISOString().slice(0, 10)}`;
+      console.log("✅ 报告已在新窗口打开，可以按 Ctrl+S 保存");
+    } else {
+      // 如果新窗口被拦截，在控制台输出HTML
+      console.log("⚠️ 新窗口被拦截，请在控制台复制以下HTML：");
+      console.log("=".repeat(100));
+      console.log(html);
+      console.log("=".repeat(100));
+    }
+
     console.log(`\n✅ 报告已生成并下载`);
     console.log(
       `📊 群组: ${results.length} | 成功: ${results.filter((r) => r.status === "success").length} | 号码: ${analysis.allNumbers.length}`,
