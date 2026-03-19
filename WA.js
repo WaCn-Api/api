@@ -1082,7 +1082,7 @@ async function 发送图片内容(groupName, imgBase64) {
 }
 
 /**
- * 发送文本内容到指定群组
+ * 发送文本内容到指定群组（更健壮的版本）
  */
 async function 发送文本内容(groupName, content) {
   try {
@@ -1095,20 +1095,34 @@ async function 发送文本内容(groupName, content) {
     if (!dom || !dom.input) throw new Error("无法获取输入框");
 
     dom.input.focus();
-    let textInserted = false;
-    try {
+
+    // 方法1: 尝试使用 insertText 但处理换行
+    const lines = content.split("\n");
+
+    if (lines.length === 1) {
+      // 单行文本，直接插入
       document.execCommand("insertText", false, content);
-      textInserted = true;
-    } catch (e) {
-      if (dom.input.innerText) {
-        dom.input.innerText += "\n" + content;
-      } else {
-        dom.input.innerText = content;
+    } else {
+      // 多行文本，逐行插入并手动添加换行
+      for (let i = 0; i < lines.length; i++) {
+        document.execCommand("insertText", false, lines[i]);
+        if (i < lines.length - 1) {
+          // 手动插入换行（使用 Shift+Enter 的组合）
+          dom.input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              shiftKey: true,
+              bubbles: true,
+            }),
+          );
+          await new Promise((r) => setTimeout(r, 50));
+        }
       }
-      dom.input.dispatchEvent(new Event("input", { bubbles: true }));
-      textInserted = true;
     }
-    if (!textInserted) throw new Error("输入文本失败");
+
+    // 触发 input 事件
+    dom.input.dispatchEvent(new Event("input", { bubbles: true }));
+
     console.log("  已输入文本");
 
     await new Promise((r) => setTimeout(r, 200));
@@ -1135,10 +1149,14 @@ async function 发送图文内容(groupName, imgBase64, text, textDelay = 1500) 
     console.log(`📷📨 发送图文（先图后文）到 "${groupName}"`);
     const imageResult = await 发送图片内容(groupName, imgBase64);
     if (!imageResult) throw new Error("图片发送失败");
+
     console.log(`  ⏳ 等待 ${textDelay}ms 后发送文字...`);
     await new Promise((r) => setTimeout(r, textDelay));
+
+    // ✅ 使用优化后的文本发送函数（已经内置了换行处理）
     const textResult = await 发送文本内容(groupName, text);
     if (!textResult) throw new Error("文字发送失败");
+
     console.log(`✅ 图文发送成功: ${groupName}`);
     return true;
   } catch (error) {
@@ -1153,12 +1171,17 @@ async function 发送图文内容(groupName, imgBase64, text, textDelay = 1500) 
 async function 发送文本图片内容(groupName, text, imgBase64, imageDelay = 1500) {
   try {
     console.log(`📨📷 发送文本+图片（先文后图）到 "${groupName}"`);
+
+    // ✅ 使用优化后的文本发送函数
     const textResult = await 发送文本内容(groupName, text);
     if (!textResult) throw new Error("文字发送失败");
+
     console.log(`  ⏳ 等待 ${imageDelay}ms 后发送图片...`);
     await new Promise((r) => setTimeout(r, imageDelay));
+
     const imageResult = await 发送图片内容(groupName, imgBase64);
     if (!imageResult) throw new Error("图片发送失败");
+
     console.log(`✅ 文本+图片发送成功: ${groupName}`);
     return true;
   } catch (error) {
@@ -1168,7 +1191,7 @@ async function 发送文本图片内容(groupName, text, imgBase64, imageDelay =
 }
 
 /**
- * 发送图文同条（图片+描述）
+ * 发送图文同条（图片+描述）- 先输入文字，再粘贴图片
  */
 async function 发送图文同条(groupName, imgBase64, caption) {
   try {
@@ -1177,28 +1200,54 @@ async function 发送图文同条(groupName, imgBase64, caption) {
     if (!clicked) throw new Error(`无法打开聊天: ${groupName}`);
     await new Promise((r) => setTimeout(r, 1000));
 
-    const inputDom = getInputDom();
-    if (!inputDom) throw new Error("找不到输入框");
+    // 1. 先输入文字（使用已修复的文本输入逻辑，但不发送）
+    if (caption && caption.trim()) {
+      console.log(`  ⏳ 输入文字...`);
 
-    inputDom.focus();
-    inputDom.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      const dom = 单文本发送模式获取DOM();
+      if (!dom || !dom.input) throw new Error("无法获取输入框");
 
+      dom.input.focus();
+
+      // 复制发送文本内容的输入逻辑
+      const lines = caption.split("\n");
+
+      if (lines.length === 1) {
+        document.execCommand("insertText", false, caption);
+      } else {
+        for (let i = 0; i < lines.length; i++) {
+          document.execCommand("insertText", false, lines[i]);
+          if (i < lines.length - 1) {
+            dom.input.dispatchEvent(
+              new KeyboardEvent("keydown", {
+                key: "Enter",
+                shiftKey: true,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
+            await new Promise((r) => setTimeout(r, 50));
+          }
+        }
+      }
+
+      dom.input.dispatchEvent(new Event("input", { bubbles: true }));
+      console.log(`  ✅ 文字已输入（保留换行）`);
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    // 2. 再粘贴图片
+    console.log(`  ⏳ 粘贴图片...`);
     const fileSizeKB = estimateBase64Size(imgBase64);
     console.log(`  图片大小: ${fileSizeKB.toFixed(2)}KB`);
 
-    console.log(`  ⏳ 粘贴图片...`);
     const pasteSuccess = await pasteImageToInput(imgBase64, { timeout: 8000 });
     if (!pasteSuccess) throw new Error("图片预览未生成");
 
-    if (caption && caption.trim()) {
-      console.log(`  ⏳ 输入图片描述文字...`);
-      await new Promise((r) => setTimeout(r, 300));
-      document.execCommand("insertText", false, caption);
-      inputDom.dispatchEvent(new Event("input", { bubbles: true }));
-      console.log(`  ✅ 描述文字已输入`);
-      await new Promise((r) => setTimeout(r, 300));
-    }
+    // 3. 等待图片预览加载
+    await new Promise((r) => setTimeout(r, 1000));
 
+    // 4. 发送
     const sendButton = getSendButton();
     if (!sendButton) throw new Error("找不到发送按钮");
 
@@ -1601,7 +1650,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.1.2 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.1.3 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
