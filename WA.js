@@ -1,3 +1,462 @@
+// ==================== 群组成员号码采集器 ====================
+async function 获取未归档群数据报表() {
+  // 模拟真实点击
+  async function 模拟点击(element) {
+    if (!element) return false;
+
+    element.scrollIntoView({ behavior: "auto", block: "center" });
+    await new Promise((r) => setTimeout(r, 300));
+
+    const box = element.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+
+    const events = [
+      { type: "mousedown", buttons: 1 },
+      { type: "mouseup", buttons: 0 },
+      { type: "click", buttons: 0 },
+    ];
+
+    for (const { type, buttons } of events) {
+      element.dispatchEvent(
+        new MouseEvent(type, {
+          view: window,
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y,
+          buttons,
+          button: 0,
+          composed: true,
+        }),
+      );
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    element.click();
+    return true;
+  }
+
+  // 获取号码文本
+  function 获取号码文本() {
+    const el = document.querySelector('span[data-testid="selectable-text"]');
+    return el ? el.innerText : null;
+  }
+
+  // 从文本提取手机号 【修复：保留+号，修正过滤条件】
+  function 提取号码(text) {
+    if (!text) return [];
+
+    const regex = /\+[\d\s\(\)\-]{9,20}/g;
+    const matches = text.match(regex) || [];
+
+    return [
+      ...new Set(
+        matches
+          .map((p) => p.replace(/[\s\(\)\-]/g, "")) // 保留 + 号，只去掉空格括号横线
+          .filter((p) => /^\+\d{7,15}$/.test(p)), // 必须以+开头，后接7-15位数字
+      ),
+    ];
+  }
+
+  // 等待号码加载完成 【修复：找到号码立即返回，不再重复打印】
+  async function 等待号码加载(timeout = 10000) {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      const text = 获取号码文本();
+
+      if (text) {
+        const numbers = 提取号码(text);
+        if (numbers.length > 0) {
+          console.log(`  ✅ 检测到 ${numbers.length} 个号码`);
+          return numbers; // 找到即返回，不再继续循环
+        }
+      }
+
+      const elapsed = Date.now() - startTime;
+      console.log(`  ⏳ 等待号码加载中... (${elapsed}ms)`);
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    console.log(`  ⚠️ 等待超时 (${timeout}ms)`);
+    return [];
+  }
+
+  // 查找群组点击元素
+  function 查找群组点击元素(chatName) {
+    function normalize(str) {
+      return (str || "").replace(/\s+/g, " ").trim().toLowerCase();
+    }
+
+    function findClickable(el) {
+      return (
+        el.closest('[role="gridcell"]') ||
+        el.closest('div[tabindex="0"]') ||
+        el.closest('[role="row"]') ||
+        el.closest('[role="listitem"]') ||
+        el.closest(".chat") ||
+        el.closest('[data-testid="chat-list-item"]') ||
+        el.closest("._ak8q") ||
+        el.closest('[data-testid="chat-list"] [role="button"]')
+      );
+    }
+
+    // 方法1：title 属性精确匹配
+    for (const el of document.querySelectorAll(
+      'span[dir="auto"][title], div[title], span[title]',
+    )) {
+      if (normalize(el.getAttribute("title")) === normalize(chatName)) {
+        const clickable = findClickable(el);
+        if (clickable) return clickable;
+      }
+    }
+
+    // 方法2：文本内容模糊匹配
+    for (const item of document.querySelectorAll('[role="row"]')) {
+      const textEl = item.querySelector('span[dir="auto"]');
+      if (
+        textEl &&
+        normalize(textEl.textContent).includes(normalize(chatName))
+      ) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  // 获取未归档群组
+  async function 获取未归档群组() {
+    try {
+      if (!window.Store) {
+        window.Store = Object.assign({}, window.require("WAWebCollections"));
+      }
+
+      const groups = window.Store.Chat.getModelsArray()
+        .filter((chat) => {
+          const isGroup =
+            chat.id?._serialized?.endsWith("@g.us") || chat.isGroup === true;
+          const notArchived = !chat.archive;
+          return isGroup && notArchived;
+        })
+        .map((chat) => ({
+          id: chat.id?._serialized,
+          name:
+            chat.name ||
+            chat.formattedTitle ||
+            chat.formattedName ||
+            "未命名群组",
+          participantCount:
+            chat.participantCount ||
+            chat.groupMetadata?.participants?.length ||
+            chat.participants?.length ||
+            0,
+        }));
+
+      groups.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+      console.log(`📋 找到 ${groups.length} 个未归档群组`);
+      return groups;
+    } catch (error) {
+      console.error("获取群组失败:", error);
+      return [];
+    }
+  }
+
+  // 采集所有群组号码
+  async function 采集群组号码(progressCallback) {
+    console.log("🔍 开始采集未归档群组成员号码...");
+
+    const groups = await 获取未归档群组();
+    console.log(`📋 共 ${groups.length} 个未归档群组\n`);
+
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i];
+
+      progressCallback?.({
+        current: i + 1,
+        total: groups.length,
+        groupName: group.name,
+        status: "processing",
+      });
+
+      console.log(`📌 [${i + 1}/${groups.length}] ${group.name}`);
+
+      try {
+        const clickable = 查找群组点击元素(group.name);
+
+        if (!clickable) {
+          console.log(`  ❌ 找不到可点击元素，跳过`);
+          failCount++;
+          results.push({
+            ...group,
+            numbers: [],
+            status: "failed",
+            error: "找不到可点击元素",
+          });
+          continue;
+        }
+
+        console.log(`  🖱️ 点击打开聊天...`);
+        await 模拟点击(clickable);
+
+        console.log(`  ⏳ 等待号码加载...`);
+        const numbers = await 等待号码加载(10000);
+
+        if (numbers.length > 0) {
+          successCount++;
+          console.log(`  ✅ 获取到 ${numbers.length} 个号码`);
+        } else {
+          failCount++;
+          console.log(`  ⚠️ 未获取到号码`);
+        }
+
+        results.push({
+          ...group,
+          numbers,
+          status: numbers.length > 0 ? "success" : "no_numbers",
+          count: numbers.length,
+        });
+      } catch (error) {
+        console.error(`  处理失败:`, error);
+        failCount++;
+        results.push({
+          ...group,
+          numbers: [],
+          status: "error",
+          error: error.message,
+        });
+      }
+
+      // 随机延迟 2-4 秒
+      const delay = 2000 + Math.floor(Math.random() * 2000);
+      console.log(`  ⏱️ 等待 ${delay}ms...\n`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+
+    console.log(`\n✅ 采集完成！成功: ${successCount}，失败: ${failCount}`);
+    return results;
+  }
+
+  // 分析重复号码
+  function 分析号码重复(results) {
+    const numberMap = new Map();
+
+    for (const group of results) {
+      for (const number of group.numbers || []) {
+        if (!numberMap.has(number)) {
+          numberMap.set(number, { 号码: number, 重复次数: 0, 所在群组: [] });
+        }
+        const data = numberMap.get(number);
+        data.重复次数++;
+        if (!data.所在群组.includes(group.name)) {
+          data.所在群组.push(group.name);
+        }
+      }
+    }
+
+    const allNumbers = Array.from(numberMap.values());
+    const duplicateNumbers = allNumbers
+      .filter((n) => n.重复次数 > 1)
+      .sort((a, b) => b.重复次数 - a.重复次数);
+    const uniqueNumbers = allNumbers
+      .filter((n) => n.重复次数 === 1)
+      .sort((a, b) => a.号码.localeCompare(b.号码));
+
+    return { allNumbers, duplicateNumbers, uniqueNumbers };
+  }
+
+  // 生成 HTML 报表
+  function 生成报告(results, analysis) {
+    const { allNumbers, duplicateNumbers, uniqueNumbers } = analysis;
+    const successGroups = results.filter((r) => r.status === "success").length;
+    const date = new Date().toLocaleString();
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>WhatsApp群组成员号码分析报告</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f0f2f5; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header { background: #075e54; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
+    .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+    .stat-card h3 { margin: 0 0 10px; color: #075e54; }
+    .stat-card .number { font-size: 32px; font-weight: bold; color: #128C7E; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab { padding: 10px 20px; background: #e9ecef; border-radius: 5px; cursor: pointer; transition: all .2s; }
+    .tab.active { background: #075e54; color: white; }
+    .tab:hover:not(.active) { background: #d4d4d4; }
+    .tab-content { display: none; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+    .tab-content.active { display: block; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #075e54; color: white; padding: 12px; text-align: left; }
+    td { padding: 12px; border-bottom: 1px solid #dee2e6; }
+    tr:hover { background: #f8f9fa; }
+    .badge { background: #25D366; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+    .duplicate-row { background: #fff3e0; }
+    .search-box { margin-bottom: 15px; padding: 10px; width: 300px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; }
+    .group-card { border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; margin-bottom: 15px; }
+    .group-header { background: #f8f9fa; padding: 10px; margin: -15px -15px 15px; border-radius: 6px 6px 0 0; }
+    .group-header h3 { margin: 0; }
+    .group-header p { margin: 5px 0 0; font-size: 13px; color: #555; }
+    .success { color: #28a745; } .warning { color: #ffc107; } .error { color: #dc3545; }
+    details summary { cursor: pointer; color: #075e54; padding: 5px; border-radius: 4px; user-select: none; }
+    details summary:hover { background: #e8f5e9; }
+    .num-list { max-height: 200px; overflow-y: auto; margin-top: 10px; padding: 5px; background: #f8f9fa; border-radius: 4px; font-size: 13px; }
+    .num-list div { padding: 3px 5px; border-bottom: 1px solid #dee2e6; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📊 WhatsApp未归档群组成员号码分析报告</h1>
+    <p>生成时间：${date}</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card"><h3>总群组</h3><div class="number">${results.length}</div></div>
+    <div class="stat-card"><h3>成功采集</h3><div class="number" style="color:#28a745">${successGroups}</div></div>
+    <div class="stat-card"><h3>总号码</h3><div class="number">${allNumbers.length}</div></div>
+    <div class="stat-card"><h3>独立号码</h3><div class="number">${uniqueNumbers.length}</div></div>
+    <div class="stat-card"><h3>重复号码</h3><div class="number" style="color:#f39c12">${duplicateNumbers.length}</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active"  onclick="showTab('duplicate', this)">🔄 重复号码 (${duplicateNumbers.length})</div>
+    <div class="tab"         onclick="showTab('unique', this)">✅ 独立号码 (${uniqueNumbers.length})</div>
+    <div class="tab"         onclick="showTab('groups', this)">📋 群组详情 (${results.length})</div>
+  </div>
+
+  <div id="duplicate" class="tab-content active">
+    <h2>🔄 重复号码（出现在多个群组）</h2>
+    <input class="search-box" placeholder="搜索号码..." oninput="filterTable('dupTable', this.value)">
+    <table id="dupTable">
+      <tr><th>序号</th><th>手机号码</th><th>重复次数</th><th>所在群组</th></tr>
+      ${duplicateNumbers
+        .map(
+          (item, i) => `
+      <tr class="duplicate-row">
+        <td>${i + 1}</td>
+        <td><strong>${item.号码}</strong></td>
+        <td><span class="badge">${item.重复次数}</span></td>
+        <td>${item.所在群组.join("、")}</td>
+      </tr>`,
+        )
+        .join("")}
+    </table>
+  </div>
+
+  <div id="unique" class="tab-content">
+    <h2>✅ 独立号码（只在一个群组）</h2>
+    <input class="search-box" placeholder="搜索号码..." oninput="filterTable('uniTable', this.value)">
+    <table id="uniTable">
+      <tr><th>序号</th><th>手机号码</th><th>所在群组</th></tr>
+      ${uniqueNumbers
+        .map(
+          (item, i) => `
+      <tr><td>${i + 1}</td><td>${item.号码}</td><td>${item.所在群组[0]}</td></tr>`,
+        )
+        .join("")}
+    </table>
+  </div>
+
+  <div id="groups" class="tab-content">
+    <h2>📋 群组详情</h2>
+    <input class="search-box" placeholder="搜索群组..." oninput="filterGroups(this.value)">
+    <div id="groups-container">
+      ${results
+        .map(
+          (group, i) => `
+      <div class="group-card" data-name="${group.name}">
+        <div class="group-header">
+          <h3>${i + 1}. ${group.name}</h3>
+          <p>
+            成员数: ${group.participantCount} |
+            <span class="${group.numbers.length > 0 ? "success" : "warning"}">号码数: ${group.numbers.length}</span> |
+            <span class="${group.status === "success" ? "success" : group.status === "no_numbers" ? "warning" : "error"}">状态: ${group.status}</span>
+            ${group.error ? ` | 错误: ${group.error}` : ""}
+          </p>
+        </div>
+        ${
+          group.numbers.length > 0
+            ? `
+        <details>
+          <summary>查看号码列表（${group.numbers.length} 个）</summary>
+          <div class="num-list">${group.numbers.map((n) => `<div>${n}</div>`).join("")}</div>
+        </details>`
+            : ""
+        }
+      </div>`,
+        )
+        .join("")}
+    </div>
+  </div>
+</div>
+
+<script>
+  function showTab(id, tab) {
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(el => el.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+    tab.classList.add("active");
+  }
+  function filterTable(tableId, q) {
+    const rows = document.getElementById(tableId).rows;
+    const s = q.toLowerCase();
+    for (let i = 1; i < rows.length; i++) {
+      rows[i].style.display = rows[i].cells[1]?.textContent.toLowerCase().includes(s) ? "" : "none";
+    }
+  }
+  function filterGroups(q) {
+    const s = q.toLowerCase();
+    document.querySelectorAll(".group-card").forEach(card => {
+      card.style.display = card.dataset.name.toLowerCase().includes(s) ? "" : "none";
+    });
+  }
+</script>
+</body>
+</html>`;
+  }
+
+  // 主函数
+  async function 采集群组号码并生成报告() {
+    console.log("=".repeat(60));
+    console.log("📞 WhatsApp未归档群组成员号码采集器");
+    console.log("=".repeat(60));
+    console.log("⏰ 整个过程可能需要几分钟，请耐心等待...");
+
+    const results = await 采集群组号码((p) => {
+      console.log(`进度: ${p.current}/${p.total} - ${p.groupName}`);
+    });
+
+    const analysis = 分析号码重复(results);
+    const html = 生成报告(results, analysis);
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    a.download = `whatsapp_群组号码报告_${new Date().toISOString().slice(0, 10)}.html`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+
+    console.log(`\n✅ 报告已生成并下载`);
+    console.log(
+      `📊 群组: ${results.length} | 成功: ${results.filter((r) => r.status === "success").length} | 号码: ${analysis.allNumbers.length}`,
+    );
+
+    return { results, analysis };
+  }
+
+  // 执行并返回结果
+  return await 采集群组号码并生成报告();
+}
+
 // ==================== 通用工具函数 ====================
 
 // 模拟真实点击事件
@@ -898,11 +1357,12 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块 v3.1.0 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.1.1 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
-          <button id="loadContactsBtn" style="width: 100%; font-size: 14px;">📋 加载未归档群组列表</button>
+          <button id="loadGroupsBtn" style="width: 100%;    font-size: 14px;    background-color: #cc0000;    margin-bottom: 10px;">获取未归档群组报表</button>
+          <button id="loadContactsBtn" style="width: 100%; font-size: 14px;">加载未归档群组列表</button>
           <div id="contactsContainer" class="contact-list"></div>
           
           <div class="action-buttons">
@@ -1115,6 +1575,37 @@ function 注入浮动窗口() {
     messageInput.selectionStart = messageInput.selectionEnd =
       start + text.length;
   });
+
+  // 获取群组数据报表（新功能）
+  shadowRoot
+    .getElementById("loadGroupsBtn")
+    .addEventListener("click", async function () {
+      const 按钮 = this;
+
+      try {
+        按钮.disabled = true;
+        按钮.textContent = "采集中...";
+        更新状态消息("正在采集群组成员号码，请不要进行任何操作！", "success");
+
+        // 调用采集函数
+        const results = await 获取未归档群数据报表();
+
+        if (results && results.results) {
+          更新状态消息(
+            `采集完成！成功: ${results.results.filter((r) => r.status === "success").length} 个群组`,
+            "success",
+          );
+        } else {
+          更新状态消息("采集完成！", "success");
+        }
+      } catch (error) {
+        console.error("采集失败:", error);
+        更新状态消息(`采集失败: ${error.message}`, "error");
+      } finally {
+        按钮.disabled = false;
+        按钮.textContent = "获取未归档群组报表";
+      }
+    });
 
   // 加载联系人
   shadowRoot
