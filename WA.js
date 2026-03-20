@@ -1234,13 +1234,11 @@ function 标记已读用户列表() {
 
 function 启动已读面板监听() {
   if (已读面板监听定时器) clearInterval(已读面板监听定时器);
-  if (已读面板容器引用?._observer) {
-    已读面板容器引用._observer.disconnect();
-    已读面板容器引用 = null;
-  }
 
+  // 持续轮询，只要客户标记开着就一直检测
   已读面板监听定时器 = setInterval(() => {
-    // 找 height 最大且含 _ak8i 的 x1y332i5
+    if (!客户标记监控开启) return;
+
     const allLists = document.querySelectorAll(".x1y332i5");
     let virtualList = null;
     let maxHeight = 0;
@@ -1252,12 +1250,25 @@ function 启动已读面板监听() {
       }
     });
 
-    if (!virtualList) return;
-    if (virtualList === 已读面板容器引用?._list) return; // 已绑定
+    if (!virtualList) {
+      // 已读面板关闭了，重置引用
+      if (已读面板容器引用) {
+        已读面板容器引用._observer?.disconnect();
+        已读面板容器引用 = null;
+      }
+      return;
+    }
 
-    console.log("✅ 找到已读面板容器, height:", maxHeight);
+    // 已读面板没变化，不重复绑定
+    if (virtualList === 已读面板容器引用?._list) return;
 
-    // MutationObserver 监听虚拟列表子节点变化（懒加载时触发）
+    // 新的已读面板出现，绑定监听
+    if (已读面板容器引用) {
+      已读面板容器引用._observer?.disconnect();
+    }
+
+    console.log("✅ 检测到已读面板，开始监听, height:", maxHeight);
+
     let 防抖 = null;
     const 触发标记 = () => {
       if (防抖) clearTimeout(防抖);
@@ -1267,23 +1278,12 @@ function 启动已读面板监听() {
     const observer = new MutationObserver(触发标记);
     observer.observe(virtualList, { childList: true, subtree: false });
 
-    // 同时监听父容器的 scroll 和 wheel
-    const scrollContainer =
-      virtualList.closest(".x1n2onr6.xupqr0c") ||
-      virtualList.parentElement?.parentElement?.parentElement;
-    if (scrollContainer) {
-      scrollContainer.addEventListener("scroll", 触发标记);
-      scrollContainer.addEventListener("wheel", 触发标记);
-    }
-
     已读面板容器引用 = { _list: virtualList, _observer: observer };
 
     // 立即标记
     标记已读用户列表();
 
-    clearInterval(已读面板监听定时器);
-    已读面板监听定时器 = null;
-  }, 300);
+  }, 800); // 每800ms检查一次
 }
 
 // ==================== 通用工具函数 ====================
