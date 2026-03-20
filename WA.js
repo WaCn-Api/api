@@ -1728,19 +1728,7 @@ async function 发送图文同条(groupName, imgBase64, caption) {
 
 // ==================== 浮动窗口代码 ====================
 function 注入浮动窗口() {
-  // ✅ 新增：尝试绑定 C# API（异步，不阻塞UI注入）
-  (async () => {
-    try {
-      if (typeof CefSharp !== "undefined") {
-        await CefSharp.BindObjectAsync("csharpApi");
-        if (typeof csharpApi === "object") {
-          console.log("✅ C# API 已绑定");
-        }
-      }
-    } catch (e) {
-      console.log("ℹ️ C# API 不可用，降级为纯 IndexedDB 模式:", e.message);
-    }
-  })();
+  
 
   // 创建宿主元素并添加到body
   const host = document.createElement("div");
@@ -2121,7 +2109,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.1.5 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.1.6 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
