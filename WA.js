@@ -904,6 +904,11 @@ async function 标记客户(开启 = true) {
     }
     已读面板容器引用 = null;
 
+    if (已读面板容器引用?._observer) {
+      已读面板容器引用._observer.disconnect();
+    }
+    已读面板容器引用 = null;
+
     if (标记防抖定时器) {
       clearTimeout(标记防抖定时器);
       标记防抖定时器 = null;
@@ -1224,44 +1229,41 @@ function 启动已读面板监听() {
   if (已读面板监听定时器) clearInterval(已读面板监听定时器);
 
   已读面板监听定时器 = setInterval(() => {
-    // ✅ 从 _ak8i 向上找滚动容器，不依赖固定class
-    const ak8i = document.querySelector('[role="listitem"] ._ak8i');
-    if (!ak8i) return; // 已读面板未打开
+    // 已读面板特征：含 x1y332i5 的虚拟列表容器，且里面有 _ak8i
+    const virtualList = document.querySelector(".x1y332i5");
+    if (!virtualList) return;
+    if (!virtualList.querySelector('[role="listitem"] ._ak8i')) return;
 
-    let container = null;
-    let node = ak8i.parentElement;
-    while (node && node !== document.body) {
-      const style = window.getComputedStyle(node);
-      if (
-        style.overflowY === "auto" ||
-        style.overflowY === "scroll" ||
-        style.overflow === "auto" ||
-        style.overflow === "scroll"
-      ) {
-        container = node;
-        break;
-      }
-      node = node.parentElement;
-    }
+    // 滚动容器是 x1y332i5 的父级 x889kno 的父级
+    const container =
+      virtualList.closest(".x1n2onr6.xupqr0c") ||
+      virtualList.parentElement?.parentElement;
 
     if (!container) return;
-    if (container === 已读面板容器引用) return; // 已绑定过
+    if (container === 已读面板容器引用) return;
 
     已读面板容器引用 = container;
-    console.log("✅ 找到已读面板容器，开始监听滚动");
+    console.log("✅ 找到已读面板容器");
 
     let 滚动防抖 = null;
     const 触发标记 = () => {
       if (滚动防抖) clearTimeout(滚动防抖);
-      滚动防抖 = setTimeout(() => {
-        标记已读用户列表();
-      }, 200);
+      滚动防抖 = setTimeout(() => 标记已读用户列表(), 200);
     };
 
     container.addEventListener("scroll", 触发标记);
     container.addEventListener("wheel", 触发标记);
 
-    // 立即标记当前可见的
+    // 用 MutationObserver 监听虚拟列表 DOM 变化（懒加载新节点时触发）
+    const observer = new MutationObserver(() => {
+      if (滚动防抖) clearTimeout(滚动防抖);
+      滚动防抖 = setTimeout(() => 标记已读用户列表(), 200);
+    });
+    observer.observe(virtualList, { childList: true, subtree: false });
+
+    // 保存 observer 引用方便关闭时清理
+    已读面板容器引用._observer = observer;
+
     标记已读用户列表();
 
     clearInterval(已读面板监听定时器);
