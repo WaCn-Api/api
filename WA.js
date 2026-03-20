@@ -1344,17 +1344,30 @@ function 标记已读用户列表() {
 
   listItems.forEach((item) => {
     if (item.querySelector(".customer-badge")) return;
-    const numberEl = item.querySelector("._ak8i span._ao3e");
-    if (!numberEl) return;
 
-    const match = (numberEl.textContent || "").match(/\+[\d\s\(\)\-]{9,20}/);
-    if (!match) return;
+    const ak8qSpan = item.querySelector("._ak8q span[dir='auto']");
+    if (!ak8qSpan) return;
 
-    const 号码 = match[0].replace(/[\s\(\)\-]/g, "");
-    if (!window.__客户号码列表?.has(号码)) return;
+    let 号码 = null;
 
-    const nameEl = item.querySelector("._ak8q span[dir='auto']");
-    if (!nameEl) return;
+    const ariaLabel = ak8qSpan.getAttribute("aria-label");
+
+    if (ariaLabel) {
+      // 结构1：有名字，号码在 _ak8i
+      const ak8iSpan = item.querySelector("._ak8i span._ao3e");
+      if (!ak8iSpan) return;
+      const match = ak8iSpan.textContent.match(/\+[\d\s\(\)\-]{9,20}/);
+      if (!match) return;
+      号码 = match[0].replace(/[\s\(\)\-]/g, "");
+    } else {
+      // 结构2：无名字，号码就在 _ak8q span 的 title 属性
+      const title = ak8qSpan.getAttribute("title") || "";
+      const match = title.match(/\+[\d\s\(\)\-]{9,20}/);
+      if (!match) return;
+      号码 = match[0].replace(/[\s\(\)\-]/g, "");
+    }
+
+    if (!号码 || !window.__客户号码列表?.has(号码)) return;
 
     const badge = document.createElement("span");
     badge.className = "customer-badge";
@@ -1365,11 +1378,12 @@ function 标记已读用户列表() {
       font-weight: bold; display: inline-block;
       pointer-events: none; vertical-align: middle;
     `;
-    nameEl.parentNode.appendChild(badge);
+    ak8qSpan.parentNode.appendChild(badge);
     标记数量++;
+    console.log(`✅ 已读面板标记客户: ${号码}`);
   });
 
-  if (标记数量 > 0) console.log(`📊 已读面板标记 ${标记数量} 个客户`);
+  if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
 }
 
 // ==================== 通用工具函数 ====================
@@ -2321,7 +2335,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.1.8 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.1.9 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
