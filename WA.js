@@ -1175,13 +1175,12 @@ function 手动标记测试() {
 // 替换这两个函数
 
 function 标记已读用户列表() {
-  // 找 height 最大且含 _ak8i 的 x1y332i5
   const allLists = document.querySelectorAll(".x1y332i5");
-  let virtualList = null;
-  let maxHeight = 0;
+  let virtualList = null,
+    maxHeight = 0;
   allLists.forEach((el) => {
     const h = parseInt(el.style.height) || 0;
-    if (el.querySelector('[role="listitem"] ._ak8i') && h > maxHeight) {
+    if (h > maxHeight && el.querySelector('[role="listitem"] ._ak8i')) {
       maxHeight = h;
       virtualList = el;
     }
@@ -1192,34 +1191,47 @@ function 标记已读用户列表() {
   let 标记数量 = 0;
 
   listItems.forEach((item) => {
-    const numberEl = item.querySelector("._ak8i span._ao3e");
-    if (!numberEl) return;
     if (item.querySelector(".customer-badge")) return;
 
-    const text = numberEl.textContent || "";
-    const match = text.match(/\+[\d\s\(\)\-]{9,20}/);
-    if (!match) return;
+    // ✅ 兼容两种结构
+    // 结构1：号码在 _ak8i > span._ao3e（有昵称的联系人）
+    // 结构2：号码直接在 _ak8q > span[title]（无昵称，号码即显示名）
+    let 号码 = null;
+    let nameEl = null;
 
-    const 号码 = match[0].replace(/[\s\(\)\-]/g, "");
+    const ak8iSpan = item.querySelector("._ak8i span._ao3e");
+    if (ak8iSpan && /\+[\d\s\(\)\-]{9,20}/.test(ak8iSpan.textContent)) {
+      // 结构1
+      const match = ak8iSpan.textContent.match(/\+[\d\s\(\)\-]{9,20}/);
+      if (match) {
+        号码 = match[0].replace(/[\s\(\)\-]/g, "");
+        nameEl = item.querySelector("._ak8q span[dir='auto']");
+      }
+    } else {
+      // 结构2：_ak8i 为空，号码在 _ak8q 的 span[title]
+      const ak8qSpan = item.querySelector("._ak8q span[dir='auto']");
+      if (ak8qSpan) {
+        const titleText =
+          ak8qSpan.getAttribute("title") || ak8qSpan.textContent || "";
+        const match = titleText.match(/\+[\d\s\(\)\-]{9,20}/);
+        if (match) {
+          号码 = match[0].replace(/[\s\(\)\-]/g, "");
+          nameEl = ak8qSpan; // 号码本身就是名字元素
+        }
+      }
+    }
+
+    if (!号码 || !nameEl) return;
     if (!window.__客户号码列表?.has(号码)) return;
-
-    const nameEl = item.querySelector("._ak8q span[dir='auto']");
-    if (!nameEl) return;
 
     const badge = document.createElement("span");
     badge.className = "customer-badge";
     badge.innerHTML = "⭐ 客户";
     badge.style.cssText = `
-      background: #25D366;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 10px;
-      font-size: 11px;
-      margin-left: 8px;
-      font-weight: bold;
-      display: inline-block;
-      pointer-events: none;
-      vertical-align: middle;
+      background: #25D366; color: white; padding: 2px 6px;
+      border-radius: 10px; font-size: 11px; margin-left: 8px;
+      font-weight: bold; display: inline-block;
+      pointer-events: none; vertical-align: middle;
     `;
     nameEl.parentNode.appendChild(badge);
     标记数量++;
