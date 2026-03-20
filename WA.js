@@ -2335,7 +2335,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.1.9 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.2.1 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -2387,8 +2387,7 @@ function 注入浮动窗口() {
           <!-- 👇 在这里添加客户标记控制按钮 -->
       <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px;">
         <div style="display: flex; gap: 10px; justify-content: center;">
-          <button id="startCustomerMark" style="background-color: #25D366; flex: 1;">⭐ 开启客户标记</button>
-          <button id="stopCustomerMark" style="background-color: #f44336; flex: 1;">⏹️ 关闭客户标记</button>
+          <button id="customerMarkToggleBtn" class="is-off">⭐ 开启客户标记</button>
         </div>
       </div>
       <!-- 👆 客户标记控制按钮结束 -->
@@ -2712,21 +2711,28 @@ function 注入浮动窗口() {
   });
 
   // 👇 在这里添加客户标记按钮事件
-  // 开启客户标记
-  shadowRoot
-    .getElementById("startCustomerMark")
-    .addEventListener("click", () => {
-      标记客户(true);
-      更新状态消息("⭐ 客户标记已开启", "success");
-    });
-
-  // 关闭客户标记
-  shadowRoot
-    .getElementById("stopCustomerMark")
-    .addEventListener("click", () => {
-      标记客户(false);
+  const toggleBtn = shadowRoot.getElementById("customerMarkToggleBtn");
+  toggleBtn.addEventListener("click", async () => {
+    if (客户标记监控开启) {
+      await 标记客户(false);
+      toggleBtn.style.backgroundColor = "#25D366";
+      toggleBtn.textContent = "⭐ 开启客户标记";
       更新状态消息("⏹️ 客户标记已关闭", "success");
-    });
+    } else {
+      await 标记客户(true);
+      toggleBtn.style.backgroundColor = "#f44336";
+      toggleBtn.textContent = "⏹️ 关闭客户标记";
+      更新状态消息("⭐ 客户标记已开启", "success");
+    }
+  });
+
+  // 默认自动开启
+  (async () => {
+    await 标记客户(true);
+    toggleBtn.style.backgroundColor = "#f44336";
+    toggleBtn.textContent = "⏹️ 关闭客户标记"; // ✅ 显示关闭
+    更新状态消息("⭐ 客户标记已自动开启", "success");
+  })();
   // 群发消息
   shadowRoot
     .getElementById("sendBatchBtn")
