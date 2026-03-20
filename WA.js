@@ -902,7 +902,7 @@ async function 标记客户(开启 = true) {
       clearInterval(已读面板监听定时器);
       已读面板监听定时器 = null;
     }
-    已读面板容器 = null;
+    已读面板容器引用 = null;
 
     if (标记防抖定时器) {
       clearTimeout(标记防抖定时器);
@@ -1220,21 +1220,28 @@ function 标记已读用户列表() {
 // 启动已读面板滚动监听
 let 已读面板监听定时器 = null;
 let 已读面板容器引用 = null;
-
 function 启动已读面板监听() {
   if (已读面板监听定时器) clearInterval(已读面板监听定时器);
 
   已读面板监听定时器 = setInterval(() => {
-    // 用测试确认的特征：scrollHeight > 1000 且含 listitem + _ak8i 的容器
-    const allDivs = document.querySelectorAll(
-      "div.x10l6tqk.x13vifvy.x1o0tod.xupqr0c"
-    );
+    // ✅ 从 _ak8i 向上找滚动容器，不依赖固定class
+    const ak8i = document.querySelector('[role="listitem"] ._ak8i');
+    if (!ak8i) return; // 已读面板未打开
+
     let container = null;
-    for (const div of allDivs) {
-      if (div.querySelector('[role="listitem"] ._ak8i')) {
-        container = div;
+    let node = ak8i.parentElement;
+    while (node && node !== document.body) {
+      const style = window.getComputedStyle(node);
+      if (
+        style.overflowY === "auto" ||
+        style.overflowY === "scroll" ||
+        style.overflow === "auto" ||
+        style.overflow === "scroll"
+      ) {
+        container = node;
         break;
       }
+      node = node.parentElement;
     }
 
     if (!container) return;
