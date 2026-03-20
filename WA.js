@@ -26,28 +26,40 @@ async function 初始化数据库() {
   });
 }
 
-// 保存独立号码到数据库
 async function 保存独立号码到数据库(uniqueNumbers) {
   try {
     const db = await 初始化数据库();
     const tx = db.transaction(STORE_NAME, "readwrite");
     const store = tx.objectStore(STORE_NAME);
-
-    // 清空旧数据（可选，根据需求决定）
     await store.clear();
 
-    // 添加新数据
     const timestamp = new Date().toISOString();
     for (const item of uniqueNumbers) {
       await store.add({
         ...item,
         采集时间: timestamp,
-        标记状态: "客户", // 默认标记为客户
+        标记状态: "客户",
       });
     }
 
     await tx.done;
-    console.log(`✅ 已保存 ${uniqueNumbers.length} 个独立号码到数据库`);
+    console.log(`✅ 已保存 ${uniqueNumbers.length} 个独立号码到IndexedDB`);
+
+    // ✅ 新增：同步写入 C# 文件存储
+    if (window.__csharpApiReady && typeof window.saveFile === "function") {
+      try {
+        const saveResult = await window.saveFile("whatsapp_customers.json", {
+          保存时间: timestamp,
+          号码列表: uniqueNumbers,
+        });
+        saveResult?.success
+          ? console.log(`✅ 同步写入文件成功: ${saveResult.path}`)
+          : console.warn("⚠️ 文件写入失败:", saveResult?.error);
+      } catch (e) {
+        console.warn("⚠️ C# 文件写入异常（不影响主流程）:", e);
+      }
+    }
+
     return true;
   } catch (error) {
     console.error("❌ 保存到数据库失败:", error);
@@ -816,28 +828,44 @@ async function 标记客户(开启 = true) {
     }
 
     try {
-      // 1. 从IndexedDB加载客户号码
-      const 客户号码 = await new Promise((resolve) => {
+      // 1. 从 IndexedDB 加载客户号码
+      const indexedDBNumbers = await new Promise((resolve) => {
         const request = indexedDB.open("WhatsAppCustomerDB", 1);
-
         request.onsuccess = () => {
           const db = request.result;
           const tx = db.transaction("uniqueNumbers", "readonly");
           const store = tx.objectStore("uniqueNumbers");
           const getAll = store.getAll();
-
-          getAll.onsuccess = () => {
-            const numbers = getAll.result.map((item) => item.号码);
-            console.log("📊 数据库中的客户:", numbers);
-            resolve(numbers);
-          };
-
+          getAll.onsuccess = () =>
+            resolve(getAll.result.map((item) => item.号码));
           getAll.onerror = () => resolve([]);
         };
-
         request.onerror = () => resolve([]);
         request.onupgradeneeded = () => resolve([]);
       });
+      console.log(`📦 IndexedDB 客户号码: ${indexedDBNumbers.length} 个`);
+
+      // ✅ 新增：从 C# 文件存储读取号码
+      let fileNumbers = [];
+      if (window.__csharpApiReady && typeof window.readFile === "function") {
+        try {
+          const fileData = await window.readFile("whatsapp_customers.json");
+          if (fileData && Array.isArray(fileData.号码列表)) {
+            fileNumbers = fileData.号码列表
+              .map((item) => item.号码)
+              .filter(Boolean);
+            console.log(`📂 文件存储客户号码: ${fileNumbers.length} 个`);
+          }
+        } catch (e) {
+          console.warn("⚠️ 读取文件存储异常（不影响主流程）:", e);
+        }
+      } else {
+        console.log("ℹ️ C# API 不可用，仅使用 IndexedDB 数据");
+      }
+
+      // ✅ 合并去重
+      const 客户号码 = [...new Set([...indexedDBNumbers, ...fileNumbers])];
+      console.log(`📊 合并后客户号码总计: ${客户号码.length} 个`);
 
       window.__客户号码列表 = new Set(客户号码);
       console.log(`📚 已加载 ${客户号码.length} 个客户号码`);
@@ -1700,6 +1728,20 @@ async function 发送图文同条(groupName, imgBase64, caption) {
 
 // ==================== 浮动窗口代码 ====================
 function 注入浮动窗口() {
+  // ✅ 新增：尝试绑定 C# API（异步，不阻塞UI注入）
+  (async () => {
+    try {
+      if (typeof CefSharp !== "undefined") {
+        await CefSharp.BindObjectAsync("csharpApi");
+        if (typeof csharpApi === "object") {
+          console.log("✅ C# API 已绑定");
+        }
+      }
+    } catch (e) {
+      console.log("ℹ️ C# API 不可用，降级为纯 IndexedDB 模式:", e.message);
+    }
+  })();
+
   // 创建宿主元素并添加到body
   const host = document.createElement("div");
   host.id = "custom-floating-window-host";
@@ -2079,7 +2121,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.1.4 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.1.5 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
