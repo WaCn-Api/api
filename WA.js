@@ -1167,20 +1167,19 @@ function 手动标记测试() {
   标记当前可见消息();
 }
 
-// 标记已读用户列表（群消息已读面板）
+// 标记已读用户列表
 function 标记已读用户列表() {
-  // 已读面板容器特征：包含 role="listitem" 且有 _ak72 类的子元素
-  const listItems = document.querySelectorAll(
-    '[role="listitem"] ._ak72, [role="listitem"]._ak72',
-  );
+  // 已读面板的联系人条目：listitem 下含 _ak8i 的
+  const listItems = document.querySelectorAll('[role="listitem"]');
   let 标记数量 = 0;
 
   listItems.forEach((item) => {
-    if (item.querySelector(".customer-badge")) return;
-
-    // 号码在 ._ak8i 里的 span._ao3e
+    // 必须有 _ak8i（已读面板特有），排除聊天列表的 listitem
     const numberEl = item.querySelector("._ak8i span._ao3e");
     if (!numberEl) return;
+
+    // 已经标记过了
+    if (item.querySelector(".customer-badge")) return;
 
     const text = numberEl.textContent || "";
     const match = text.match(/\+[\d\s\(\)\-]{9,20}/);
@@ -1189,7 +1188,7 @@ function 标记已读用户列表() {
     const 号码 = match[0].replace(/[\s\(\)\-]/g, "");
     if (!window.__客户号码列表?.has(号码)) return;
 
-    // 名字在 ._ak8q 里的 span
+    // 名字在 ._ak8q 里
     const nameEl = item.querySelector("._ak8q span[dir='auto']");
     if (!nameEl) return;
 
@@ -1210,48 +1209,50 @@ function 标记已读用户列表() {
     `;
     nameEl.parentNode.appendChild(badge);
     标记数量++;
+    console.log(`✅ 已读面板标记客户: ${号码}`);
   });
 
   if (标记数量 > 0) {
-    console.log(`📊 已读列表标记 ${标记数量} 个客户`);
+    console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
   }
 }
 
-// 已读面板滚动监听
+// 启动已读面板滚动监听
 let 已读面板监听定时器 = null;
-let 已读面板容器 = null;
+let 已读面板容器引用 = null;
 
 function 启动已读面板监听() {
-  if (已读面板监听定时器) {
-    clearInterval(已读面板监听定时器);
-  }
+  if (已读面板监听定时器) clearInterval(已读面板监听定时器);
 
   已读面板监听定时器 = setInterval(() => {
-    // 已读面板的容器特征：有大量 role="listitem" 且包含 _ak72
-    const container = document.querySelector(
-      '.x1n2onr6.x1n2onr6.xupqr0c .x889kno, [role="list"], .x1y332i5',
+    // 用测试确认的特征：scrollHeight > 1000 且含 listitem + _ak8i 的容器
+    const allDivs = document.querySelectorAll(
+      "div.x10l6tqk.x13vifvy.x1o0tod.xupqr0c"
     );
+    let container = null;
+    for (const div of allDivs) {
+      if (div.querySelector('[role="listitem"] ._ak8i')) {
+        container = div;
+        break;
+      }
+    }
+
     if (!container) return;
+    if (container === 已读面板容器引用) return; // 已绑定过
 
-    // 避免重复绑定
-    if (container === 已读面板容器) return;
-    已读面板容器 = container;
+    已读面板容器引用 = container;
+    console.log("✅ 找到已读面板容器，开始监听滚动");
 
-    console.log("✅ 找到已读面板容器，开始监听");
-
-    // 滚动条监听
-    container.addEventListener("scroll", () => {
-      setTimeout(() => {
+    let 滚动防抖 = null;
+    const 触发标记 = () => {
+      if (滚动防抖) clearTimeout(滚动防抖);
+      滚动防抖 = setTimeout(() => {
         标记已读用户列表();
       }, 200);
-    });
+    };
 
-    // 鼠标滚轮监听（懒加载时 scroll 事件可能不触发）
-    container.addEventListener("wheel", () => {
-      setTimeout(() => {
-        标记已读用户列表();
-      }, 300);
-    });
+    container.addEventListener("scroll", 触发标记);
+    container.addEventListener("wheel", 触发标记);
 
     // 立即标记当前可见的
     标记已读用户列表();
