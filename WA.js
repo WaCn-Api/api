@@ -883,6 +883,8 @@ async function 标记客户(开启 = true) {
       标记聊天列表();
       标记当前聊天窗口();
       标记当前可见消息();
+      启动已读面板监听(); // ✅ 新增
+      标记已读用户列表(); // ✅ 新增
     } catch (error) {
       console.error("❌ 开启失败:", error);
     }
@@ -894,6 +896,13 @@ async function 标记客户(开启 = true) {
       clearInterval(滚动监听定时器);
       滚动监听定时器 = null;
     }
+
+    // ✅ 新增：清理已读面板监听
+    if (已读面板监听定时器) {
+      clearInterval(已读面板监听定时器);
+      已读面板监听定时器 = null;
+    }
+    已读面板容器 = null;
 
     if (标记防抖定时器) {
       clearTimeout(标记防抖定时器);
@@ -969,7 +978,7 @@ function 监听聊天点击(event) {
       console.log("⏳ 聊天内容加载完成，开始标记...");
       标记当前聊天窗口();
       标记当前可见消息();
-
+      启动已读面板监听(); // ✅ 新增：每次切换聊天后重新监听已读面板
       // 重新启动滚动监听（因为切换聊天后容器可能变化）
       启动滚动监听();
 
@@ -1156,6 +1165,100 @@ function 手动标记测试() {
   标记聊天列表();
   标记当前聊天窗口();
   标记当前可见消息();
+}
+
+// 标记已读用户列表（群消息已读面板）
+function 标记已读用户列表() {
+  // 已读面板容器特征：包含 role="listitem" 且有 _ak72 类的子元素
+  const listItems = document.querySelectorAll(
+    '[role="listitem"] ._ak72, [role="listitem"]._ak72',
+  );
+  let 标记数量 = 0;
+
+  listItems.forEach((item) => {
+    if (item.querySelector(".customer-badge")) return;
+
+    // 号码在 ._ak8i 里的 span._ao3e
+    const numberEl = item.querySelector("._ak8i span._ao3e");
+    if (!numberEl) return;
+
+    const text = numberEl.textContent || "";
+    const match = text.match(/\+[\d\s\(\)\-]{9,20}/);
+    if (!match) return;
+
+    const 号码 = match[0].replace(/[\s\(\)\-]/g, "");
+    if (!window.__客户号码列表?.has(号码)) return;
+
+    // 名字在 ._ak8q 里的 span
+    const nameEl = item.querySelector("._ak8q span[dir='auto']");
+    if (!nameEl) return;
+
+    const badge = document.createElement("span");
+    badge.className = "customer-badge";
+    badge.innerHTML = "⭐ 客户";
+    badge.style.cssText = `
+      background: #25D366;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 11px;
+      margin-left: 8px;
+      font-weight: bold;
+      display: inline-block;
+      pointer-events: none;
+      vertical-align: middle;
+    `;
+    nameEl.parentNode.appendChild(badge);
+    标记数量++;
+  });
+
+  if (标记数量 > 0) {
+    console.log(`📊 已读列表标记 ${标记数量} 个客户`);
+  }
+}
+
+// 已读面板滚动监听
+let 已读面板监听定时器 = null;
+let 已读面板容器 = null;
+
+function 启动已读面板监听() {
+  if (已读面板监听定时器) {
+    clearInterval(已读面板监听定时器);
+  }
+
+  已读面板监听定时器 = setInterval(() => {
+    // 已读面板的容器特征：有大量 role="listitem" 且包含 _ak72
+    const container = document.querySelector(
+      '.x1n2onr6.x1n2onr6.xupqr0c .x889kno, [role="list"], .x1y332i5',
+    );
+    if (!container) return;
+
+    // 避免重复绑定
+    if (container === 已读面板容器) return;
+    已读面板容器 = container;
+
+    console.log("✅ 找到已读面板容器，开始监听");
+
+    // 滚动条监听
+    container.addEventListener("scroll", () => {
+      setTimeout(() => {
+        标记已读用户列表();
+      }, 200);
+    });
+
+    // 鼠标滚轮监听（懒加载时 scroll 事件可能不触发）
+    container.addEventListener("wheel", () => {
+      setTimeout(() => {
+        标记已读用户列表();
+      }, 300);
+    });
+
+    // 立即标记当前可见的
+    标记已读用户列表();
+
+    clearInterval(已读面板监听定时器);
+    已读面板监听定时器 = null;
+  }, 300);
 }
 
 // ==================== 通用工具函数 ====================
@@ -1728,8 +1831,6 @@ async function 发送图文同条(groupName, imgBase64, caption) {
 
 // ==================== 浮动窗口代码 ====================
 function 注入浮动窗口() {
-  
-
   // 创建宿主元素并添加到body
   const host = document.createElement("div");
   host.id = "custom-floating-window-host";
@@ -2109,7 +2210,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.1.6 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.1.7 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
