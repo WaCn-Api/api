@@ -28,19 +28,15 @@ async function waitForCSharpApi(timeout = CONFIG.API_TIMEOUT) {
     const startTime = Date.now();
     while (Date.now() - startTime < timeout) {
         try {
-            // 你的后端使用这种方式绑定
             await CefSharp.BindObjectAsync("csharpApi");
             
             if (typeof csharpApi !== 'undefined') {
-                // 获取程序目录
                 appDirectory = await csharpApi.getAppDirectory();
                 console.log('✅ C# API 已就绪，程序目录:', appDirectory);
                 
-                // 挂载辅助方法
                 window.saveFile = async function(filename, data) {
                     try {
                         const jsonStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-                        // 拼接完整路径
                         const fullPath = appDirectory + filename;
                         await csharpApi.saveDataToFile(fullPath, jsonStr);
                         return { success: true, path: fullPath };
@@ -198,7 +194,7 @@ function estimateBase64Size(base64Data) {
     return sizeInBytes / 1024; // KB
 }
 
-// ==================== 本地文件存储管理（适配你的后端）====================
+// ==================== 本地文件存储管理 ====================
 
 /**
  * 保存客户数据到固定文件
@@ -239,14 +235,12 @@ async function saveCustomerDataToFile(customers) {
 
         console.log(`📁 正在保存客户数据到: ${CONFIG.CUSTOMER_DATA_FILE}`);
         
-        // 使用挂载的 saveFile 方法
         const result = await window.saveFile(CONFIG.CUSTOMER_DATA_FILE, dataToSave);
         
         if (result && result.success) {
             console.log(`✅ 客户数据已保存，共 ${customers.length} 个客户`);
             console.log(`📁 保存路径: ${result.path}`);
             
-            // 保存备份
             try {
                 const backupResult = await window.saveFile(CONFIG.CUSTOMER_BACKUP_FILE, {
                     ...dataToSave,
@@ -291,7 +285,6 @@ async function loadCustomerDataFromFile() {
 
         console.log(`📁 正在从 ${CONFIG.CUSTOMER_DATA_FILE} 加载客户数据...`);
         
-        // 使用挂载的 readFile 方法
         const data = await window.readFile(CONFIG.CUSTOMER_DATA_FILE);
         
         if (data !== null) {
@@ -330,7 +323,6 @@ async function loadCustomerDataFromFile() {
         } else {
             console.log(`📂 客户数据文件不存在: ${CONFIG.CUSTOMER_DATA_FILE}`);
             
-            // 尝试读取备份
             const backupData = await window.readFile(CONFIG.CUSTOMER_BACKUP_FILE);
             if (backupData !== null) {
                 console.log("✅ 从备份文件恢复成功");
@@ -869,7 +861,6 @@ function 查找群组点击元素(chatName) {
         );
     }
 
-    // 通过title属性查找
     for (const el of document.querySelectorAll('span[dir="auto"][title], div[title], span[title]')) {
         if (normalize(el.getAttribute("title")) === normalize(chatName)) {
             const clickable = findClickable(el);
@@ -877,7 +868,6 @@ function 查找群组点击元素(chatName) {
         }
     }
 
-    // 通过文本内容查找
     for (const item of document.querySelectorAll('[role="row"]')) {
         const textEl = item.querySelector('span[dir="auto"]');
         if (textEl && normalize(textEl.textContent).includes(normalize(chatName))) {
@@ -1548,7 +1538,6 @@ async function 点击聊天列表(chatName) {
     try {
         console.log(`🔍 正在查找聊天: "${chatName}"`);
         
-        // 通过title属性查找
         const titleElements = document.querySelectorAll('span[dir="auto"][title], div[title], span[title]');
         for (let el of titleElements) {
             const title = el.getAttribute("title") || "";
@@ -1562,7 +1551,6 @@ async function 点击聊天列表(chatName) {
             }
         }
         
-        // 通过文本内容查找
         const chatItems = document.querySelectorAll('[role="row"], [role="listitem"], .chat, [data-testid="chat-list-item"], ._ak8q');
         for (let item of chatItems) {
             const textContent = item.textContent || "";
@@ -1794,6 +1782,914 @@ async function 发送文本图片内容(groupName, text, imgBase64, imageDelay =
     }
 }
 
+// ==================== 浮动窗口 ====================
+
+function 注入浮动窗口() {
+    // 检查是否已存在
+    if (document.getElementById('custom-floating-window-host')) {
+        console.log('浮动窗口已存在，跳过注入');
+        return;
+    }
+
+    // 创建宿主元素
+    const host = document.createElement("div");
+    host.id = "custom-floating-window-host";
+    host.style.all = "initial";
+    document.body.appendChild(host);
+
+    const shadowRoot = host.attachShadow({ mode: "open" });
+
+    const 浮动窗口 = document.createElement("div");
+    浮动窗口.id = "custom-floating-window";
+
+    const style = document.createElement("style");
+    style.textContent = `
+        #custom-floating-window {
+            position: fixed;
+            width: 340px;
+            height: 100%;
+            right: 0;
+            top: 0;
+            background-color: #ffffff;
+            border-left: 1px solid #cccccc;
+            z-index: 99999999;
+            overflow-y: auto;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #333333;
+            padding: 0;
+            margin: 0;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        body {
+            padding-right: 340px !important;
+        }
+
+        .title-bar {
+            padding: 12px 15px;
+            cursor: move;
+            background-color: #075e54;
+            color: white;
+            border-bottom: 1px solid #054c44;
+            user-select: none;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .content-area {
+            padding: 15px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #075e54;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 8px 12px;
+            background-color: #075e54;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background-color 0.2s;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        button:hover {
+            background-color: #054c44;
+        }
+
+        button.danger {
+            background-color: #dc3545;
+        }
+
+        button.danger:hover {
+            background-color: #c82333;
+        }
+
+        button.success {
+            background-color: #28a745;
+        }
+
+        button.success:hover {
+            background-color: #218838;
+        }
+
+        button.warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+        button.warning:hover {
+            background-color: #e0a800;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .contact-list {
+            margin-top: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid #dddddd;
+            border-radius: 4px;
+            padding: 5px;
+            background-color: white;
+            display: none;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            cursor: pointer;
+            background-color: white;
+            border: 1px solid #eeeeee;
+        }
+
+        .contact-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .contact-item.selected {
+            background-color: #e3f2fd;
+            border-left: 3px solid #075e54;
+        }
+
+        .contact-checkbox {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+            cursor: pointer;
+            accent-color: #075e54;
+        }
+
+        .contact-label {
+            cursor: pointer;
+            user-select: none;
+            flex-grow: 1;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .action-buttons {
+            margin: 10px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #dddddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 14px;
+            margin-top: 10px;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #075e54;
+            box-shadow: 0 0 0 2px rgba(7, 94, 84, 0.1);
+        }
+
+        .file-upload-container {
+            margin: 10px 0;
+        }
+
+        .upload-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .upload-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 12px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .upload-btn:hover {
+            background-color: #5a6268;
+        }
+
+        #IpImg {
+            display: none;
+        }
+
+        .clear-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 12px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .clear-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .preview-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            min-height: 150px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9f9f9;
+            margin-top: 10px;
+        }
+
+        .preview-area.has-image {
+            display: flex;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 4px;
+        }
+
+        .preview-placeholder {
+            color: #999;
+            font-size: 13px;
+        }
+
+        .send-options {
+            margin: 15px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .option-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 10px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .option-item input[type="radio"] {
+            margin-right: 5px;
+        }
+
+        #progressContainer {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .progress-bar-container {
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #075e54;
+            transition: width 0.3s ease;
+        }
+
+        .status-message {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b8daff;
+            border-radius: 4px;
+            padding: 8px;
+            margin: 10px 0;
+            font-size: 12px;
+            color: #004085;
+        }
+
+        .file-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+    `;
+
+    浮动窗口.innerHTML = `
+        <div class="title-bar">
+            <span>📱 WhatsApp 群发助手 v3.0</span>
+        </div>
+        <div class="content-area">
+            <!-- 采集报表区域 -->
+            <div class="section">
+                <div class="section-title">📊 群组报表</div>
+                <button id="loadGroupsBtn" style="width: 100%; background-color: #dc3545;">获取未归档群组报表</button>
+            </div>
+
+            <!-- 客户标记区域 -->
+            <div class="section">
+                <div class="section-title">⭐ 客户标记</div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="startCustomerMark" class="success" style="flex: 1;">开启标记</button>
+                    <button id="stopCustomerMark" class="danger" style="flex: 1;">关闭标记</button>
+                </div>
+                <div class="info-box" id="customerCount">
+                    当前客户数: 0
+                </div>
+            </div>
+
+            <!-- 文件管理区域 -->
+            <div class="section">
+                <div class="section-title">📁 文件管理</div>
+                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <button id="fileInfoBtn" style="background-color: #17a2b8;">文件信息</button>
+                    <button id="refreshDataBtn" style="background-color: #28a745;">刷新数据</button>
+                    <button id="manualSaveBtn" style="background-color: #ffc107; color: #212529;">手动保存</button>
+                </div>
+                <div class="file-info" id="fileStatus"></div>
+            </div>
+
+            <!-- 群组列表区域 -->
+            <div class="section">
+                <div class="section-title">📋 群组列表</div>
+                <button id="loadContactsBtn" style="width: 100%;">加载未归档群组</button>
+                <div id="contactsContainer" class="contact-list"></div>
+                
+                <div class="action-buttons">
+                    <button id="selectAllBtn">全选</button>
+                    <button id="invertSelectBtn">反选</button>
+                    <button id="clearSelectBtn">清空</button>
+                </div>
+            </div>
+
+            <!-- 消息输入区域 -->
+            <div class="section">
+                <div class="section-title">✉️ 消息内容</div>
+                <textarea id="messageInput" placeholder="请输入要发送的消息内容..."></textarea>
+
+                <div class="file-upload-container">
+                    <div class="upload-controls">
+                        <label for="IpImg" class="upload-btn">
+                            📎 选择图片
+                        </label>
+                        <input type="file" id="IpImg" accept="image/*">
+                        <button id="clear-btn" class="clear-btn" disabled>🗑️ 清空</button>
+                    </div>
+                    
+                    <div class="preview-area">
+                        <div class="preview-placeholder">暂无图片</div>
+                        <img id="preview" src="" alt="预览图" class="preview-image">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 发送选项 -->
+            <div class="section">
+                <div class="section-title">⚙️ 发送模式</div>
+                <div class="send-options">
+                    <div class="option-group">
+                        <label class="option-item">
+                            <input type="radio" name="sendOption" value="default" checked> 智能模式
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="sendOption" value="textOnly"> 仅文本
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="sendOption" value="imageOnly"> 仅图片
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="sendOption" value="imageAndText"> 图文同发
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="sendOption" value="LeftimageAndText"> 先图后文
+                        </label>
+                        <label class="option-item">
+                            <input type="radio" name="sendOption" value="TextAndimage"> 先文后图
+                        </label>
+                    </div>
+                </div>
+
+                <button id="sendBatchBtn" class="success" style="width: 100%; font-size: 16px; padding: 12px;">🚀 开始群发</button>
+
+                <div id="progressContainer">
+                    <div class="progress-info">
+                        <span id="progressText">准备发送...</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div id="progressBar" class="progress-bar"></div>
+                    </div>
+                </div>
+
+                <div id="statusMessage" class="status-message"></div>
+            </div>
+        </div>
+    `;
+
+    shadowRoot.appendChild(style);
+    shadowRoot.appendChild(浮动窗口);
+
+    document.body.style.paddingRight = "340px";
+    const app = document.getElementById("app");
+    if (app) {
+        app.style.maxWidth = "calc(100% - 340px)";
+    }
+
+    // ==================== 浮动窗口逻辑 ====================
+    let 联系人数据 = [];
+    let 当前选中联系人 = new Set();
+    let fileInputImg = null;
+
+    const fileInput = shadowRoot.getElementById("IpImg");
+    const preview = shadowRoot.getElementById("preview");
+    const clearBtn = shadowRoot.getElementById("clear-btn");
+    const previewArea = shadowRoot.querySelector(".preview-area");
+    const messageInput = shadowRoot.getElementById("messageInput");
+    const progressContainer = shadowRoot.getElementById("progressContainer");
+    const progressText = shadowRoot.getElementById("progressText");
+    const progressPercent = shadowRoot.getElementById("progressPercent");
+    const progressBar = shadowRoot.getElementById("progressBar");
+    const statusMessage = shadowRoot.getElementById("statusMessage");
+    const customerCount = shadowRoot.getElementById("customerCount");
+    const fileStatus = shadowRoot.getElementById("fileStatus");
+
+    function 更新状态消息(message, type = "info") {
+        statusMessage.textContent = message;
+        statusMessage.className = "status-message";
+        if (type === "success") {
+            statusMessage.classList.add("status-success");
+        } else if (type === "error") {
+            statusMessage.classList.add("status-error");
+        }
+    }
+
+    function 更新客户计数() {
+        const count = window.__客户号码列表?.size || 0;
+        customerCount.textContent = `当前客户数: ${count}`;
+    }
+
+    function 更新文件状态(message) {
+        fileStatus.textContent = message;
+        setTimeout(() => {
+            if (fileStatus.textContent === message) {
+                fileStatus.textContent = "";
+            }
+        }, 3000);
+    }
+
+    function getSelectedSendOption() {
+        const selectedOption = shadowRoot.querySelector('.send-options input[name="sendOption"]:checked');
+        return selectedOption ? selectedOption.value : "default";
+    }
+
+    // 文件上传处理
+    fileInput.addEventListener("change", function(e) {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            if (!file.type.startsWith("image/")) {
+                alert("请选择图片文件");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                preview.src = event.target.result;
+                previewArea.classList.add("has-image");
+                if (clearBtn) clearBtn.disabled = false;
+                fileInputImg = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    clearBtn.addEventListener("click", function() {
+        preview.src = "";
+        previewArea.classList.remove("has-image");
+        fileInput.value = "";
+        fileInputImg = null;
+        clearBtn.disabled = true;
+    });
+
+    // 粘贴图片
+    messageInput.addEventListener("paste", async(e) => {
+        const items = e.clipboardData.items;
+        for (let item of items) {
+            if (item.type.indexOf("image") !== -1) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    preview.src = event.target.result;
+                    previewArea.classList.add("has-image");
+                    if (clearBtn) clearBtn.disabled = false;
+                    fileInputImg = event.target.result;
+                    更新状态消息("已粘贴图片", "success");
+                };
+                reader.readAsDataURL(file);
+                return;
+            }
+        }
+    });
+
+    // 获取群组报表
+    shadowRoot.getElementById("loadGroupsBtn").addEventListener("click", async function() {
+        const btn = this;
+        try {
+            btn.disabled = true;
+            btn.textContent = "采集中...";
+            更新状态消息("正在采集群组成员号码，请稍候...", "success");
+
+            const results = await 采集群组号码并生成报告();
+
+            if (results && results.results) {
+                更新状态消息(`采集完成！成功: ${results.results.filter(r => r.status === "success").length} 个群组`, "success");
+                更新客户计数();
+            }
+        } catch (error) {
+            console.error("采集失败:", error);
+            更新状态消息(`采集失败: ${error.message}`, "error");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "获取未归档群组报表";
+        }
+    });
+
+    // 加载联系人
+    shadowRoot.getElementById("loadContactsBtn").addEventListener("click", async function() {
+        const btn = this;
+        const contactsContainer = shadowRoot.getElementById("contactsContainer");
+
+        try {
+            btn.disabled = true;
+            btn.textContent = "加载中...";
+            contactsContainer.style.display = "block";
+            contactsContainer.innerHTML = '<div style="padding: 20px; text-align: center;">正在加载群组列表...</div>';
+
+            联系人数据 = await 获取未归档群组();
+
+            if (!联系人数据 || 联系人数据.length === 0) {
+                contactsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">没有找到任何群组</div>';
+                return;
+            }
+
+            let contactsHTML = "";
+            联系人数据.forEach((contact, index) => {
+                const contactId = `contact-${index}`;
+                const memberCount = contact.participantCount || 0;
+                contactsHTML += `
+                    <div class="contact-item" data-contact-id="${contactId}">
+                        <input type="checkbox" id="${contactId}" class="contact-checkbox" value="${contact.id}">
+                        <label for="${contactId}" class="contact-label" title="${contact.name}">${contact.name} (${memberCount}人)</label>
+                    </div>
+                `;
+            });
+
+            contactsContainer.innerHTML = contactsHTML;
+            更新状态消息(`已加载 ${联系人数据.length} 个群组`, "success");
+
+            const contactItems = shadowRoot.querySelectorAll(".contact-item");
+            contactItems.forEach((item) => {
+                const checkbox = item.querySelector(".contact-checkbox");
+
+                item.addEventListener("click", (e) => {
+                    if (e.target === checkbox) return;
+                    checkbox.checked = !checkbox.checked;
+                    if (checkbox.checked) {
+                        item.classList.add("selected");
+                        当前选中联系人.add(checkbox.value);
+                    } else {
+                        item.classList.remove("selected");
+                        当前选中联系人.delete(checkbox.value);
+                    }
+                    更新状态消息(`已选中 ${当前选中联系人.size} 个群组`, "success");
+                });
+
+                checkbox.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    if (checkbox.checked) {
+                        item.classList.add("selected");
+                        当前选中联系人.add(checkbox.value);
+                    } else {
+                        item.classList.remove("selected");
+                        当前选中联系人.delete(checkbox.value);
+                    }
+                    更新状态消息(`已选中 ${当前选中联系人.size} 个群组`, "success");
+                });
+            });
+        } catch (error) {
+            console.error("加载失败:", error);
+            contactsContainer.innerHTML = `
+                <div class="status-error" style="padding: 15px;">
+                    <p>加载失败: ${error.message}</p>
+                </div>
+            `;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "加载未归档群组列表";
+        }
+    });
+
+    // 全选
+    shadowRoot.getElementById("selectAllBtn").addEventListener("click", () => {
+        const checkboxes = shadowRoot.querySelectorAll(".contact-checkbox");
+        当前选中联系人.clear();
+        checkboxes.forEach((checkbox) => {
+            checkbox.checked = true;
+            checkbox.parentElement.classList.add("selected");
+            当前选中联系人.add(checkbox.value);
+        });
+        更新状态消息(`已全选 ${当前选中联系人.size} 个群组`, "success");
+    });
+
+    // 反选
+    shadowRoot.getElementById("invertSelectBtn").addEventListener("click", () => {
+        const checkboxes = shadowRoot.querySelectorAll(".contact-checkbox");
+        当前选中联系人.clear();
+        checkboxes.forEach((checkbox) => {
+            checkbox.checked = !checkbox.checked;
+            if (checkbox.checked) {
+                checkbox.parentElement.classList.add("selected");
+                当前选中联系人.add(checkbox.value);
+            } else {
+                checkbox.parentElement.classList.remove("selected");
+            }
+        });
+        更新状态消息(`已反选，当前选中 ${当前选中联系人.size} 个群组`, "success");
+    });
+
+    // 清空选择
+    shadowRoot.getElementById("clearSelectBtn").addEventListener("click", () => {
+        shadowRoot.querySelectorAll(".contact-checkbox").forEach((checkbox) => {
+            checkbox.checked = false;
+            checkbox.parentElement.classList.remove("selected");
+        });
+        当前选中联系人.clear();
+        更新状态消息("已清空所有选择", "success");
+    });
+
+    // 开启客户标记
+    shadowRoot.getElementById("startCustomerMark").addEventListener("click", async () => {
+        await 标记客户(true);
+        更新客户计数();
+        更新状态消息("⭐ 客户标记已开启", "success");
+    });
+
+    // 关闭客户标记
+    shadowRoot.getElementById("stopCustomerMark").addEventListener("click", () => {
+        标记客户(false);
+        更新客户计数();
+        更新状态消息("⏹️ 客户标记已关闭", "success");
+    });
+
+    // 文件信息
+    shadowRoot.getElementById("fileInfoBtn").addEventListener("click", async () => {
+        更新文件状态("正在获取文件信息...");
+        await 查看客户文件信息();
+        更新文件状态("✅ 请查看控制台");
+    });
+
+    // 刷新数据
+    shadowRoot.getElementById("refreshDataBtn").addEventListener("click", async () => {
+        更新文件状态("正在刷新数据...");
+        const result = await 手动刷新客户数据();
+        if (result.success) {
+            更新文件状态(`✅ 已刷新，当前 ${result.customers.length} 个客户`);
+            更新客户计数();
+        } else {
+            更新文件状态("❌ 刷新失败");
+        }
+    });
+
+    // 手动保存
+    shadowRoot.getElementById("manualSaveBtn").addEventListener("click", async () => {
+        更新文件状态("正在保存数据...");
+        const result = await 手动保存客户数据();
+        if (result.success) {
+            更新文件状态(`✅ 已保存 ${result.count} 个客户`);
+        } else {
+            更新文件状态("❌ 保存失败");
+        }
+    });
+
+    // 群发消息
+    shadowRoot.getElementById("sendBatchBtn").addEventListener("click", async () => {
+        const message = messageInput.value.trim();
+        
+        if (!message && !fileInputImg) {
+            更新状态消息("请输入要发送的消息内容", "error");
+            return;
+        }
+        
+        if (当前选中联系人.size === 0) {
+            更新状态消息("请至少选择一个群组", "error");
+            return;
+        }
+
+        progressContainer.style.display = "block";
+        progressText.textContent = `准备发送 (0/${当前选中联系人.size})`;
+        progressPercent.textContent = "0%";
+        progressBar.style.width = "0%";
+
+        const 发送按钮 = shadowRoot.getElementById("sendBatchBtn");
+        const 原按钮文本 = 发送按钮.textContent;
+        发送按钮.disabled = true;
+        发送按钮.textContent = "发送中...";
+
+        let successCount = 0;
+        let failCount = 0;
+        const 所有联系人 = Array.from(当前选中联系人);
+        const 总数量 = 所有联系人.length;
+        const sendOption = getSelectedSendOption();
+
+        console.log("📋 准备发送到以下群组:");
+        所有联系人.forEach((id, index) => {
+            const group = 联系人数据.find(g => g.id === id);
+            console.log(`  ${index + 1}. ${group?.name || id}`);
+        });
+
+        for (let i = 0; i < 总数量; i++) {
+            const contactId = 所有联系人[i];
+            const group = 联系人数据.find(g => g.id === contactId);
+            const groupName = group?.name || contactId;
+
+            try {
+                const progress = Math.floor(((i + 1) / 总数量) * 100);
+                progressText.textContent = `发送中 (${i + 1}/${总数量}) 成功: ${successCount}, 失败: ${failCount}`;
+                progressPercent.textContent = `${progress}%`;
+                progressBar.style.width = `${progress}%`;
+                
+                console.log(`\n📨 [${i + 1}/${总数量}] 正在发送到: ${groupName}`);
+
+                const hasImage = !!fileInputImg;
+                const hasText = !!message;
+
+                const imageTextModes = ["imageAndText", "LeftimageAndText", "TextAndimage"];
+                if (imageTextModes.includes(sendOption) && (!hasImage || !hasText)) {
+                    console.warn(`⚠️ 群发跳过: 图文模式需要同时提供图片和文本`);
+                    failCount++;
+                    continue;
+                }
+
+                if (sendOption === "textOnly" && !hasText) {
+                    console.warn(`⚠️ 群发跳过: 仅文本模式需要提供文本内容`);
+                    failCount++;
+                    continue;
+                }
+
+                if (sendOption === "imageOnly" && !hasImage) {
+                    console.warn(`⚠️ 群发跳过: 仅图片模式需要提供图片`);
+                    failCount++;
+                    continue;
+                }
+
+                let sendResult = false;
+                switch (sendOption) {
+                    case "default":
+                        if (hasImage && hasText) {
+                            sendResult = await 发送图文同条(groupName, fileInputImg, message);
+                        } else if (hasImage) {
+                            sendResult = await 发送图片内容(groupName, fileInputImg);
+                        } else if (hasText) {
+                            sendResult = await 发送文本内容(groupName, message);
+                        }
+                        break;
+
+                    case "imageAndText":
+                        sendResult = await 发送图文同条(groupName, fileInputImg, message);
+                        break;
+
+                    case "LeftimageAndText":
+                        sendResult = await 发送图文内容(groupName, fileInputImg, message);
+                        break;
+
+                    case "TextAndimage":
+                        sendResult = await 发送文本图片内容(groupName, message, fileInputImg);
+                        break;
+
+                    case "textOnly":
+                        sendResult = await 发送文本内容(groupName, message);
+                        break;
+
+                    case "imageOnly":
+                        sendResult = await 发送图片内容(groupName, fileInputImg);
+                        break;
+                }
+
+                if (sendResult) {
+                    successCount++;
+                    console.log(`  ✅ 发送成功: ${groupName}`);
+                } else {
+                    failCount++;
+                    console.log(`  ❌ 发送失败: ${groupName}`);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (error) {
+                console.error(`  ❌ 发送给 ${groupName} 失败:`, error);
+                failCount++;
+            }
+        }
+
+        progressText.textContent = `发送完成 (${总数量}/${总数量}) 成功: ${successCount}, 失败: ${failCount}`;
+        progressPercent.textContent = "100%";
+        progressBar.style.width = "100%";
+
+        if (failCount === 0) {
+            更新状态消息(`✅ 消息已成功发送给 ${successCount} 个群组`, "success");
+        } else {
+            更新状态消息(
+                `发送完成: 成功 ${successCount} 个, 失败 ${failCount} 个`,
+                failCount === 总数量 ? "error" : "success"
+            );
+        }
+
+        // 清空输入
+        messageInput.value = "";
+        clearBtn.click();
+
+        发送按钮.disabled = false;
+        发送按钮.textContent = 原按钮文本;
+    });
+
+    更新状态消息("✅ 群发助手已就绪", "success");
+    更新客户计数();
+}
+
 // ==================== 初始化 ====================
 
 // 自动等待C# API并挂载方法
@@ -1801,6 +2697,13 @@ async function 发送文本图片内容(groupName, text, imgBase64, imageDelay =
     console.log("🚀 WhatsApp助手启动中...");
     await waitForCSharpApi();
     console.log("✅ C# API初始化完成，程序目录:", appDirectory);
+    
+    // 注入浮动窗口
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', 注入浮动窗口);
+    } else {
+        注入浮动窗口();
+    }
 })();
 
 // 导出全局函数
