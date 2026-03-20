@@ -817,6 +817,9 @@ let 客户标记监控开启 = false;
 let 已标记消息的ID集合 = new Set();
 let 标记防抖定时器 = null;
 let 滚动监听定时器 = null;
+// ✅ 加上这两行
+let 已读面板监听定时器 = null;
+let 已读面板容器引用 = null;
 
 async function 标记客户(开启 = true) {
   console.log("标记客户被调用，开启:", 开启);
