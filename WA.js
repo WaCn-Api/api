@@ -818,7 +818,7 @@ let 已标记消息的ID集合 = new Set();
 let 标记防抖定时器 = null;
 let 滚动监听定时器 = null;
 // ✅ 加上这两行
-let 已读面板监听定时器 = null;
+let 已读面板监听定时器 = null; // 实际存的是 bodyObserver
 let 已读面板容器引用 = null;
 
 async function 标记客户(开启 = true) {
@@ -900,18 +900,15 @@ async function 标记客户(开启 = true) {
       滚动监听定时器 = null;
     }
 
-    // ✅ 新增：清理已读面板监听
+    // ✅ 改这里，原来是 clearInterval，现在是 disconnect
     if (已读面板监听定时器) {
-      clearInterval(已读面板监听定时器);
+      已读面板监听定时器.disconnect();
       已读面板监听定时器 = null;
     }
-    已读面板容器引用 = null;
-
-    // 关闭分支里
-    if (已读面板容器引用?._observer) {
-      已读面板容器引用._observer.disconnect();
+    if (已读面板容器引用) {
+      已读面板容器引用._observer?.disconnect();
+      已读面板容器引用 = null;
     }
-    已读面板容器引用 = null;
 
     if (标记防抖定时器) {
       clearTimeout(标记防抖定时器);
@@ -987,7 +984,7 @@ function 监听聊天点击(event) {
       console.log("⏳ 聊天内容加载完成，开始标记...");
       标记当前聊天窗口();
       标记当前可见消息();
-      启动已读面板监听(); // ✅ 新增：每次切换聊天后重新监听已读面板
+      //   启动已读面板监听(); // ✅ 新增：每次切换聊天后重新监听已读面板
       // 重新启动滚动监听（因为切换聊天后容器可能变化）
       启动滚动监听();
 
@@ -1231,59 +1228,136 @@ function 标记已读用户列表() {
 
   if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
 }
+// ==================== 已读面板监听（MutationObserver，零轮询） ====================
 
+// 变量说明：已读面板监听定时器 复用存 bodyObserver
 function 启动已读面板监听() {
-  if (已读面板监听定时器) clearInterval(已读面板监听定时器);
+  // 清理旧监听
+  if (已读面板监听定时器) {
+    已读面板监听定时器.disconnect();
+    已读面板监听定时器 = null;
+  }
+  if (已读面板容器引用) {
+    已读面板容器引用._observer?.disconnect();
+    已读面板容器引用 = null;
+  }
 
-  // 持续轮询，只要客户标记开着就一直检测
-  已读面板监听定时器 = setInterval(() => {
-    if (!客户标记监控开启) return;
-
+  // 查找已读面板虚拟列表
+  function 查找已读面板() {
     const allLists = document.querySelectorAll(".x1y332i5");
-    let virtualList = null;
-    let maxHeight = 0;
+    let best = null,
+      maxH = 0;
     allLists.forEach((el) => {
       const h = parseInt(el.style.height) || 0;
-      if (el.querySelector('[role="listitem"] ._ak8i') && h > maxHeight) {
-        maxHeight = h;
-        virtualList = el;
+      if (h > maxH && el.querySelector('[role="listitem"] ._ak8i')) {
+        maxH = h;
+        best = el;
       }
     });
+    return best;
+  }
 
-    if (!virtualList) {
-      // 已读面板关闭了，重置引用
-      if (已读面板容器引用) {
-        已读面板容器引用._observer?.disconnect();
-        已读面板容器引用 = null;
-      }
-      return;
-    }
-
-    // 已读面板没变化，不重复绑定
-    if (virtualList === 已读面板容器引用?._list) return;
-
-    // 新的已读面板出现，绑定监听
-    if (已读面板容器引用) {
-      已读面板容器引用._observer?.disconnect();
-    }
-
-    console.log("✅ 检测到已读面板，开始监听, height:", maxHeight);
+  // 绑定已读面板内部懒加载监听
+  function 绑定已读面板(virtualList) {
+    if (已读面板容器引用?._list === virtualList) return; // 已绑定
+    已读面板容器引用?._observer?.disconnect();
 
     let 防抖 = null;
-    const 触发标记 = () => {
+    const observer = new MutationObserver(() => {
       if (防抖) clearTimeout(防抖);
       防抖 = setTimeout(() => 标记已读用户列表(), 200);
-    };
-
-    const observer = new MutationObserver(触发标记);
+    });
     observer.observe(virtualList, { childList: true, subtree: false });
-
     已读面板容器引用 = { _list: virtualList, _observer: observer };
 
-    // 立即标记
+    console.log("✅ 已读面板绑定成功");
     标记已读用户列表();
+  }
 
-  }, 800); // 每800ms检查一次
+  // 防抖，避免 body 变化过于频繁
+  let bodyDebounce = null;
+
+  const bodyObserver = new MutationObserver((mutations) => {
+    if (!客户标记监控开启) return;
+
+    // 快速过滤：只处理涉及 x1y332i5 或 _ak8i 的变化
+    const relevant = mutations.some((m) =>
+      [...m.addedNodes, ...m.removedNodes].some(
+        (n) =>
+          n.nodeType === 1 &&
+          (n.classList?.contains("x1y332i5") ||
+            n.querySelector?.("._ak8i") ||
+            n.classList?.contains("_ak8i")),
+      ),
+    );
+    if (!relevant) return;
+
+    if (bodyDebounce) clearTimeout(bodyDebounce);
+    bodyDebounce = setTimeout(() => {
+      const panel = 查找已读面板();
+      if (panel) {
+        绑定已读面板(panel);
+      } else if (已读面板容器引用) {
+        // 面板关闭了，清理
+        已读面板容器引用._observer?.disconnect();
+        已读面板容器引用 = null;
+        console.log("ℹ️ 已读面板已关闭");
+      }
+    }, 100);
+  });
+
+  bodyObserver.observe(document.body, { childList: true, subtree: true });
+  已读面板监听定时器 = bodyObserver;
+
+  // 立即检测一次（如果已读面板已经打开）
+  const panel = 查找已读面板();
+  if (panel) 绑定已读面板(panel);
+}
+
+function 标记已读用户列表() {
+  const allLists = document.querySelectorAll(".x1y332i5");
+  let virtualList = null,
+    maxHeight = 0;
+  allLists.forEach((el) => {
+    const h = parseInt(el.style.height) || 0;
+    if (h > maxHeight && el.querySelector('[role="listitem"] ._ak8i')) {
+      maxHeight = h;
+      virtualList = el;
+    }
+  });
+  if (!virtualList) return;
+
+  const listItems = virtualList.querySelectorAll('[role="listitem"]');
+  let 标记数量 = 0;
+
+  listItems.forEach((item) => {
+    if (item.querySelector(".customer-badge")) return;
+    const numberEl = item.querySelector("._ak8i span._ao3e");
+    if (!numberEl) return;
+
+    const match = (numberEl.textContent || "").match(/\+[\d\s\(\)\-]{9,20}/);
+    if (!match) return;
+
+    const 号码 = match[0].replace(/[\s\(\)\-]/g, "");
+    if (!window.__客户号码列表?.has(号码)) return;
+
+    const nameEl = item.querySelector("._ak8q span[dir='auto']");
+    if (!nameEl) return;
+
+    const badge = document.createElement("span");
+    badge.className = "customer-badge";
+    badge.innerHTML = "⭐ 客户";
+    badge.style.cssText = `
+      background: #25D366; color: white; padding: 2px 6px;
+      border-radius: 10px; font-size: 11px; margin-left: 8px;
+      font-weight: bold; display: inline-block;
+      pointer-events: none; vertical-align: middle;
+    `;
+    nameEl.parentNode.appendChild(badge);
+    标记数量++;
+  });
+
+  if (标记数量 > 0) console.log(`📊 已读面板标记 ${标记数量} 个客户`);
 }
 
 // ==================== 通用工具函数 ====================
