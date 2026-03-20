@@ -904,6 +904,7 @@ async function 标记客户(开启 = true) {
     }
     已读面板容器引用 = null;
 
+    // 关闭分支里
     if (已读面板容器引用?._observer) {
       已读面板容器引用._observer.disconnect();
     }
@@ -1171,19 +1172,28 @@ function 手动标记测试() {
   标记当前聊天窗口();
   标记当前可见消息();
 }
+// 替换这两个函数
 
-// 标记已读用户列表
 function 标记已读用户列表() {
-  // 已读面板的联系人条目：listitem 下含 _ak8i 的
-  const listItems = document.querySelectorAll('[role="listitem"]');
+  // 找 height 最大且含 _ak8i 的 x1y332i5
+  const allLists = document.querySelectorAll(".x1y332i5");
+  let virtualList = null;
+  let maxHeight = 0;
+  allLists.forEach((el) => {
+    const h = parseInt(el.style.height) || 0;
+    if (el.querySelector('[role="listitem"] ._ak8i') && h > maxHeight) {
+      maxHeight = h;
+      virtualList = el;
+    }
+  });
+  if (!virtualList) return;
+
+  const listItems = virtualList.querySelectorAll('[role="listitem"]');
   let 标记数量 = 0;
 
   listItems.forEach((item) => {
-    // 必须有 _ak8i（已读面板特有），排除聊天列表的 listitem
     const numberEl = item.querySelector("._ak8i span._ao3e");
     if (!numberEl) return;
-
-    // 已经标记过了
     if (item.querySelector(".customer-badge")) return;
 
     const text = numberEl.textContent || "";
@@ -1193,7 +1203,6 @@ function 标记已读用户列表() {
     const 号码 = match[0].replace(/[\s\(\)\-]/g, "");
     if (!window.__客户号码列表?.has(号码)) return;
 
-    // 名字在 ._ak8q 里
     const nameEl = item.querySelector("._ak8q span[dir='auto']");
     if (!nameEl) return;
 
@@ -1217,78 +1226,56 @@ function 标记已读用户列表() {
     console.log(`✅ 已读面板标记客户: ${号码}`);
   });
 
-  if (标记数量 > 0) {
-    console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
-  }
+  if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
 }
 
-// 启动已读面板滚动监听
-let 已读面板监听定时器 = null;
-let 已读面板容器引用 = null;
 function 启动已读面板监听() {
   if (已读面板监听定时器) clearInterval(已读面板监听定时器);
+  if (已读面板容器引用?._observer) {
+    已读面板容器引用._observer.disconnect();
+    已读面板容器引用 = null;
+  }
 
   已读面板监听定时器 = setInterval(() => {
-    // 找所有 x1y332i5，取含 _ak8i 且 height 最大的那个（已读面板）
+    // 找 height 最大且含 _ak8i 的 x1y332i5
     const allLists = document.querySelectorAll(".x1y332i5");
     let virtualList = null;
     let maxHeight = 0;
-
     allLists.forEach((el) => {
-      if (!el.querySelector('[role="listitem"] ._ak8i')) return;
       const h = parseInt(el.style.height) || 0;
-      if (h > maxHeight) {
+      if (el.querySelector('[role="listitem"] ._ak8i') && h > maxHeight) {
         maxHeight = h;
         virtualList = el;
       }
     });
 
     if (!virtualList) return;
+    if (virtualList === 已读面板容器引用?._list) return; // 已绑定
 
-    // 滚动容器：父 > 父 > 父，找到有滚动能力的祖先
-    // 父class为空，直接用 parentElement 向上找含 x1n2onr6 的
-    let container = null;
-    let node = virtualList.parentElement;
-    while (node && node !== document.body) {
-      if (
-        node.className &&
-        node.className.includes("x1n2onr6") &&
-        node.className.includes("xupqr0c")
-      ) {
-        container = node;
-        break;
-      }
-      node = node.parentElement;
-    }
-
-    if (!container) {
-      // 找不到就用虚拟列表的爷爷节点（x889kno 的父）
-      container = virtualList.parentElement?.parentElement?.parentElement;
-    }
-
-    if (!container) return;
-    if (container === 已读面板容器引用) return;
-
-    已读面板容器引用 = container;
     console.log("✅ 找到已读面板容器, height:", maxHeight);
 
-    let 滚动防抖 = null;
+    // MutationObserver 监听虚拟列表子节点变化（懒加载时触发）
+    let 防抖 = null;
     const 触发标记 = () => {
-      if (滚动防抖) clearTimeout(滚动防抖);
-      滚动防抖 = setTimeout(() => 标记已读用户列表(), 200);
+      if (防抖) clearTimeout(防抖);
+      防抖 = setTimeout(() => 标记已读用户列表(), 200);
     };
 
-    container.addEventListener("scroll", 触发标记);
-    container.addEventListener("wheel", 触发标记);
-
-    // MutationObserver 监听虚拟列表子节点变化（懒加载时 DOM 增删）
-    const observer = new MutationObserver(() => {
-      if (滚动防抖) clearTimeout(滚动防抖);
-      滚动防抖 = setTimeout(() => 标记已读用户列表(), 200);
-    });
+    const observer = new MutationObserver(触发标记);
     observer.observe(virtualList, { childList: true, subtree: false });
-    已读面板容器引用._observer = observer;
 
+    // 同时监听父容器的 scroll 和 wheel
+    const scrollContainer =
+      virtualList.closest(".x1n2onr6.xupqr0c") ||
+      virtualList.parentElement?.parentElement?.parentElement;
+    if (scrollContainer) {
+      scrollContainer.addEventListener("scroll", 触发标记);
+      scrollContainer.addEventListener("wheel", 触发标记);
+    }
+
+    已读面板容器引用 = { _list: virtualList, _observer: observer };
+
+    // 立即标记
     标记已读用户列表();
 
     clearInterval(已读面板监听定时器);
