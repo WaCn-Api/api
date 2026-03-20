@@ -1229,21 +1229,48 @@ function 启动已读面板监听() {
   if (已读面板监听定时器) clearInterval(已读面板监听定时器);
 
   已读面板监听定时器 = setInterval(() => {
-    // 已读面板特征：含 x1y332i5 的虚拟列表容器，且里面有 _ak8i
-    const virtualList = document.querySelector(".x1y332i5");
-    if (!virtualList) return;
-    if (!virtualList.querySelector('[role="listitem"] ._ak8i')) return;
+    // 找所有 x1y332i5，取含 _ak8i 且 height 最大的那个（已读面板）
+    const allLists = document.querySelectorAll(".x1y332i5");
+    let virtualList = null;
+    let maxHeight = 0;
 
-    // 滚动容器是 x1y332i5 的父级 x889kno 的父级
-    const container =
-      virtualList.closest(".x1n2onr6.xupqr0c") ||
-      virtualList.parentElement?.parentElement;
+    allLists.forEach((el) => {
+      if (!el.querySelector('[role="listitem"] ._ak8i')) return;
+      const h = parseInt(el.style.height) || 0;
+      if (h > maxHeight) {
+        maxHeight = h;
+        virtualList = el;
+      }
+    });
+
+    if (!virtualList) return;
+
+    // 滚动容器：父 > 父 > 父，找到有滚动能力的祖先
+    // 父class为空，直接用 parentElement 向上找含 x1n2onr6 的
+    let container = null;
+    let node = virtualList.parentElement;
+    while (node && node !== document.body) {
+      if (
+        node.className &&
+        node.className.includes("x1n2onr6") &&
+        node.className.includes("xupqr0c")
+      ) {
+        container = node;
+        break;
+      }
+      node = node.parentElement;
+    }
+
+    if (!container) {
+      // 找不到就用虚拟列表的爷爷节点（x889kno 的父）
+      container = virtualList.parentElement?.parentElement?.parentElement;
+    }
 
     if (!container) return;
     if (container === 已读面板容器引用) return;
 
     已读面板容器引用 = container;
-    console.log("✅ 找到已读面板容器");
+    console.log("✅ 找到已读面板容器, height:", maxHeight);
 
     let 滚动防抖 = null;
     const 触发标记 = () => {
@@ -1254,14 +1281,12 @@ function 启动已读面板监听() {
     container.addEventListener("scroll", 触发标记);
     container.addEventListener("wheel", 触发标记);
 
-    // 用 MutationObserver 监听虚拟列表 DOM 变化（懒加载新节点时触发）
+    // MutationObserver 监听虚拟列表子节点变化（懒加载时 DOM 增删）
     const observer = new MutationObserver(() => {
       if (滚动防抖) clearTimeout(滚动防抖);
       滚动防抖 = setTimeout(() => 标记已读用户列表(), 200);
     });
     observer.observe(virtualList, { childList: true, subtree: false });
-
-    // 保存 observer 引用方便关闭时清理
     已读面板容器引用._observer = observer;
 
     标记已读用户列表();
