@@ -8,21 +8,50 @@ const STORE_NAME = "uniqueNumbers";
 // 初始化数据库
 async function 初始化数据库() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    // 先不指定版本，探测当前版本
+    const detectRequest = indexedDB.open(DB_NAME);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    detectRequest.onsuccess = () => {
+      const db = detectRequest.result;
+      const hasStore = db.objectStoreNames.contains(STORE_NAME);
+      const currentVersion = db.version;
+      db.close();
 
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-
-      // 创建存储独立号码的对象仓库
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: "号码" });
-        store.createIndex("群组", "所在群组", { unique: false });
-        store.createIndex("采集时间", "采集时间", { unique: false });
+      if (hasStore) {
+        // store 已存在，直接用当前版本打开
+        const request = indexedDB.open(DB_NAME, currentVersion);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onupgradeneeded = (event) => {
+          const db2 = event.target.result;
+          if (!db2.objectStoreNames.contains(STORE_NAME)) {
+            const store = db2.createObjectStore(STORE_NAME, {
+              keyPath: "号码",
+            });
+            store.createIndex("群组", "所在群组", { unique: false });
+            store.createIndex("采集时间", "采集时间", { unique: false });
+          }
+        };
+      } else {
+        // store 不存在，升级版本触发 onupgradeneeded
+        const newVersion = currentVersion + 1;
+        const request = indexedDB.open(DB_NAME, newVersion);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onupgradeneeded = (event) => {
+          const db2 = event.target.result;
+          if (!db2.objectStoreNames.contains(STORE_NAME)) {
+            const store = db2.createObjectStore(STORE_NAME, {
+              keyPath: "号码",
+            });
+            store.createIndex("群组", "所在群组", { unique: false });
+            store.createIndex("采集时间", "采集时间", { unique: false });
+          }
+        };
       }
     };
+
+    detectRequest.onerror = () => reject(detectRequest.error);
   });
 }
 
@@ -841,7 +870,7 @@ async function 标记客户(开启 = true) {
     try {
       // 1. 从 IndexedDB 加载客户号码
       const indexedDBNumbers = await new Promise((resolve) => {
-        const request = indexedDB.open("WhatsAppCustomerDB", 1);
+        const request = indexedDB.open("WhatsAppCustomerDB");
         request.onsuccess = () => {
           const db = request.result;
           const tx = db.transaction("uniqueNumbers", "readonly");
@@ -2355,7 +2384,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.2.2 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.2.3 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
