@@ -874,8 +874,14 @@ async function 标记客户(开启 = true) {
           const tx = db.transaction("uniqueNumbers", "readonly");
           const store = tx.objectStore("uniqueNumbers");
           const getAll = store.getAll();
-          getAll.onsuccess = () =>
-            resolve(getAll.result.map((item) => item.号码));
+          getAll.onsuccess = () => {
+            const items = getAll.result;
+            // ✅ 取第一条记录的采集时间存到全局
+            if (items.length > 0) {
+              window.__数据采集时间 = items[0].采集时间;
+            }
+            resolve(items.map((item) => item.号码));
+          };
           getAll.onerror = () => resolve([]);
         };
         request.onerror = () => resolve([]);
@@ -919,8 +925,14 @@ async function 标记客户(开启 = true) {
 
       // 4. 初始标记
       标记聊天列表();
-      标记当前聊天窗口();
+      //标记当前聊天窗口();
       标记当前可见消息();
+      // ✅ 开启时模拟一次聊天点击后的延迟标记
+      setTimeout(() => {
+        标记当前聊天窗口();
+        标记当前可见消息();
+        启动滚动监听();
+      }, 1000);
       启动已读面板监听(); // ✅ 新增
       标记已读用户列表(); // ✅ 新增
     } catch (error) {
@@ -1019,7 +1031,6 @@ function 监听聊天点击(event) {
   const chatItem = event.target.closest(
     '[role="row"], [role="listitem"], ._ak8q, [data-testid="chat-list-item"]',
   );
-
   if (chatItem) {
     console.log("🖱️ 检测到聊天被点击，准备标记...");
 
@@ -1034,7 +1045,6 @@ function 监听聊天点击(event) {
       //   启动已读面板监听(); // ✅ 新增：每次切换聊天后重新监听已读面板
       // 重新启动滚动监听（因为切换聊天后容器可能变化）
       启动滚动监听();
-
       console.log("✅ 聊天标记完成");
     }, 800);
   }
@@ -1096,54 +1106,85 @@ function 标记聊天列表() {
   }
 }
 
-// 标记当前聊天窗口
-function 标记当前聊天窗口() {
-  const header = document.querySelector("header");
+function 标记当前聊天窗口(重试次数 = 0) {
+  // ✅ 找所有 header 里的 selectable-text，取包含 + 的那个
+  const allSpans = document.querySelectorAll(
+    'header span[data-testid="selectable-text"]',
+  );
+  const numberSpan = [...allSpans].find((s) => s.textContent.includes("+"));
+
+  console.log(
+    `重试${重试次数}, 找到span数:`,
+    allSpans.length,
+    "含+的:",
+    !!numberSpan,
+  );
+
+  if (!numberSpan) {
+    if (重试次数 < 8) {
+      setTimeout(() => 标记当前聊天窗口(重试次数 + 1), 400);
+    }
+    return;
+  }
+
+  const header = numberSpan.closest("header");
   if (!header) return;
 
-  // 移除旧的窗口标记
   header
     .querySelectorAll(".header-customer-badge")
     .forEach((el) => el.remove());
+  header.querySelectorAll(".header-group-count").forEach((el) => el.remove());
 
-  // 从群组头部获取号码
-  const numberSpan = document.querySelector(
-    'header span[data-testid="selectable-text"]',
-  );
-  if (numberSpan) {
-    const text = numberSpan.textContent || "";
-    const matches = text.match(/\+[\d\s\(\)\-]{9,20}/g);
+  const text = numberSpan.textContent || "";
+  const matches = text.match(/\+[\d\s\(\)\-]{9,20}/g);
+  if (!matches) return;
 
-    if (matches) {
-      for (const match of matches) {
-        const 号码 = match.replace(/[\s\(\)\-]/g, "");
+  const nameEl = header.querySelector('span[dir="auto"]:not([data-testid])');
+  if (!nameEl) return;
 
-        if (window.__客户号码列表?.has(号码)) {
-          const nameEl = header.querySelector(
-            'span[dir="auto"]:not([data-testid])',
-          );
-          if (nameEl) {
-            const badge = document.createElement("span");
-            badge.className = "header-customer-badge customer-badge";
-            badge.innerHTML = "⭐ 客户";
-            badge.style.cssText = `
-              background: #25D366;
-              color: white;
-              padding: 2px 8px;
-              border-radius: 12px;
-              font-size: 12px;
-              margin-left: 10px;
-              font-weight: bold;
-              display: inline-block;
-              pointer-events: none;
-            `;
-            nameEl.parentNode.appendChild(badge);
-            console.log(`✅ 聊天窗口标记客户: ${号码}`);
-            break;
-          }
-        }
+  let 本群客户数 = 0;
+  let 本群美国客户数 = 0; // ✅ 新增
+  let 已标记 = false;
+  for (const match of matches) {
+    const 号码 = match.replace(/[\s\(\)\-]/g, "");
+    if (window.__客户号码列表?.has(号码)) {
+      本群客户数++;
+      // ✅ 判断是否美国/加拿大（+1开头）
+      if (号码.startsWith("+1")) 本群美国客户数++;
+      if (!已标记) {
+        已标记 = true;
+        const badge = document.createElement("span");
+        badge.className = "header-customer-badge customer-badge";
+        badge.innerHTML = "⭐ 客户";
+        badge.style.cssText = `
+          background: #25D366; color: white; padding: 2px 8px;
+          border-radius: 12px; font-size: 12px; margin-left: 10px;
+          font-weight: bold; display: inline-block; pointer-events: none;
+        `;
+        nameEl.parentNode.appendChild(badge);
       }
     }
+  }
+
+  if (本群客户数 > 0) {
+    let 时间显示 = "";
+    if (window.__数据采集时间) {
+      const d = new Date(window.__数据采集时间);
+      时间显示 = ` ${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+    }
+    const countBadge = document.createElement("span");
+    countBadge.className = "header-group-count";
+    // ✅ 加上美国客户数
+    const 美国显示 =
+      本群美国客户数 > 0 ? ` | 美国客户： ${本群美国客户数} 位` : "";
+    countBadge.textContent = `👥 本群有： ${本群客户数} 位客户${美国显示} | 数据采集时间：${时间显示}`;
+    countBadge.style.cssText = `
+      background: #f39c12; color: white; padding: 2px 8px;
+      border-radius: 12px; font-size: 12px; margin-left: 6px;
+      font-weight: bold; display: inline-block; pointer-events: none;
+    `;
+    nameEl.parentNode.appendChild(countBadge);
+    console.log(`📊 本群客户数: ${本群客户数} 美国: ${本群美国客户数}`);
   }
 }
 
@@ -1224,53 +1265,87 @@ function 手动标记测试() {
 // 统计已读客户数量
 
 function 注入badge(客户数已读, 客户数已收到, 已读客户列表, 已收到客户列表) {
-  // ✅ 多选择器兜底，适配不同语言
   const titleEl =
     document.querySelector('div[title="信息详情"] h2') ||
     document.querySelector('div[title="Message info"] h2') ||
     document.querySelector('div[title="Informações da mensagem"] h2');
 
-  if (!titleEl) {
-    console.warn("⚠️ 找不到信息详情标题栏，无法注入badge");
-    return;
+  if (!titleEl) return;
+
+  document.querySelectorAll(".read-stat-badge-row").forEach((el) => {
+    const h = el.closest("header");
+    if (h) h.style.height = "";
+    el.remove();
+  });
+
+  if (客户数已读 === 0 && 客户数已收到 === 0) return;
+
+  function 统计地区(号码列表) {
+    let 美加 = 0,
+      英国 = 0,
+      其他 = 0;
+    号码列表.forEach((号码) => {
+      const num = 号码.replace("+", "");
+      if (num.startsWith("1")) 美加++;
+      else if (num.startsWith("44")) 英国++;
+      else 其他++;
+    });
+    const parts = [];
+    if (美加 > 0) parts.push(`(美国/加拿大)×${美加}`);
+    if (英国 > 0) parts.push(`(英国)×${英国}`);
+    if (其他 > 0) parts.push(`(其它)×${其他}`);
+    return parts.join("  ");
   }
 
-  // 避免重复注入
-  document.querySelectorAll(".read-stat-badge").forEach((el) => el.remove());
+  // ✅ h2 的父元素就是 div[title="信息详情"]
+  const 信息详情Div = titleEl.parentElement;
+  const header = 信息详情Div.closest("header");
+  if (!header) return;
+  header.style.height = "100px";
 
-  const container = titleEl.parentElement;
+  const row = document.createElement("div");
+  row.className = "read-stat-badge-row";
+  row.style.cssText = `
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 16px 6px;
+    align-items: center;
+    box-sizing: border-box;
+  `;
 
   if (客户数已读 > 0) {
-    const badge = document.createElement("span");
-    badge.className = "read-stat-badge";
-    badge.title = `已读客户: ${已读客户列表.join(", ")}`;
-    badge.style.cssText = `
-      background: #25D366; color: white; padding: 3px 10px;
+    const b = document.createElement("span");
+    b.title = `已读客户: ${已读客户列表.join(", ")}`;
+    b.style.cssText = `
+      background: rgb(52 183 101); color: white; padding: 3px 10px;
       border-radius: 10px; font-size: 12px; font-weight: bold;
-      margin-left: 10px; display: inline-flex; align-items: center;
-      vertical-align: middle; pointer-events: none;
+      display: inline-flex; align-items: center; pointer-events: none;
+      white-space: nowrap;    padding: 10px;
     `;
-    badge.textContent = `⭐ 已读 ${客户数已读} 客户`;
-    container.appendChild(badge);
+    b.textContent = `⭐ 已读${客户数已读}  |  ${统计地区(已读客户列表)}`;
+    row.appendChild(b);
   }
 
   if (客户数已收到 > 0) {
-    const badge2 = document.createElement("span");
-    badge2.className = "read-stat-badge";
-    badge2.title = `已收到客户: ${已收到客户列表.join(", ")}`;
-    badge2.style.cssText = `
+    const b2 = document.createElement("span");
+    b2.title = `已收到客户: ${已收到客户列表.join(", ")}`;
+    b2.style.cssText = `
       background: #128C7E; color: white; padding: 3px 10px;
       border-radius: 10px; font-size: 12px; font-weight: bold;
-      margin-left: 6px; display: inline-flex; align-items: center;
-      vertical-align: middle; pointer-events: none;
+      display: inline-flex; align-items: center; pointer-events: none;
+      white-space: nowrap;    padding: 10px;
     `;
-    badge2.textContent = `📩 收到 ${客户数已收到} 客户`;
-    container.appendChild(badge2);
+    b2.textContent = `📩 收到${客户数已收到}  |  ${统计地区(已收到客户列表)} `;
+    row.appendChild(b2);
   }
+
+  // ✅ 插到 信息详情Div 后面，而不是 header 末尾
+  信息详情Div.insertAdjacentElement("afterend", row);
 }
 
 let 统计进行中 = false; // ✅ 全局锁
-
 async function 统计已读客户数() {
   if (统计进行中) return null; // ✅ 防止重入
   统计进行中 = true;
@@ -2547,7 +2622,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.2.5 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.2.6 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
