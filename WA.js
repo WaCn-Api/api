@@ -31,18 +31,25 @@ async function 保存独立号码到数据库(uniqueNumbers) {
     const db = await 初始化数据库();
     const tx = db.transaction(STORE_NAME, "readwrite");
     const store = tx.objectStore(STORE_NAME);
-    await store.clear();
+
+    const txComplete = new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(new Error("事务被中止"));
+    });
+
+    store.clear();
 
     const timestamp = new Date().toISOString();
     for (const item of uniqueNumbers) {
-      await store.add({
+      store.add({
         ...item,
         采集时间: timestamp,
         标记状态: "客户",
       });
     }
 
-    await tx.done;
+    await txComplete; // ✅ 等待事务完成
     console.log(`✅ 已保存 ${uniqueNumbers.length} 个独立号码到IndexedDB`);
 
     // ✅ 新增：同步写入 C# 文件存储
@@ -71,26 +78,27 @@ async function 保存独立号码到数据库(uniqueNumbers) {
 async function 查询号码是否客户(phoneNumber) {
   try {
     const db = await 初始化数据库();
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-
-    const result = await store.get(phoneNumber);
-    return result ? true : false;
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const req = tx.objectStore(STORE_NAME).get(phoneNumber);
+      req.onsuccess = () => resolve(!!req.result);
+      req.onerror = () => reject(req.error);
+    });
   } catch (error) {
     console.error("❌ 查询数据库失败:", error);
     return false;
   }
 }
 
-// 获取所有客户号码
 async function 获取所有客户号码() {
   try {
     const db = await 初始化数据库();
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-
-    const allRecords = await store.getAll();
-    return allRecords.map((record) => record.号码);
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => resolve(req.result.map((r) => r.号码));
+      req.onerror = () => reject(req.error);
+    });
   } catch (error) {
     console.error("❌ 获取客户号码失败:", error);
     return [];
@@ -915,6 +923,12 @@ async function 标记客户(开启 = true) {
       标记防抖定时器 = null;
     }
 
+    // 在关闭分支里加上这两行
+    if (滚动监听容器引用) {
+      滚动监听容器引用.removeEventListener("scroll", 处理滚动);
+      滚动监听容器引用 = null;
+    }
+
     document
       .querySelectorAll(
         ".customer-badge, .chat-customer-badge, .header-customer-badge",
@@ -928,13 +942,20 @@ async function 标记客户(开启 = true) {
 }
 
 // 启动滚动监听（使用您的代码）
+// ✅ 在全局保存对container的引用，方便关闭时移除
+let 滚动监听容器引用 = null;
 function 启动滚动监听() {
   const containerClass =
     'div[data-scrolltracepolicy="wa.web.conversation.messages"]';
 
-  // 停止之前的定时器
   if (滚动监听定时器) {
     clearInterval(滚动监听定时器);
+  }
+
+  // ✅ 先清理旧的滚动监听
+  if (滚动监听容器引用) {
+    滚动监听容器引用.removeEventListener("scroll", 处理滚动);
+    滚动监听容器引用 = null;
   }
 
   滚动监听定时器 = setInterval(() => {
@@ -943,13 +964,12 @@ function 启动滚动监听() {
 
     console.log("✅ 找到消息列表容器，开始监听滚动");
 
-    // 移除可能存在的旧监听器（避免重复）
+    // ✅ 先移除旧的，再绑定新的
     container.removeEventListener("scroll", 处理滚动);
-
-    // 添加新的滚动监听
     container.addEventListener("scroll", 处理滚动);
+    滚动监听容器引用 = container; // ✅ 保存引用
 
-    clearInterval(滚动监听定时器); // 绑定成功后停止轮询
+    clearInterval(滚动监听定时器);
     滚动监听定时器 = null;
   }, 200);
 }
@@ -2710,29 +2730,48 @@ function 注入浮动窗口() {
     更新状态消息("已清空所有选择", "success");
   });
 
-  // 👇 在这里添加客户标记按钮事件
+  // ✅ 加上这行！
   const toggleBtn = shadowRoot.getElementById("customerMarkToggleBtn");
-  toggleBtn.addEventListener("click", async () => {
+
+  // ✅ 新增：统一的按钮状态同步函数
+  function 同步客户标记按钮状态() {
+    // ← 注意：参数也不需要了，直接用上面的 toggleBtn
+    if (!toggleBtn) return;
     if (客户标记监控开启) {
-      await 标记客户(false);
-      toggleBtn.style.backgroundColor = "#25D366";
-      toggleBtn.textContent = "⭐ 开启客户标记";
-      更新状态消息("⏹️ 客户标记已关闭", "success");
-    } else {
-      await 标记客户(true);
       toggleBtn.style.backgroundColor = "#f44336";
       toggleBtn.textContent = "⏹️ 关闭客户标记";
-      更新状态消息("⭐ 客户标记已开启", "success");
+    } else {
+      toggleBtn.style.backgroundColor = "#25D366";
+      toggleBtn.textContent = "⭐ 开启客户标记";
+    }
+  }
+
+  // ✅ click handler 改成这样，catch里也会同步
+  toggleBtn.addEventListener("click", async () => {
+    if (toggleBtn.disabled) return; // 防止重复点击（已有）
+    toggleBtn.disabled = true;
+    try {
+      await 标记客户(!客户标记监控开启); // ✅ 直接传当前状态的反值，更清晰
+    } catch (e) {
+      console.error("切换客户标记失败:", e);
+    } finally {
+      toggleBtn.disabled = false;
+      同步客户标记按钮状态();
+      更新状态消息(
+        客户标记监控开启 ? "⭐ 客户标记已开启" : "⏹️ 客户标记已关闭",
+        "success",
+      );
     }
   });
 
-  // 默认自动开启
-  (async () => {
+  // 自动开启也改成用同步函数
+  // ✅ 改成
+  Promise.resolve().then(async () => {
     await 标记客户(true);
-    toggleBtn.style.backgroundColor = "#f44336";
-    toggleBtn.textContent = "⏹️ 关闭客户标记"; // ✅ 显示关闭
+    同步客户标记按钮状态();
     更新状态消息("⭐ 客户标记已自动开启", "success");
-  })();
+  });
+
   // 群发消息
   shadowRoot
     .getElementById("sendBatchBtn")
