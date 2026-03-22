@@ -135,7 +135,7 @@ async function 获取所有客户号码() {
 }
 
 // ==================== 群组成员号码采集器 ====================
-async function 获取未归档群数据报表() {
+async function 获取未归档群数据报表(progressCallback) {
   // 模拟真实点击
   async function 模拟点击(element) {
     if (!element) return false;
@@ -793,15 +793,13 @@ async function 获取未归档群数据报表() {
   }
 
   // 主函数
-  async function 采集群组号码并生成报告() {
+  async function 采集群组号码并生成报告(progressCallback) {
     console.log("=".repeat(60));
     console.log("📞 WhatsApp未归档群组成员号码采集器");
     console.log("=".repeat(60));
     console.log("⏰ 整个过程可能需要几分钟，请耐心等待...");
 
-    const results = await 采集群组号码((p) => {
-      console.log(`进度: ${p.current}/${p.total} - ${p.groupName}`);
-    });
+    const results = await 采集群组号码(progressCallback);
 
     const analysis = 分析号码重复(results);
     // ✅ 在这里添加保存到数据库
@@ -845,7 +843,7 @@ async function 获取未归档群数据报表() {
   }
 
   // 执行并返回结果
-  return await 采集群组号码并生成报告();
+  return await 采集群组号码并生成报告(progressCallback);
 }
 
 // ==================== 客户标记开关（使用您的滚动监听方法） ====================
@@ -1223,6 +1221,157 @@ function 手动标记测试() {
 }
 // 替换这两个函数
 
+// 统计已读客户数量
+
+function 注入badge(客户数已读, 客户数已收到, 已读客户列表, 已收到客户列表) {
+  // ✅ 多选择器兜底，适配不同语言
+  const titleEl =
+    document.querySelector('div[title="信息详情"] h2') ||
+    document.querySelector('div[title="Message info"] h2') ||
+    document.querySelector('div[title="Informações da mensagem"] h2');
+
+  if (!titleEl) {
+    console.warn("⚠️ 找不到信息详情标题栏，无法注入badge");
+    return;
+  }
+
+  // 避免重复注入
+  document.querySelectorAll(".read-stat-badge").forEach((el) => el.remove());
+
+  const container = titleEl.parentElement;
+
+  if (客户数已读 > 0) {
+    const badge = document.createElement("span");
+    badge.className = "read-stat-badge";
+    badge.title = `已读客户: ${已读客户列表.join(", ")}`;
+    badge.style.cssText = `
+      background: #25D366; color: white; padding: 3px 10px;
+      border-radius: 10px; font-size: 12px; font-weight: bold;
+      margin-left: 10px; display: inline-flex; align-items: center;
+      vertical-align: middle; pointer-events: none;
+    `;
+    badge.textContent = `⭐ 已读 ${客户数已读} 客户`;
+    container.appendChild(badge);
+  }
+
+  if (客户数已收到 > 0) {
+    const badge2 = document.createElement("span");
+    badge2.className = "read-stat-badge";
+    badge2.title = `已收到客户: ${已收到客户列表.join(", ")}`;
+    badge2.style.cssText = `
+      background: #128C7E; color: white; padding: 3px 10px;
+      border-radius: 10px; font-size: 12px; font-weight: bold;
+      margin-left: 6px; display: inline-flex; align-items: center;
+      vertical-align: middle; pointer-events: none;
+    `;
+    badge2.textContent = `📩 收到 ${客户数已收到} 客户`;
+    container.appendChild(badge2);
+  }
+}
+
+let 统计进行中 = false; // ✅ 全局锁
+
+async function 统计已读客户数() {
+  if (统计进行中) return null; // ✅ 防止重入
+  统计进行中 = true;
+
+  try {
+    const allLists = document.querySelectorAll(".x1y332i5");
+    let virtualList = null,
+      maxHeight = 0;
+    allLists.forEach((el) => {
+      const h = parseInt(el.style.height) || 0;
+      if (h > maxHeight && el.querySelector('[role="listitem"] ._ak8i')) {
+        maxHeight = h;
+        virtualList = el;
+      }
+    });
+    if (!virtualList) return null;
+
+    const aig容器 = virtualList.closest("._aig-");
+    if (!aig容器) return null;
+
+    const 原始高度 = aig容器.style.height;
+    aig容器.style.height = "999999px";
+    await new Promise((r) => setTimeout(r, 500));
+
+    const 已读客户 = new Set();
+    const 已收到客户 = new Set();
+    let 当前区块 = null;
+
+    // ✅ 记录标题条目的DOM引用
+    let 已读标题条目 = null;
+    let 已收到标题条目 = null;
+
+    const items = virtualList.querySelectorAll('[role="listitem"]');
+
+    items.forEach((item) => {
+      const text = item.textContent.trim();
+
+      if (text.includes("已读用户")) {
+        当前区块 = "read";
+        已读标题条目 = item; // ✅ 保存引用
+        return;
+      }
+      if (text.includes("已接收的用户") || text.includes("已送达")) {
+        当前区块 = "received";
+        已收到标题条目 = item; // ✅ 保存引用
+        return;
+      }
+      if (text.includes("还剩")) return;
+      if (!当前区块) return;
+
+      let 号码 = null;
+      const ak8qSpan = item.querySelector("._ak8q span[dir='auto']");
+      if (!ak8qSpan) return;
+
+      const ariaLabel = ak8qSpan.getAttribute("aria-label");
+      if (ariaLabel) {
+        const ak8iSpan = item.querySelector("._ak8i span._ao3e");
+        if (!ak8iSpan) return;
+        const match = ak8iSpan.textContent.match(/\+[\d\s\(\)\-]{9,20}/);
+        if (!match) return;
+        号码 = match[0].replace(/[\s\(\)\-]/g, "");
+      } else {
+        const title = ak8qSpan.getAttribute("title") || "";
+        const match = title.match(/\+[\d\s\(\)\-]{9,20}/);
+        if (!match) return;
+        号码 = match[0].replace(/[\s\(\)\-]/g, "");
+      }
+
+      if (!号码 || !window.__客户号码列表?.has(号码)) return;
+
+      if (当前区块 === "read") 已读客户.add(号码);
+      else if (当前区块 === "received") 已收到客户.add(号码);
+    });
+
+    // ✅ 修复：先构建 result，再使用
+    aig容器.style.height = 原始高度;
+
+    const result = {
+      已读客户数: 已读客户.size,
+      已收到客户数: 已收到客户.size,
+      已读客户列表: [...已读客户],
+      已收到客户列表: [...已收到客户],
+    };
+
+    // ✅ 修改调用
+    注入badge(
+      result.已读客户数,
+      result.已收到客户数,
+      result.已读客户列表,
+      result.已收到客户列表,
+    );
+
+    console.log(
+      `⭐ 已读客户: ${result.已读客户数} | 已收到客户: ${result.已收到客户数}`,
+    );
+    return result;
+  } finally {
+    统计进行中 = false; // ✅ 无论成功失败都释放锁
+  }
+}
+
 function 标记已读用户列表() {
   const allLists = document.querySelectorAll(".x1y332i5");
   let virtualList = null,
@@ -1319,20 +1468,34 @@ function 启动已读面板监听() {
   }
 
   // 绑定已读面板内部懒加载监听
+  let 已统计过 = false; // ✅ 每次面板打开只统计一次
+
   function 绑定已读面板(virtualList) {
-    if (已读面板容器引用?._list === virtualList) return; // 已绑定
+    if (已读面板容器引用?._list === virtualList) return;
     已读面板容器引用?._observer?.disconnect();
+    已统计过 = false; // ✅ 新面板重置
 
     let 防抖 = null;
     const observer = new MutationObserver(() => {
       if (防抖) clearTimeout(防抖);
-      防抖 = setTimeout(() => 标记已读用户列表(), 200);
+      防抖 = setTimeout(() => {
+        标记已读用户列表();
+        // ✅ 只在第一次触发时统计，之后不再重复
+        if (!已统计过) {
+          已统计过 = true;
+          统计已读客户数();
+        }
+      }, 200);
     });
     observer.observe(virtualList, { childList: true, subtree: false });
     已读面板容器引用 = { _list: virtualList, _observer: observer };
 
     console.log("✅ 已读面板绑定成功");
     标记已读用户列表();
+
+    // ✅ 面板打开时立即统计一次
+    已统计过 = true;
+    统计已读客户数();
   }
 
   // 防抖，避免 body 变化过于频繁
@@ -2384,11 +2547,11 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.2.3 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.2.5 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
-          <button id="loadGroupsBtn" style="width: 100%;    font-size: 14px;    background-color: #cc0000;    margin-bottom: 10px;">获取未归档群组报表</button>
+          <button id="loadGroupsBtn" style="width: 100%;    font-size: 14px;    background-color: #cc0000;    margin-bottom: 10px;">采集未归档群组数据</button>
           <button id="loadContactsBtn" style="width: 100%; font-size: 14px;">加载未归档群组列表</button>
           <div id="contactsContainer" class="contact-list"></div>
           
@@ -2437,6 +2600,7 @@ function 注入浮动窗口() {
       <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px;">
         <div style="display: flex; gap: 10px; justify-content: center;">
           <button id="customerMarkToggleBtn" class="is-off">⭐ 开启客户标记</button>
+          <button id="clearDataBtn">清除数据</button>
         </div>
       </div>
       <!-- 👆 客户标记控制按钮结束 -->
@@ -2612,6 +2776,7 @@ function 注入浮动窗口() {
   });
 
   // 获取群组数据报表（新功能）
+  // 获取群组数据报表（新功能）
   shadowRoot
     .getElementById("loadGroupsBtn")
     .addEventListener("click", async function () {
@@ -2620,22 +2785,48 @@ function 注入浮动窗口() {
       try {
         按钮.disabled = true;
         按钮.textContent = "采集中...";
+        progressContainer.style.display = "block";
+        progressBar.style.width = "0%";
+        progressText.textContent = "正在初始化...";
+        progressPercent.textContent = "0%";
         更新状态消息("正在采集群组成员号码，请不要进行任何操作！", "success");
 
-        // 调用采集函数
-        const results = await 获取未归档群数据报表();
+        // ✅ 传入进度回调，实时更新进度条
+        const results = await 获取未归档群数据报表((p) => {
+          const percent = Math.floor((p.current / p.total) * 100);
+          progressBar.style.width = `${percent}%`;
+          progressText.textContent = `采集中 (${p.current}/${p.total}) - ${p.groupName}`;
+          progressPercent.textContent = `${percent}%`;
+          更新状态消息(`正在采集: ${p.groupName}`, "success");
+        });
+
+        progressBar.style.width = "100%";
+        progressPercent.textContent = "100%";
 
         if (results && results.results) {
-          更新状态消息(
-            `采集完成！成功: ${results.results.filter((r) => r.status === "success").length} 个群组`,
-            "success",
-          );
+          const successCount = results.results.filter(
+            (r) => r.status === "success",
+          ).length;
+          const totalCount = results.results.length;
+          progressText.textContent = `采集完成！成功 ${successCount}/${totalCount} 个群组`;
+          更新状态消息(`✅ 采集完成！成功: ${successCount} 个群组`, "success");
         } else {
-          更新状态消息("采集完成！", "success");
+          progressText.textContent = "采集完成！";
+          更新状态消息("✅ 采集完成！", "success");
+        }
+
+        // 重载客户标记
+        if (客户标记监控开启) {
+          progressText.textContent = "正在更新客户标记数据...";
+          await 标记客户(false);
+          await 标记客户(true);
+          同步客户标记按钮状态();
+          更新状态消息("✅ 客户标记已更新为最新数据", "success");
         }
       } catch (error) {
         console.error("采集失败:", error);
-        更新状态消息(`采集失败: ${error.message}`, "error");
+        progressText.textContent = `采集失败: ${error.message}`;
+        更新状态消息(`❌ 采集失败: ${error.message}`, "error");
       } finally {
         按钮.disabled = false;
         按钮.textContent = "获取未归档群组报表";
@@ -2757,6 +2948,26 @@ function 注入浮动窗口() {
     });
     当前选中联系人.clear();
     更新状态消息("已清空所有选择", "success");
+  });
+
+  // 清除数据
+  shadowRoot.getElementById("clearDataBtn").addEventListener("click", () => {
+    const btn = shadowRoot.getElementById("clearDataBtn");
+    btn.disabled = true;
+    btn.textContent = "清除中...";
+    更新状态消息("正在清除客户数据，请稍候...", "success");
+
+    const req = indexedDB.deleteDatabase("WhatsAppCustomerDB");
+    req.onsuccess = () => {
+      btn.textContent = "✅ 已清除，刷新中...";
+      更新状态消息("清除成功，即将刷新页面...", "success");
+      setTimeout(() => location.reload(), 800); // 留0.8秒让用户看到提示
+    };
+    req.onerror = () => {
+      btn.disabled = false;
+      btn.textContent = "清除客户数据";
+      更新状态消息("❌ 清除失败，请重试", "error");
+    };
   });
 
   // ✅ 加上这行！
