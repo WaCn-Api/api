@@ -867,6 +867,7 @@ async function 标记客户(开启 = true) {
 
     try {
       // 1. 从 IndexedDB 加载客户号码
+      // IndexedDB 取时间
       const indexedDBNumbers = await new Promise((resolve) => {
         const request = indexedDB.open("WhatsAppCustomerDB");
         request.onsuccess = () => {
@@ -876,9 +877,8 @@ async function 标记客户(开启 = true) {
           const getAll = store.getAll();
           getAll.onsuccess = () => {
             const items = getAll.result;
-            // ✅ 取第一条记录的采集时间存到全局
             if (items.length > 0) {
-              window.__数据采集时间 = items[0].采集时间;
+              window.__数据采集时间_IndexedDB = items[0].采集时间; // ✅ 存到独立变量
             }
             resolve(items.map((item) => item.号码));
           };
@@ -898,7 +898,7 @@ async function 标记客户(开启 = true) {
             fileNumbers = fileData.号码列表
               .map((item) => item.号码)
               .filter(Boolean);
-            console.log(`📂 文件存储客户号码: ${fileNumbers.length} 个`);
+            window.__数据采集时间_文件 = fileData.保存时间; // ✅ 存到独立变量
           }
         } catch (e) {
           console.warn("⚠️ 读取文件存储异常（不影响主流程）:", e);
@@ -910,7 +910,22 @@ async function 标记客户(开启 = true) {
       // ✅ 合并去重
       const 客户号码 = [...new Set([...indexedDBNumbers, ...fileNumbers])];
       console.log(`📊 合并后客户号码总计: ${客户号码.length} 个`);
-
+      // ✅ 取两者中较新的时间，放在这里
+      const t1 = window.__数据采集时间_IndexedDB
+        ? new Date(window.__数据采集时间_IndexedDB)
+        : null;
+      const t2 = window.__数据采集时间_文件
+        ? new Date(window.__数据采集时间_文件)
+        : null;
+      if (t1 && t2) {
+        window.__数据采集时间 =
+          t1 > t2
+            ? window.__数据采集时间_IndexedDB
+            : window.__数据采集时间_文件;
+      } else {
+        window.__数据采集时间 =
+          window.__数据采集时间_IndexedDB || window.__数据采集时间_文件;
+      }
       window.__客户号码列表 = new Set(客户号码);
       console.log(`📚 已加载 ${客户号码.length} 个客户号码`);
 
@@ -2622,7 +2637,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.2.6 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.2.7 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
