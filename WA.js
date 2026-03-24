@@ -942,6 +942,7 @@ async function 标记客户(开启 = true) {
           tx.oncomplete = () => console.log("✅ 合并后号码已回写 IndexedDB");
           tx.onerror = (e) => console.warn("⚠️ 回写 IndexedDB 失败:", e);
         };
+        console.log('执行到回写步骤了，准备打开 IndexedDB');
       }
       console.log(`📚 已加载 ${客户号码.length} 个客户号码`);
 
@@ -2720,7 +2721,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.2.9 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.2.8 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
