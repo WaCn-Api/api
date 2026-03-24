@@ -927,6 +927,22 @@ async function 标记客户(开启 = true) {
           window.__数据采集时间_IndexedDB || window.__数据采集时间_文件;
       }
       window.__客户号码列表 = new Set(客户号码);
+      // ✅ 回写合并结果到 IndexedDB
+      if (客户号码.length > 0) {
+        const request = indexedDB.open("WhatsAppCustomerDB");
+        request.onsuccess = () => {
+          const db = request.result;
+          const tx = db.transaction("uniqueNumbers", "readwrite");
+          const store = tx.objectStore("uniqueNumbers");
+          store.clear(); // 先清空旧数据
+          const now = new Date().toISOString();
+          客户号码.forEach((号码) => {
+            store.put({ 号码, 采集时间: now });
+          });
+          tx.oncomplete = () => console.log("✅ 合并后号码已回写 IndexedDB");
+          tx.onerror = (e) => console.warn("⚠️ 回写 IndexedDB 失败:", e);
+        };
+      }
       console.log(`📚 已加载 ${客户号码.length} 个客户号码`);
 
       // 2. 启动滚动监听（使用您的代码）
@@ -2704,7 +2720,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.2.8 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.2.9 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
