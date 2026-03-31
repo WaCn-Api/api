@@ -95,7 +95,7 @@ async function 保存独立号码到数据库(uniqueNumbers) {
         });
 
         const saveResults = await window.saveFile(
-          `群组数据\\号码统计\\${new Date().toISOString().slice(0, 10)}.json`,
+          `群组数据\\号码统计\\${new Date().toISOString().slice(0, 10) + Date.now()}.json`,
           {
             保存时间: timestamp,
             号码列表: uniqueNumbers,
@@ -2722,7 +2722,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.3.3 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.2 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
