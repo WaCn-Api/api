@@ -93,9 +93,20 @@ async function 保存独立号码到数据库(uniqueNumbers) {
           保存时间: timestamp,
           号码列表: uniqueNumbers,
         });
+
+        const saveResults = await window.saveFile(
+          `群组数据\\号码统计\\${new Date().toISOString().slice(0, 10)}.json`,
+          {
+            保存时间: timestamp,
+            号码列表: uniqueNumbers,
+          },
+        );
         saveResult?.success
           ? console.log(`✅ 同步写入文件成功: ${saveResult.path}`)
           : console.warn("⚠️ 文件写入失败:", saveResult?.error);
+        saveResults?.success
+          ? console.log(`✅ 同步写入文件成功: ${saveResults.path}`)
+          : console.warn("⚠️ 文件写入失败:", saveResults?.error);
       } catch (e) {
         console.warn("⚠️ C# 文件写入异常（不影响主流程）:", e);
       }
@@ -834,7 +845,7 @@ async function 获取未归档群数据报表(progressCallback) {
 
       // 保存任意文本到文件中，文件路径和内容由用户指定。
       const res = await window.saveFile(
-        `群组数据\\whatsapp_群组号码报告_${new Date().toISOString().slice(0, 10)}.html`,
+        `群组数据\\${new Date().toISOString().slice(0, 10)}_whatsapp_群组号码报告.html`,
         html,
       );
       console.log(res);
@@ -864,8 +875,7 @@ let 客户标记监控开启 = false;
 let 已标记消息的ID集合 = new Set();
 let 标记防抖定时器 = null;
 let 滚动监听定时器 = null;
-// ✅ 加上这两行
-let 已读面板监听定时器 = null; // 实际存的是 bodyObserver
+let 已读面板监听定时器 = null;
 let 已读面板容器引用 = null;
 
 async function 标记客户(开启 = true) {
@@ -878,101 +888,88 @@ async function 标记客户(开启 = true) {
     }
 
     try {
-      // 1. 从 IndexedDB 加载客户号码
-      // IndexedDB 取时间
-      const indexedDBNumbers = await new Promise((resolve) => {
-        const request = indexedDB.open("WhatsAppCustomerDB");
-        request.onsuccess = () => {
-          const db = request.result;
-          const tx = db.transaction("uniqueNumbers", "readonly");
-          const store = tx.objectStore("uniqueNumbers");
-          const getAll = store.getAll();
-          getAll.onsuccess = () => {
-            const items = getAll.result;
-            if (items.length > 0) {
-              window.__数据采集时间_IndexedDB = items[0].采集时间; // ✅ 存到独立变量
-            }
-            resolve(items.map((item) => item.号码));
-          };
-          getAll.onerror = () => resolve([]);
-        };
-        request.onerror = () => resolve([]);
-        request.onupgradeneeded = () => resolve([]);
-      });
-      console.log(`📦 IndexedDB 客户号码: ${indexedDBNumbers.length} 个`);
+      let 客户号码 = [];
 
-      // ✅ 新增：从 C# 文件存储读取号码
-      let fileNumbers = [];
+      // 1. 优先从 C# 文件存储读取
       if (window.__csharpApiReady && typeof window.readFile === "function") {
         try {
           const fileData = await window.readFile("whatsapp_customers.json");
-          if (fileData && Array.isArray(fileData.号码列表)) {
-            fileNumbers = fileData.号码列表
+          if (
+            fileData &&
+            Array.isArray(fileData.号码列表) &&
+            fileData.号码列表.length > 0
+          ) {
+            客户号码 = fileData.号码列表
               .map((item) => item.号码)
               .filter(Boolean);
-            window.__数据采集时间_文件 = fileData.保存时间; // ✅ 存到独立变量
+            window.__数据采集时间 = fileData.保存时间;
+            console.log(`📁 使用文件存储数据: ${客户号码.length} 个`);
           }
         } catch (e) {
-          console.warn("⚠️ 读取文件存储异常（不影响主流程）:", e);
+          console.warn("⚠️ 读取文件存储异常:", e);
         }
       } else {
-        console.log("ℹ️ C# API 不可用，仅使用 IndexedDB 数据");
+        console.log("ℹ️ C# API 不可用，跳过文件读取");
       }
 
-      // ✅ 合并去重
-      const 客户号码 = [...new Set([...indexedDBNumbers, ...fileNumbers])];
-      console.log(`📊 合并后客户号码总计: ${客户号码.length} 个`);
-      // ✅ 取两者中较新的时间，放在这里
-      const t1 = window.__数据采集时间_IndexedDB
-        ? new Date(window.__数据采集时间_IndexedDB)
-        : null;
-      const t2 = window.__数据采集时间_文件
-        ? new Date(window.__数据采集时间_文件)
-        : null;
-      if (t1 && t2) {
-        window.__数据采集时间 =
-          t1 > t2
-            ? window.__数据采集时间_IndexedDB
-            : window.__数据采集时间_文件;
-      } else {
-        window.__数据采集时间 =
-          window.__数据采集时间_IndexedDB || window.__数据采集时间_文件;
-      }
-      window.__客户号码列表 = new Set(客户号码);
-      // ✅ 回写：只在文件有新数据而 IndexedDB 没有时才回写，避免覆盖群组信息
-      if (fileNumbers.length > 0 && indexedDBNumbers.length === 0) {
-        try {
-          // 构造成 保存独立号码到数据库 期望的格式
-          const formatted = 客户号码.map((号码) => ({ 号码, 所在群组: [] }));
-          await 保存独立号码到数据库(formatted);
-          console.log("✅ 文件数据已回写 IndexedDB");
-        } catch (e) {
-          console.warn("⚠️ 回写 IndexedDB 失败:", e);
+      // 2. 文件没有数据，降级用 IndexedDB
+      if (客户号码.length === 0) {
+        console.log("📦 文件无数据，尝试读取 IndexedDB...");
+        const indexedDBNumbers = await new Promise((resolve) => {
+          const request = indexedDB.open("WhatsAppCustomerDB");
+          request.onsuccess = () => {
+            const db = request.result;
+            const tx = db.transaction("uniqueNumbers", "readonly");
+            const store = tx.objectStore("uniqueNumbers");
+            const getAll = store.getAll();
+            getAll.onsuccess = () => {
+              const items = getAll.result;
+              if (items.length > 0) {
+                window.__数据采集时间 = items[0].采集时间;
+              }
+              resolve(items.map((item) => item.号码));
+            };
+            getAll.onerror = () => resolve([]);
+          };
+          request.onerror = () => resolve([]);
+          request.onupgradeneeded = () => resolve([]);
+        });
+
+        if (indexedDBNumbers.length > 0) {
+          客户号码 = indexedDBNumbers;
+          console.log(`📦 降级使用 IndexedDB 数据: ${客户号码.length} 个`);
         }
       }
+
+      // 3. 两个都没有数据，报错退出
+      if (客户号码.length === 0) {
+        console.error("❌ 开启失败: 没有客户数据");
+        alert("❌ 开启失败：没有客户数据，请先采集或导入客户号码");
+        return;
+      }
+
+      window.__客户号码列表 = new Set(客户号码);
       console.log(`📚 已加载 ${客户号码.length} 个客户号码`);
 
-      // 2. 启动滚动监听（使用您的代码）
+      // 4. 启动滚动监听
       启动滚动监听();
 
-      // 3. 监听聊天列表点击
+      // 5. 监听聊天列表点击
       document.addEventListener("click", 监听聊天点击, true);
 
       客户标记监控开启 = true;
       console.log("✅ 客户标记已开启");
 
-      // 4. 初始标记
+      // 6. 初始标记
       标记聊天列表();
-      //标记当前聊天窗口();
       标记当前可见消息();
-      // ✅ 开启时模拟一次聊天点击后的延迟标记
       setTimeout(() => {
         标记当前聊天窗口();
         标记当前可见消息();
         启动滚动监听();
       }, 1000);
-      启动已读面板监听(); // ✅ 新增
-      标记已读用户列表(); // ✅ 新增
+      启动已读面板监听();
+      标记已读用户列表();
     } catch (error) {
       console.error("❌ 开启失败:", error);
     }
@@ -985,7 +982,6 @@ async function 标记客户(开启 = true) {
       滚动监听定时器 = null;
     }
 
-    // ✅ 改这里，原来是 clearInterval，现在是 disconnect
     if (已读面板监听定时器) {
       已读面板监听定时器.disconnect();
       已读面板监听定时器 = null;
@@ -1000,7 +996,6 @@ async function 标记客户(开启 = true) {
       标记防抖定时器 = null;
     }
 
-    // 在关闭分支里加上这两行
     if (滚动监听容器引用) {
       滚动监听容器引用.removeEventListener("scroll", 处理滚动);
       滚动监听容器引用 = null;
@@ -2727,7 +2722,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.3.2 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.3 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
