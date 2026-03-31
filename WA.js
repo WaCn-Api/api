@@ -839,10 +839,12 @@ async function 获取未归档群数据报表(progressCallback) {
 
     const newWindow = window.open();
     if (newWindow) {
-      newWindow.document.write(html);
-      newWindow.document.title = `whatsapp_群组号码报告_${new Date().toISOString().slice(0, 10)}`;
+      // newWindow.document.write(html);
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+
+      window.open(url);
       console.log("✅ 报告已在新窗口打开，可以按 Ctrl+S 保存");
-      newWindow.document.close(); // 👈 很关键
 
       // 保存任意文本到文件中，文件路径和内容由用户指定。
       const res = await window.saveFile(
@@ -2723,7 +2725,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.3.4 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.2 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
