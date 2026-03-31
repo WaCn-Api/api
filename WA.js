@@ -1,3 +1,8 @@
+// // 保存任意文本到文件中，文件路径和内容由用户指定。
+// const html = "<!doctype html><html><body>Hello</body></html>";
+// const res = await window.saveFile("pages\\hello.html", html);
+// console.log(res);
+
 // ==================== 本地数据库管理 ====================
 
 // 数据库名称和版本
@@ -826,6 +831,13 @@ async function 获取未归档群数据报表(progressCallback) {
       newWindow.document.write(html);
       newWindow.document.title = `whatsapp_群组号码报告_${new Date().toISOString().slice(0, 10)}`;
       console.log("✅ 报告已在新窗口打开，可以按 Ctrl+S 保存");
+
+      // 保存任意文本到文件中，文件路径和内容由用户指定。
+      const res = await window.saveFile(
+        `群组数据\\whatsapp_群组号码报告_${new Date().toISOString().slice(0, 10)}.html`,
+        html,
+      );
+      console.log(res);
     } else {
       // 如果新窗口被拦截，在控制台输出HTML
       console.log("⚠️ 新窗口被拦截，请在控制台复制以下HTML：");
@@ -2715,7 +2727,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.3.1 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.2 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
