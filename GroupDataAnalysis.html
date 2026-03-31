@@ -1,1 +1,708 @@
 
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>客户洞察 | 变化分析平台</title>
+    <!-- 引入 Google Fonts 提升现代感 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN 轻量图表库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        /* ---------- 全局重置 & 现代化设计系统 ---------- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fc 0%, #eef2f8 100%);
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+            padding: 2rem 1.5rem;  /* 上下左右留出舒适空间 */
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 主容器 —— 居中卡片式体验，最大宽度优雅，四周自然留白 */
+        .app-container {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            background: transparent;
+        }
+
+        /* 毛玻璃质感 + 精致边框 (现代化轻拟态) */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(0px);
+            border-radius: 2rem;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
+            transition: all 0.2s ease;
+        }
+
+        /* 上传区域专属卡片样式 */
+        .upload-card-modern {
+            background: #ffffff;
+            border-radius: 2rem;
+            padding: 2.8rem 2rem;
+            text-align: center;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.02);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        /* 拖拽区 现代化虚线+微交互 */
+        .dropzone-modern {
+            border: 2px dashed #cbd5e1;
+            border-radius: 1.75rem;
+            padding: 3rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            background: #fafcff;
+        }
+        .dropzone-modern:hover {
+            background: #f1f5f9;
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+        .icon-circle {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem;
+            transition: all 0.2s;
+        }
+        .icon-circle svg {
+            width: 28px;
+            height: 28px;
+            stroke: #2563eb;
+            stroke-width: 1.8;
+            fill: none;
+        }
+
+        /* 现代 chips 标签 */
+        .chips-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-top: 1.75rem;
+        }
+        .chip-modern {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 100px;
+            padding: 0.4rem 1rem 0.4rem 0.9rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #1e293b;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            backdrop-filter: blur(2px);
+            transition: all 0.15s;
+        }
+        .chip-modern:hover {
+            background: #e6edf6;
+            border-color: #cbd5e1;
+        }
+        .chip-x {
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+            color: #64748b;
+            transition: color 0.1s;
+            font-weight: 500;
+            margin-left: 2px;
+        }
+        .chip-x:hover {
+            color: #dc2626;
+        }
+
+        /* 主要按钮 高级渐变+微阴影 */
+        .btn-primary-grad {
+            display: block;
+            width: 100%;
+            margin-top: 1.75rem;
+            padding: 0.85rem;
+            background: linear-gradient(105deg, #2563eb 0%, #1e40af 100%);
+            border: none;
+            border-radius: 2rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.25s;
+            box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);
+        }
+        .btn-primary-grad:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 20px -12px rgba(37, 99, 235, 0.4);
+            background: linear-gradient(105deg, #3b82f6, #1e3a8a);
+        }
+
+        /* 幽灵按钮 */
+        .btn-ghost-modern {
+            background: transparent;
+            border: 1px solid #cbd5e1;
+            padding: 0.5rem 1.2rem;
+            border-radius: 2rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-ghost-modern:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
+        }
+
+        /* 仪表盘内容区整体内边距 (留白) */
+        .dashboard-modern {
+            padding: 0.25rem 0;
+        }
+
+        /* 头部区域 */
+        .dash-header-modern {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .title-section h2 {
+            font-size: 1.7rem;
+            font-weight: 700;
+            background: linear-gradient(120deg, #0f172a, #2d3a5e);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.3px;
+        }
+        .title-section p {
+            font-size: 0.85rem;
+            color: #475569;
+            margin-top: 0.3rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* KPI 卡片网格 */
+        .kpi-grid-modern {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        .kpi-card {
+            background: white;
+            border-radius: 1.5rem;
+            padding: 1.25rem 1.2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 5px 12px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 24px -12px rgba(0, 0, 0, 0.1);
+        }
+        .kpi-value {
+            font-size: 2.3rem;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+        .kpi-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #5b6e8c;
+            margin-top: 0.5rem;
+        }
+        .trend-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            display: inline-block;
+            background: #eef2ff;
+            padding: 0.2rem 0.65rem;
+            border-radius: 40px;
+        }
+        .trend-up { color: #15803d; background: #e0f2e7; }
+        .trend-down { color: #b91c1c; background: #fee9e9; }
+        .trend-neutral { color: #4b5563; background: #f1f5f9; }
+
+        /* 双栏卡片通用样式 */
+        .row-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.75rem;
+        }
+        .insight-card {
+            background: white;
+            border-radius: 1.5rem;
+            border: 1px solid #eef2f6;
+            padding: 1.3rem 1.2rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+        }
+        .card-heading {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #5b6e8c;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .num-list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.7rem 0;
+            border-bottom: 1px solid #f0f2f5;
+        }
+        .num-list-item:last-child {
+            border-bottom: none;
+        }
+        .phone-number {
+            font-weight: 600;
+            font-size: 0.85rem;
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+            color: #1e293b;
+        }
+        .pill-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.2rem 0.6rem;
+            border-radius: 40px;
+            margin-right: 0.6rem;
+            display: inline-block;
+        }
+        .pill-new { background: #dcfce7; color: #166534; }
+        .pill-lost { background: #ffe4e2; color: #991b1b; }
+        .group-list {
+            font-size: 0.7rem;
+            color: #5b6e8c;
+            max-width: 180px;
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 1.8rem 0;
+            color: #94a3b8;
+            font-size: 0.8rem;
+        }
+
+        /* 时间线优雅样式 */
+        .timeline-modern {
+            background: white;
+            border-radius: 1.5rem;
+            border: 1px solid #eef2f6;
+            padding: 1.3rem;
+            margin-bottom: 1.75rem;
+        }
+        .tl-item {
+            display: flex;
+            gap: 1rem;
+            padding: 0.9rem 0;
+            border-bottom: 1px solid #f0f2f5;
+        }
+        .tl-dot-custom {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-top: 0.4rem;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+        }
+        .tl-content p {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #0f172a;
+        }
+        .tl-meta {
+            font-size: 0.7rem;
+            color: #6c7f9e;
+            margin-top: 0.2rem;
+        }
+
+        /* 群组条形图现代化 */
+        .group-stats {
+            background: white;
+            border-radius: 1.5rem;
+            border: 1px solid #eef2f6;
+            padding: 1.3rem;
+            margin-bottom: 1.75rem;
+        }
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.8rem;
+        }
+        .bar-label {
+            width: 200px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #334155;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            /* text-align: right; */
+            text-align: left;
+        }
+        .bar-track {
+            flex: 1;
+            background: #eef2ff;
+            border-radius: 40px;
+            height: 28px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+            height: 100%;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding-left: 0.8rem;
+            color: white;
+            font-weight: 600;
+            font-size: 0.7rem;
+        }
+
+        /* 图表容器圆润 */
+        .chart-modern {
+            background: white;
+            border-radius: 1.5rem;
+            border: 1px solid #eef2f6;
+            padding: 1rem 1rem 0.8rem 1rem;
+            margin-bottom: 1.75rem;
+        }
+        .legend-custom {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-bottom: 0.5rem;
+        }
+        @media (max-width: 750px) {
+            body { padding: 1rem; }
+            .kpi-grid-modern { grid-template-columns: repeat(2,1fr); gap: 0.8rem; }
+            .row-split { grid-template-columns: 1fr; gap: 1rem; }
+            .bar-label { width: 100px; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <!-- 上传区 -->
+    <div id="uploadSection" class="upload-card-modern glass-panel">
+        <div class="dropzone-modern" id="dropzoneModern" onclick="triggerFileInput()">
+            <div class="icon-circle">
+                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" fill="none">
+                    <path d="M12 3v12m0 0-3-3m3 3 3-3M5 21h14" stroke="currentColor" stroke-linecap="round"/>
+                    <rect x="4" y="14" width="16" height="4" rx="1" stroke="currentColor"/>
+                </svg>
+            </div>
+            <div style="font-size: 1.1rem; font-weight: 600; color: #0f172a;">上传客户JSON文件</div>
+            <div style="font-size: 0.8rem; color: #5b6e8c; margin-top: 0.5rem;">支持拖拽 / 点击，可多选。需包含“保存时间”与“号码列表”字段</div>
+            <input type="file" id="fileInputEl" multiple accept=".json" style="display: none;">
+        </div>
+        <div class="chips-wrapper" id="chipsArea"></div>
+        <button class="btn-primary-grad" id="analyzeBtn" style="display: none;">🚀 智能分析洞察</button>
+    </div>
+
+    <!-- 仪表板区 -->
+    <div id="dashboardPanel" style="display: none;">
+        <div class="dashboard-modern">
+            <div class="dash-header-modern">
+                <div class="title-section">
+                    <h2>客户生命周期洞察</h2>
+                    <p><span>📊 动态迁移分析 · 新增/流失追踪</span><span id="dateRangeSpan" style="font-weight:500;"></span></p>
+                </div>
+                <button class="btn-ghost-modern" id="resetUploadBtn">⟳ 重新上传</button>
+            </div>
+
+            <!-- KPI 卡片 -->
+            <div class="kpi-grid-modern" id="kpiContainer"></div>
+
+            <!-- 柱状图区域 -->
+            <div class="chart-modern">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600; font-size: 0.75rem; letter-spacing: 0.04em; color: #475569;">📈 号码演化对比</span>
+                    <div class="legend-custom">
+                        <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width:10px;height:10px;background:#3b82f6; border-radius:2px;"></span><span style="font-size:0.7rem;">总量</span></span>
+                        <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width:10px;height:10px;background:#22c55e; border-radius:2px;"></span><span style="font-size:0.7rem;">新增</span></span>
+                        <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width:10px;height:10px;background:#f97316; border-radius:2px;"></span><span style="font-size:0.7rem;">流失</span></span>
+                    </div>
+                </div>
+                <div style="position: relative; height: 240px; width: 100%;">
+                    <canvas id="trendBarChart"></canvas>
+                </div>
+            </div>
+
+            
+
+            <!-- 时间线模块 -->
+            <div class="timeline-modern"><div class="card-heading">📌 版本时间线 & 增量变化</div><div id="timelineContent"></div></div>
+
+            <!-- 群组分布 -->
+            <div class="group-stats"><div class="card-heading">👥 高频群组分布</div><div id="groupBarList"></div></div>
+
+            <!-- 双栏新增/流失 -->
+            <div class="row-split">
+                <div class="insight-card"><div class="card-heading">✨ 新增号码 · 最新窗口</div><div id="newNumbersList"></div></div>
+                <div class="insight-card"><div class="card-heading">⚠️ 流失号码 · 对比首尾</div><div id="lostNumbersList"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 全局状态 ----------
+    let selectedFiles = [];        // 存储 File 对象
+    let barChartInstance = null;
+    const fileInput = document.getElementById('fileInputEl');
+    const dropZone = document.getElementById('dropzoneModern');
+    const chipsArea = document.getElementById('chipsArea');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const uploadSectionDiv = document.getElementById('uploadSection');
+    const dashboardDiv = document.getElementById('dashboardPanel');
+    const resetBtn = document.getElementById('resetUploadBtn');
+
+    // 辅助函数: 更新chips区域 + 按钮显示
+    function updateChipsAndButton() {
+        if (selectedFiles.length === 0) {
+            chipsArea.innerHTML = '';
+            analyzeBtn.style.display = 'none';
+            return;
+        }
+        chipsArea.innerHTML = selectedFiles.map((file, idx) => `
+            <span class="chip-modern">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                ${escapeHtml(file.name)}
+                <span class="chip-x" data-filename="${escapeHtml(file.name)}">✕</span>
+            </span>
+        `).join('');
+        analyzeBtn.style.display = selectedFiles.length >= 2 ? 'block' : 'none';
+        // 绑定删除事件
+        document.querySelectorAll('.chip-x').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const name = el.getAttribute('data-filename');
+                selectedFiles = selectedFiles.filter(f => f.name !== name);
+                updateChipsAndButton();
+                if (selectedFiles.length === 0) fileInput.value = '';
+            });
+        });
+    }
+
+    function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+    function triggerFileInput() { fileInput.click(); }
+
+    // 添加文件
+    function addFiles(newFiles) {
+        for (let f of newFiles) {
+            if (!selectedFiles.some(ex => ex.name === f.name) && f.name.endsWith('.json')) {
+                selectedFiles.push(f);
+            } else if (!f.name.endsWith('.json')) {
+                alert(`文件 "${f.name}" 不是JSON格式，已忽略`);
+            }
+        }
+        updateChipsAndButton();
+        fileInput.value = '';
+    }
+
+    fileInput.addEventListener('change', (e) => addFiles(Array.from(e.target.files)));
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#3b82f6'; dropZone.style.background = '#f8fafc'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#cbd5e1'; dropZone.style.background = '#fafcff'; });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#cbd5e1';
+        dropZone.style.background = '#fafcff';
+        if (e.dataTransfer.files.length) addFiles(Array.from(e.dataTransfer.files));
+    });
+
+    // JSON 读取
+    function readJsonFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try { resolve(JSON.parse(ev.target.result)); } catch(e) { reject(new Error(`解析失败 ${file.name}: ${e.message}`)); }
+            };
+            reader.onerror = () => reject(new Error(`读取失败 ${file.name}`));
+            reader.readAsText(file);
+        });
+    }
+
+    // 核心分析引擎
+    async function startAnalysis() {
+        if (selectedFiles.length < 2) { alert("请至少选择2个JSON文件进行对比分析"); return; }
+        const parsedData = [];
+        for (const f of selectedFiles) {
+            try {
+                const json = await readJsonFile(f);
+                // 健壮取值: 保存时间 & 号码列表 (兼容常见字段)
+                const saveTime = json['保存时间'] || json['saveTime'] || json['timestamp'] || new Date().toISOString();
+                let numbersList = json['号码列表'] || json['phoneList'] || [];
+                if (!Array.isArray(numbersList)) numbersList = [];
+                const phoneSet = new Set(numbersList.map(item => typeof item === 'string' ? item : (item['号码'] || item['phone'] || '')));
+                const fullList = numbersList.map(item => typeof item === 'string' ? { '号码': item, '所在群组': [] } : { '号码': item['号码'] || item['phone'], '所在群组': item['所在群组'] || [] });
+                parsedData.push({
+                    name: f.name,
+                    time: saveTime,
+                    phoneSet,
+                    fullList,
+                    rawList: fullList,
+                    size: phoneSet.size
+                });
+            } catch(err) { alert(`错误: ${err.message}`); return; }
+        }
+        // 按时间排序
+        parsedData.sort((a,b) => new Date(a.time) - new Date(b.time));
+        if (parsedData.length < 2) { alert("需要至少两个有效时间点的文件"); return; }
+        const firstItem = parsedData[0];
+        const lastItem = parsedData[parsedData.length-1];
+        const newNumbers = [...lastItem.phoneSet].filter(num => !firstItem.phoneSet.has(num));
+        const lostNumbers = [...firstItem.phoneSet].filter(num => !lastItem.phoneSet.has(num));
+        const netChange = lastItem.size - firstItem.size;
+
+        // 渲染日期范围
+        const d1 = new Date(firstItem.time).toLocaleDateString('zh-CN');
+        const d2 = new Date(lastItem.time).toLocaleDateString('zh-CN');
+        document.getElementById('dateRangeSpan').innerHTML = ` &nbsp; ${d1} → ${d2}  (${parsedData.length} 个快照)`;
+
+        // KPI
+        const kpiHtml = `
+            <div class="kpi-card"><div class="kpi-value">${firstItem.size}</div><div class="kpi-label">起始客户数</div></div>
+            <div class="kpi-card"><div class="kpi-value">${lastItem.size}</div><div class="kpi-label">最新客户数</div><span class="trend-badge ${netChange>=0?'trend-up':'trend-down'}">${netChange>=0?'+'+netChange:netChange}</span></div>
+            <div class="kpi-card"><div class="kpi-value">${newNumbers.length}</div><div class="kpi-label">🟢 新增号码</div><span class="trend-badge trend-up">新客流入</span></div>
+            <div class="kpi-card"><div class="kpi-value">${lostNumbers.length}</div><div class="kpi-label">🔴 流失号码</div><span class="trend-badge trend-down">客户流失</span></div>
+        `;
+        document.getElementById('kpiContainer').innerHTML = kpiHtml;
+
+        // 新增列表渲染 (从最新文件的list中获取群组)
+        const newItemsDetail = newNumbers.map(num => {
+            const match = lastItem.rawList.find(item => item['号码'] === num);
+            const groups = (match && match['所在群组']) ? match['所在群组'] : [];
+            return `<div class="num-list-item"><div><span class="pill-badge pill-new">+新</span><span class="phone-number">${escapeHtml(num)}</span></div><span class="group-list">${groups.slice(0,2).join(', ') || '未分组'}</span></div>`;
+        }).join('');
+        document.getElementById('newNumbersList').innerHTML = newItemsDetail.length ? newItemsDetail : '<div class="empty-state">✨ 无新增号码</div>';
+
+        const lostItemsDetail = lostNumbers.map(num => {
+            const match = firstItem.rawList.find(item => item['号码'] === num);
+            const groups = (match && match['所在群组']) ? match['所在群组'] : [];
+            return `<div class="num-list-item"><div><span class="pill-badge pill-lost">-失</span><span class="phone-number">${escapeHtml(num)}</span></div><span class="group-list">${groups.slice(0,2).join(', ') || '未分组'}</span></div>`;
+        }).join('');
+        document.getElementById('lostNumbersList').innerHTML = lostItemsDetail.length ? lostItemsDetail : '<div class="empty-state">🍃 无流失号码</div>';
+
+        // 时间线
+        let timelineHtml = '';
+        parsedData.forEach((item, idx) => {
+            let changeText = '';
+            if (idx > 0) {
+                const prevSet = parsedData[idx-1].phoneSet;
+                const addedCount = [...item.phoneSet].filter(n => !prevSet.has(n)).length;
+                const removedCount = [...prevSet].filter(n => !item.phoneSet.has(n)).length;
+                changeText = ` · +${addedCount} 新增 / -${removedCount} 流失`;
+            } else { changeText = ' · 基准期'; }
+            timelineHtml += `
+                <div class="tl-item">
+                    <div class="tl-dot-custom" style="background: #3b82f6;"></div>
+                    <div class="tl-content"><p>${escapeHtml(item.name)}</p><div class="tl-meta">📅 ${new Date(item.time).toLocaleString('zh-CN')} · 总数 ${item.size}${changeText}</div></div>
+                </div>
+            `;
+        });
+        document.getElementById('timelineContent').innerHTML = timelineHtml;
+
+        // 群组聚合 (所有文件中所有号码的群组统计)
+        const groupMap = new Map();
+        parsedData.forEach(item => {
+            item.rawList.forEach(entry => {
+                const groups = entry['所在群组'] || [];
+                if (Array.isArray(groups)) {
+                    groups.forEach(g => { if(g && typeof g === 'string') groupMap.set(g, (groupMap.get(g)||0)+1); });
+                }
+            });
+        });
+        const sortedGroups = Array.from(groupMap.entries()).sort((a,b)=>b[1]-a[1]);
+        const maxCount = sortedGroups.length ? sortedGroups[0][1] : 1;
+        const groupBarsHtml = sortedGroups.map(([grp, cnt]) => {
+            const percent = (cnt / maxCount) * 100;
+            return `<div class="bar-row"><span class="bar-label">${escapeHtml(grp)}</span><div class="bar-track"><div class="bar-fill" style="width: ${Math.max(4, percent)}%;">${cnt}</div></div></div>`;
+        }).join('');
+        document.getElementById('groupBarList').innerHTML = groupBarsHtml || '<div class="empty-state">暂无群组数据</div>';
+
+        // 柱状图 datasets (总量, 新增, 流失)
+        const labels = parsedData.map(p => p.name.length>20 ? p.name.slice(0,18)+'..' : p.name);
+        const totalData = parsedData.map(p => p.size);
+        const newData = [0];
+        const lostData = [0];
+        for (let i = 1; i < parsedData.length; i++) {
+            const prevSet = parsedData[i-1].phoneSet;
+            const currSet = parsedData[i].phoneSet;
+            const added = [...currSet].filter(n => !prevSet.has(n)).length;
+            const removed = [...prevSet].filter(n => !currSet.has(n)).length;
+            newData.push(added);
+            lostData.push(removed);
+        }
+        if (barChartInstance) barChartInstance.destroy();
+        const ctx = document.getElementById('trendBarChart').getContext('2d');
+        barChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: '总量', data: totalData, backgroundColor: '#3b82f6', borderRadius: 8, barPercentage: 0.65, categoryPercentage: 0.8 },
+                    { label: '新增', data: newData, backgroundColor: '#22c55e', borderRadius: 8, barPercentage: 0.65 },
+                    { label: '流失', data: lostData, backgroundColor: '#f97316', borderRadius: 8, barPercentage: 0.65 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+                scales: { y: { beginAtZero: true, grid: { color: '#eef2f6' }, ticks: { stepSize: 1, precision:0 } }, x: { ticks: { maxRotation: 35, minRotation: 25, font: { size: 10 } }, grid: { display: false } } }
+            }
+        });
+
+        // 切换视图
+        uploadSectionDiv.style.display = 'none';
+        dashboardDiv.style.display = 'block';
+    }
+
+    analyzeBtn.addEventListener('click', startAnalysis);
+    resetBtn.addEventListener('click', () => {
+        selectedFiles = [];
+        updateChipsAndButton();
+        fileInput.value = '';
+        uploadSectionDiv.style.display = 'block';
+        dashboardDiv.style.display = 'none';
+        if (barChartInstance) { barChartInstance.destroy(); barChartInstance = null; }
+    });
+    // 初始化
+    updateChipsAndButton();
+</script>
+</body>
+</html>
