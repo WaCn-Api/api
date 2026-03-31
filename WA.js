@@ -2722,7 +2722,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.3.2 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.3 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -3387,5 +3387,8 @@ function 注入浮动窗口() {
   更新状态消息("已拓展群发功能", "success");
 }
 
-// 调用函数注入浮动窗口
-注入浮动窗口();
+if (window.location.hostname.includes("web.whatsapp.com")) {
+  console.log("当前在 WhatsApp Web");
+  // 调用函数注入浮动窗口
+  注入浮动窗口();
+}
