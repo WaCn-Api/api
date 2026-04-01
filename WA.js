@@ -1,8 +1,3 @@
-// // 保存任意文本到文件中，文件路径和内容由用户指定。
-// const html = "<!doctype html><html><body>Hello</body></html>";
-// const res = await window.saveFile("pages\\hello.html", html);
-// console.log(res);
-
 // ==================== 本地数据库管理 ====================
 
 // 数据库名称和版本
@@ -95,7 +90,7 @@ async function 保存独立号码到数据库(uniqueNumbers) {
         });
 
         const saveResults = await window.saveFile(
-          `群组数据\\号码统计\\${new Date().toISOString().slice(0, 10) + Date.now()}.json`,
+          `群组数据\\号码统计\\${((d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}_${d.getHours()}-${d.getMinutes()}-${d.getSeconds()}-${d.getMilliseconds()}`)(new Date())}.json`,
           {
             保存时间: timestamp,
             号码列表: uniqueNumbers,
@@ -833,22 +828,23 @@ async function 获取未归档群数据报表(progressCallback) {
 
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    a.download = `whatsapp_群组号码报告_${new Date().toISOString().slice(0, 10)}.html`;
+    a.download = `whatsapp_群组号码报告_${((d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}_${d.getHours()}-${d.getMinutes()}-${d.getSeconds()}-${d.getMilliseconds()}`)(new Date())}.html`;
     a.click();
     URL.revokeObjectURL(a.href);
 
     const newWindow = window.open();
     if (newWindow) {
-      // newWindow.document.write(html);
-      const blob = new Blob([html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
+      // 等待 bridge 对象绑定
+      await CefSharp.BindObjectAsync("bridge");
 
-      window.open(url);
+      // 调用 C# 方法
+      bridge.openReport(html);
+
       console.log("✅ 报告已在新窗口打开，可以按 Ctrl+S 保存");
 
       // 保存任意文本到文件中，文件路径和内容由用户指定。
       const res = await window.saveFile(
-        `群组数据\\${new Date().toISOString().slice(0, 10)}_whatsapp_群组号码报告.html`,
+        `群组数据\\${((d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}_${d.getHours()}-${d.getMinutes()}-${d.getSeconds()}-${d.getMilliseconds()}`)(new Date())}_whatsapp_群组号码报告.html`,
         html,
       );
       console.log(res);
@@ -2725,7 +2721,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.3.2 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.3 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
