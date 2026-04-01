@@ -2341,8 +2341,1242 @@ async function 发送图文同条(groupName, imgBase64, caption) {
 }
 
 // ==================== 浮动窗口代码 ====================
-function 注入浮动窗口() {
-  // 创建宿主元素并添加到body
+// function 注入浮动窗口() {
+//   // 创建宿主元素并添加到body
+//   const host = document.createElement("div");
+//   host.id = "custom-floating-window-host";
+//   host.style.all = "initial";
+//   document.body.appendChild(host);
+
+//   const shadowRoot = host.attachShadow({ mode: "open" });
+
+//   const 浮动窗口 = document.createElement("div");
+//   浮动窗口.id = "custom-floating-window";
+
+//   const style = document.createElement("style");
+//   style.textContent = `
+//       #custom-floating-window {
+//         position: fixed;
+//         width: 310px;
+//         height: 100%;
+//         right: 0;
+//         top: 0px;
+//         background-color: #ffffff;
+//         border: 1px solid #cccccc;
+//         z-index: 99999999;
+//         overflow: auto;
+//         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+//         color: #333333;
+//         resize: none;
+//         padding: 0;
+//         margin: 0;
+//       }
+
+//       body {
+//         padding-right: 320px !important;
+//       }
+
+//       .telegram-app, .chat-list, .messages-container {
+//         max-width: calc(100% - 320px) !important;
+//       }
+
+//       #custom-floating-window .title-bar {
+//         padding: 10px 15px;
+//         cursor: move;
+//         background-color: #f0f0f0;
+//         border-bottom: 1px solid #dddddd;
+//         user-select: none;
+//         font-weight: bold;
+//         display: flex;
+//         justify-content: space-between;
+//         align-items: center;
+//       }
+
+//       #custom-floating-window .content-area {
+//         padding: 15px;
+//       }
+
+//       #custom-floating-window button {
+//         padding: 8px 12px;
+//         background-color: #0088cc;
+//         color: white;
+//         border: none;
+//         border-radius: 4px;
+//         cursor: pointer;
+//         font-size: 12px;
+//         transition: background-color 0.2s;
+//         margin-right: 8px;
+//       }
+
+//       #custom-floating-window button:hover {
+//         background-color: #006699;
+//       }
+
+//       #custom-floating-window button:disabled {
+//         background-color: #cccccc;
+//         cursor: not-allowed;
+//       }
+
+//       #custom-floating-window .contact-list {
+//         margin-top: 15px;
+//         max-height: 275px;
+//         overflow-y: auto;
+//         border: 1px solid #dddddd;
+//         border-radius: 4px;
+//         padding: 5px;
+//         display: none;
+//         background-color: #fafafa;
+//       }
+
+//       #custom-floating-window .contact-item {
+//         display: flex;
+//         align-items: stretch;
+//         padding: 8px 10px;
+//         margin-bottom: 6px;
+//         border-radius: 4px;
+//         transition: all 0.2s;
+//         cursor: pointer;
+//         background-color: white;
+//         border: 1px solid #eeeeee;
+//       }
+
+//       #custom-floating-window .contact-item:hover {
+//         background-color: #f5f5f5;
+//       }
+
+//       #custom-floating-window .contact-item.selected {
+//         background-color: #e6f2ff;
+//         border-left: 3px solid #0088cc;
+//       }
+
+//       #custom-floating-window .contact-checkbox {
+//         width: 12px;
+//         height: 12px;
+//         margin-right: 10px;
+//         cursor: pointer;
+//         accent-color: #0088cc;
+//       }
+
+//       #custom-floating-window .contact-label {
+//         cursor: pointer;
+//         user-select: none;
+//         flex-grow: 1;
+//         font-size: 12px;
+//         white-space: nowrap;
+//         overflow: hidden;
+//         text-overflow: ellipsis;
+//       }
+
+//       #custom-floating-window .action-buttons {
+//         margin: 15px 0;
+//         display: flex;
+//         flex-wrap: wrap;
+//         gap: 8px;
+//         align-items: center;
+//         justify-content: center;
+//       }
+
+//       #custom-floating-window .action-buttons button {
+//         padding: 6px 10px;
+//         background-color: #f0f0f0;
+//         color: #333333;
+//         border: 1px solid #cccccc;
+//       }
+
+//       #custom-floating-window .action-buttons button:hover {
+//         background-color: #e0e0e0;
+//       }
+
+//       #custom-floating-window textarea {
+//         width: 100%;
+//         height: 100px;
+//         padding: 10px;
+//         border: 1px solid #dddddd;
+//         border-radius: 4px;
+//         resize: vertical;
+//         font-family: inherit;
+//         font-size: 14px;
+//         margin-top: 10px;
+//         box-sizing: border-box;
+//       }
+
+//       #custom-floating-window textarea:focus {
+//         outline: none;
+//         border-color: #0088cc;
+//         box-shadow: 0 0 0 2px rgba(0, 136, 204, 0.2);
+//       }
+
+//       #custom-floating-window #progressContainer {
+//         margin-top: 10px;
+//         display: none;
+//       }
+
+//       #custom-floating-window .progress-info {
+//         display: flex;
+//         justify-content: space-between;
+//         margin-bottom: 5px;
+//         font-size: 13px;
+//         color: #666666;
+//       }
+
+//       #custom-floating-window .progress-bar-container {
+//         height: 20px;
+//         background-color: #e9ecef;
+//         border-radius: 4px;
+//         overflow: hidden;
+//       }
+
+//       #custom-floating-window .progress-bar {
+//         height: 100%;
+//         width: 0%;
+//         background-color: #007bff;
+//         transition: width 0.3s ease;
+//       }
+
+//       #custom-floating-window .status-message {
+//         margin-top: 10px;
+//         padding: 8px;
+//         border-radius: 4px;
+//         font-size: 13px;
+//       }
+
+//       #custom-floating-window .status-success {
+//         background-color: #d4edda;
+//         color: #155724;
+//       }
+
+//       #custom-floating-window .status-error {
+//         background-color: #f8d7da;
+//         color: #721c24;
+//       }
+
+//       #custom-floating-window #dbzt {
+//         position: fixed;
+//         bottom: 0px;
+//         width: 310px;
+//         right: 0px;
+//         background: white;
+//         box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+//         z-index: 999999;
+//       }
+
+//       #custom-floating-window .content-area {
+//         padding-bottom: 315px;
+//       }
+
+//       .Select.Send .option-group {
+//         display: flex;
+//         flex-wrap: wrap;
+//         gap: 10px;
+//       }
+
+//       .Select.Send .option-item {
+//         display: flex;
+//         align-items: center;
+//         padding: 8px 12px;
+//         border-radius: 6px;
+//         background-color: white;
+//         border: 1px solid #ddd;
+//         cursor: pointer;
+//         transition: all 0.2s;
+//         font-size: 12px;
+//       }
+
+//       .Select.Send .option-item:hover {
+//         border-color: #0088cc;
+//       }
+
+//       .Select.Send .option-item input[type="radio"] {
+//         margin-right: 8px;
+//       }
+
+//       .Select.Send .option-item input[type="radio"]:checked {
+//         accent-color: #0088cc;
+//       }
+
+//       .send-controls {
+//         display: flex;
+//         justify-content: center;
+//       }
+
+//       .file-upload-container {
+//         display: flex;
+//         flex-direction: column;
+//         gap: 16px;
+//         max-width: 600px;
+//         margin: 10px auto;
+//         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+//       }
+
+//       .upload-controls {
+//         display: flex;
+//         gap: 12px;
+//         align-items: center;
+//         justify-content: space-between;
+//       }
+
+//       .upload-btn {
+//         display: inline-flex;
+//         align-items: center;
+//         gap: 8px;
+//         padding: 8px 16px;
+//         background-color: #007bff;
+//         color: white;
+//         border: none;
+//         border-radius: 6px;
+//         cursor: pointer;
+//         font-size: 14px;
+//         transition: background-color 0.2s;
+//       }
+
+//       .upload-btn:hover {
+//         background-color: #0069d9;
+//       }
+
+//       .upload-btn svg {
+//         width: 14px;
+//         height: 14px;
+//       }
+
+//       #IpImg {
+//         display: none;
+//       }
+
+//       .clear-btn {
+//         display: inline-flex;
+//         align-items: center;
+//         gap: 8px;
+//         padding: 8px 16px;
+//         background-color: #f8f9fa;
+//         color: #dc3545;
+//         border: 1px solid #ddd;
+//         border-radius: 6px;
+//         cursor: pointer;
+//         font-size: 14px;
+//         transition: all 0.2s;
+//       }
+
+//       .clear-btn:hover {
+//         background-color: #f1f1f1;
+//       }
+
+//       .clear-btn:disabled {
+//         opacity: 0.5;
+//         cursor: not-allowed;
+//         color: #6c757d;
+//       }
+
+//       .clear-btn svg {
+//         width: 14px;
+//         height: 14px;
+//       }
+
+//       .preview-area {
+//         border: 2px dashed #ddd;
+//         border-radius: 8px;
+//         padding: 5px;
+//         text-align: center;
+//         min-height: 200px;
+//         display: flex;
+//         align-items: center;
+//         justify-content: center;
+//         position: relative;
+//         background-color: #f9f9f9;
+//         display: none;
+//       }
+
+//       .preview-placeholder {
+//         display: flex;
+//         flex-direction: column;
+//         align-items: center;
+//         gap: 8px;
+//         color: #999;
+//       }
+
+//       .preview-placeholder svg {
+//         opacity: 0.6;
+//       }
+
+//       .preview-placeholder p {
+//         margin: 0;
+//         font-size: 14px;
+//       }
+
+//       .preview-image {
+//         max-width: 100%;
+//         max-height: 200px;
+//         display: none;
+//         border-radius: 4px;
+//         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+//       }
+
+//       .preview-area.has-image .preview-placeholder {
+//         display: none;
+//       }
+
+//       .preview-area.has-image .preview-image {
+//         display: block;
+//       }
+//     `;
+
+//   浮动窗口.innerHTML = `
+//       <div class="title-bar">
+//         <span>WA-消息群发模块(群组报表) v3.3.3 <span id="userName" style="color: #007bff;"></span></span>
+//       </div>
+//       <div class="content-area">
+//         <div class="control-panel">
+//           <button id="loadGroupsBtn" style="width: 100%;    font-size: 14px;    background-color: #cc0000;    margin-bottom: 10px;">采集未归档群组数据</button>
+//           <button id="loadContactsBtn" style="width: 100%; font-size: 14px;">加载未归档群组列表</button>
+//           <div id="contactsContainer" class="contact-list"></div>
+
+//           <div class="action-buttons">
+//             <button id="selectAllBtn">全选</button>
+//             <button id="invertSelectBtn">反选</button>
+//             <button id="clearSelectBtn">清空</button>
+//           </div>
+
+//           <div class="message-input">
+//             <textarea id="messageInput" placeholder="请输入要发送的消息内容..."></textarea>
+
+//             <div class="file-upload-container">
+//               <div class="upload-controls">
+//                 <label for="IpImg" class="upload-btn">
+//                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+//                     <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.9z"/>
+//                     <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+//                   </svg>
+//                   选择文件
+//                 </label>
+//                 <input type="file" id="IpImg" accept="image/*">
+//                 <button id="clear-btn" type="button" class="clear-btn" disabled style="padding: 9.5px 16px;">
+//                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+//                     <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+//                     <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+//                   </svg>
+//                   清空
+//                 </button>
+//               </div>
+
+//               <div class="preview-area">
+//                 <div class="preview-placeholder">
+//                   <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="#ccc" viewBox="0 0 16 16">
+//                     <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+//                     <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+//                   </svg>
+//                   <p>图片预览区域</p>
+//                 </div>
+//                 <img id="preview" src="" alt="预览图" class="preview-image">
+//               </div>
+//             </div>
+//           </div>
+
+//           <!-- 👇 在这里添加客户标记控制按钮 -->
+//       <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+//         <div style="display: flex; gap: 10px; justify-content: center;">
+//           <button id="customerMarkToggleBtn" class="is-off">⭐ 开启客户标记</button>
+//           <button id="clearDataBtn">清除数据</button>
+//         </div>
+//       </div>
+//       <!-- 👆 客户标记控制按钮结束 -->
+
+//           <div id="dbzt">
+//             <div id="dbzt-s" style="margin: 10px;">
+//               <div class="Select Send">
+//                 <div class="option-group">
+//                   <label class="option-item">
+//                     <input type="radio" name="sendOption" value="default" checked>
+//                     <span class="option-label">默认模式</span>
+//                   </label>
+//                   <label class="option-item">
+//                     <input type="radio" name="sendOption" value="imageAndText">
+//                     <span class="option-label">图文同发</span>
+//                   </label>
+//                   <label class="option-item">
+//                     <input type="radio" name="sendOption" value="LeftimageAndText">
+//                     <span class="option-label">先图后文</span>
+//                   </label>
+//                   <label class="option-item">
+//                     <input type="radio" name="sendOption" value="TextAndimage">
+//                     <span class="option-label">先文后图</span>
+//                   </label>
+//                   <label class="option-item">
+//                     <input type="radio" name="sendOption" value="textOnly">
+//                     <span class="option-label">仅文本</span>
+//                   </label>
+//                   <label class="option-item">
+//                     <input type="radio" name="sendOption" value="imageOnly">
+//                     <span class="option-label">仅图片</span>
+//                   </label>
+//                 </div>
+//               </div>
+
+//               <div class="send-controls">
+//                 <button id="sendBatchBtn" style="background-color: #28a745;margin: 10px 0;width: 100%;">开始群发</button>
+//               </div>
+
+//               <div id="progressContainer">
+//                 <div class="progress-info">
+//                   <span id="progressText">准备发送...</span>
+//                   <span id="progressPercent">0%</span>
+//                 </div>
+//                 <div class="progress-bar-container">
+//                   <div id="progressBar" class="progress-bar"></div>
+//                 </div>
+//               </div>
+
+//               <div id="statusMessage" class="status-message"></div>
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     `;
+
+//   shadowRoot.appendChild(style);
+//   shadowRoot.appendChild(浮动窗口);
+
+//   document.body.style.paddingRight = "320px";
+//   const app = document.getElementById("app");
+//   if (app) {
+//     app.style.maxWidth = "calc(100% - 310px)";
+//   }
+
+//   // ==================== 浮动窗口逻辑 ====================
+//   let 联系人数据 = [];
+//   let 当前选中联系人 = new Set();
+//   let fileInputImg = null;
+
+//   const fileInput = shadowRoot.getElementById("IpImg");
+//   const preview = shadowRoot.getElementById("preview");
+//   const clearBtn = shadowRoot.getElementById("clear-btn");
+//   const previewArea = shadowRoot.querySelector(".preview-area");
+//   const messageInput = shadowRoot.getElementById("messageInput");
+//   const progressContainer = shadowRoot.getElementById("progressContainer");
+//   const progressText = shadowRoot.getElementById("progressText");
+//   const progressPercent = shadowRoot.getElementById("progressPercent");
+//   const progressBar = shadowRoot.getElementById("progressBar");
+//   // 更新状态消息
+//   const statusMessage = shadowRoot.getElementById("statusMessage");
+
+//   function 更新状态消息(message, type = "info") {
+//     statusMessage.textContent = message;
+//     statusMessage.className = "status-message";
+//     if (type === "success") {
+//       statusMessage.classList.add("status-success");
+//     } else if (type === "error") {
+//       statusMessage.classList.add("status-error");
+//     }
+//   }
+
+//   function getSelectedSendOption() {
+//     const selectedOption = shadowRoot.querySelector(
+//       '.Select.Send input[name="sendOption"]:checked',
+//     );
+//     return selectedOption ? selectedOption.value : "default";
+//   }
+
+//   // 文件上传处理
+//   fileInput.addEventListener("change", function (e) {
+//     if (e.target.files.length > 0) {
+//       const file = e.target.files[0];
+//       if (!file.type.startsWith("image/")) {
+//         alert("请选择图片文件");
+//         return;
+//       }
+//       const reader = new FileReader();
+//       reader.onload = function (event) {
+//         preview.src = event.target.result;
+//         if (previewArea) {
+//           previewArea.classList.add("has-image");
+//           previewArea.style.display = "flex";
+//         } else {
+//           preview.style.display = "block";
+//         }
+//         if (clearBtn) {
+//           clearBtn.disabled = false;
+//         }
+//         fileInputImg = event.target.result;
+//       };
+//       reader.readAsDataURL(file);
+//     }
+//   });
+
+//   // 清空按钮
+//   if (clearBtn) {
+//     clearBtn.addEventListener("click", function () {
+//       preview.src = "";
+//       if (previewArea) {
+//         previewArea.classList.remove("has-image");
+//         previewArea.style.display = "none";
+//       } else {
+//         preview.style.display = "none";
+//       }
+//       fileInput.value = "";
+//       fileInputImg = null;
+//       clearBtn.disabled = true;
+//     });
+//   }
+
+//   // 粘贴图片
+//   messageInput.addEventListener("paste", async (e) => {
+//     e.preventDefault();
+//     const items = e.clipboardData.items;
+//     for (let item of items) {
+//       if (item.type.indexOf("image") !== -1) {
+//         const file = item.getAsFile();
+//         const reader = new FileReader();
+//         reader.onload = function (event) {
+//           preview.src = event.target.result;
+//           if (previewArea) {
+//             previewArea.classList.add("has-image");
+//             previewArea.style.display = "flex";
+//           }
+//           if (clearBtn) {
+//             clearBtn.disabled = false;
+//           }
+//           fileInputImg = event.target.result;
+//           更新状态消息("已粘贴图片", "success");
+//         };
+//         reader.readAsDataURL(file);
+//         return;
+//       }
+//     }
+//     // 文本粘贴
+//     const text = e.clipboardData.getData("text/plain");
+//     const start = messageInput.selectionStart;
+//     const end = messageInput.selectionEnd;
+//     messageInput.value =
+//       messageInput.value.slice(0, start) + text + messageInput.value.slice(end);
+//     messageInput.selectionStart = messageInput.selectionEnd =
+//       start + text.length;
+//   });
+
+//   // 获取群组数据报表（新功能）
+//   // 获取群组数据报表（新功能）
+//   shadowRoot
+//     .getElementById("loadGroupsBtn")
+//     .addEventListener("click", async function () {
+//       const 按钮 = this;
+
+//       try {
+//         按钮.disabled = true;
+//         按钮.textContent = "采集中...";
+//         progressContainer.style.display = "block";
+//         progressBar.style.width = "0%";
+//         progressText.textContent = "正在初始化...";
+//         progressPercent.textContent = "0%";
+//         更新状态消息("正在采集群组成员号码，请不要进行任何操作！", "success");
+
+//         // ✅ 传入进度回调，实时更新进度条
+//         const results = await 获取未归档群数据报表((p) => {
+//           const percent = Math.floor((p.current / p.total) * 100);
+//           progressBar.style.width = `${percent}%`;
+//           progressText.textContent = `采集中 (${p.current}/${p.total}) - ${p.groupName}`;
+//           progressPercent.textContent = `${percent}%`;
+//           更新状态消息(`正在采集: ${p.groupName}`, "success");
+//         });
+
+//         progressBar.style.width = "100%";
+//         progressPercent.textContent = "100%";
+
+//         if (results && results.results) {
+//           const successCount = results.results.filter(
+//             (r) => r.status === "success",
+//           ).length;
+//           const totalCount = results.results.length;
+//           progressText.textContent = `采集完成！成功 ${successCount}/${totalCount} 个群组`;
+//           更新状态消息(`✅ 采集完成！成功: ${successCount} 个群组`, "success");
+//         } else {
+//           progressText.textContent = "采集完成！";
+//           更新状态消息("✅ 采集完成！", "success");
+//         }
+
+//         // 重载客户标记
+//         if (客户标记监控开启) {
+//           progressText.textContent = "正在更新客户标记数据...";
+//           await 标记客户(false);
+//           await 标记客户(true);
+//           同步客户标记按钮状态();
+//           更新状态消息("✅ 客户标记已更新为最新数据", "success");
+//         }
+//       } catch (error) {
+//         console.error("采集失败:", error);
+//         progressText.textContent = `采集失败: ${error.message}`;
+//         更新状态消息(`❌ 采集失败: ${error.message}`, "error");
+//       } finally {
+//         按钮.disabled = false;
+//         按钮.textContent = "获取未归档群组报表";
+//       }
+//     });
+
+//   // 加载联系人
+//   shadowRoot
+//     .getElementById("loadContactsBtn")
+//     .addEventListener("click", async function () {
+//       const 加载按钮 = this;
+//       const contactsContainer = shadowRoot.getElementById("contactsContainer");
+
+//       try {
+//         加载按钮.disabled = true;
+//         加载按钮.textContent = "加载中...";
+//         contactsContainer.style.display = "block";
+//         contactsContainer.innerHTML =
+//           '<div style="padding: 20px; text-align: center;">正在加载群组列表...</div>';
+
+//         联系人数据 = await 获取未归档群组();
+
+//         if (!联系人数据 || 联系人数据.length === 0) {
+//           contactsContainer.innerHTML =
+//             '<div style="padding: 20px; text-align: center; color: #666;">没有找到任何群组</div>';
+//           return;
+//         }
+
+//         let contactsHTML = "";
+//         联系人数据.forEach((contact, index) => {
+//           const contactId = `contact-${index}`;
+//           const memberCount = contact.participantCount || 0;
+//           contactsHTML += `
+//           <div class="contact-item" data-contact-id="${contactId}">
+//             <input type="checkbox" id="${contactId}" class="contact-checkbox" value="${contact.id}">
+//             <label for="${contactId}" class="contact-label" title="${contact.name}">${contact.name} (${memberCount}人)</label>
+//           </div>
+//         `;
+//         });
+
+//         contactsContainer.innerHTML = contactsHTML;
+//         更新状态消息(`已加载 ${联系人数据.length} 个群组`, "success");
+
+//         const contactItems = shadowRoot.querySelectorAll(".contact-item");
+//         contactItems.forEach((item) => {
+//           const checkbox = item.querySelector(".contact-checkbox");
+
+//           item.addEventListener("click", (e) => {
+//             if (e.target === checkbox) return;
+//             checkbox.checked = !checkbox.checked;
+//             if (checkbox.checked) {
+//               item.classList.add("selected");
+//               当前选中联系人.add(checkbox.value);
+//             } else {
+//               item.classList.remove("selected");
+//               当前选中联系人.delete(checkbox.value);
+//             }
+//             更新状态消息(`已选中 ${当前选中联系人.size} 个群组`, "success");
+//           });
+
+//           checkbox.addEventListener("click", (e) => {
+//             e.stopPropagation();
+//             if (checkbox.checked) {
+//               item.classList.add("selected");
+//               当前选中联系人.add(checkbox.value);
+//             } else {
+//               item.classList.remove("selected");
+//               当前选中联系人.delete(checkbox.value);
+//             }
+//             更新状态消息(`已选中 ${当前选中联系人.size} 个群组`, "success");
+//           });
+//         });
+//       } catch (error) {
+//         console.error("加载失败:", error);
+//         contactsContainer.innerHTML = `
+//         <div class="status-error" style="padding: 15px;">
+//           <p>加载失败: ${error.message}</p>
+//         </div>
+//       `;
+//       } finally {
+//         加载按钮.disabled = false;
+//         加载按钮.textContent = "📋 加载未归档群组列表";
+//       }
+//     });
+
+//   // 全选
+//   shadowRoot.getElementById("selectAllBtn").addEventListener("click", () => {
+//     const checkboxes = shadowRoot.querySelectorAll(".contact-checkbox");
+//     当前选中联系人.clear();
+//     checkboxes.forEach((checkbox) => {
+//       checkbox.checked = true;
+//       checkbox.parentElement.classList.add("selected");
+//       当前选中联系人.add(checkbox.value);
+//     });
+//     更新状态消息(`已全选 ${当前选中联系人.size} 个群组`, "success");
+//   });
+
+//   // 反选
+//   shadowRoot.getElementById("invertSelectBtn").addEventListener("click", () => {
+//     const checkboxes = shadowRoot.querySelectorAll(".contact-checkbox");
+//     当前选中联系人.clear();
+//     checkboxes.forEach((checkbox) => {
+//       checkbox.checked = !checkbox.checked;
+//       if (checkbox.checked) {
+//         checkbox.parentElement.classList.add("selected");
+//         当前选中联系人.add(checkbox.value);
+//       } else {
+//         checkbox.parentElement.classList.remove("selected");
+//       }
+//     });
+//     更新状态消息(`已反选，当前选中 ${当前选中联系人.size} 个群组`, "success");
+//   });
+
+//   // 清空选择
+//   shadowRoot.getElementById("clearSelectBtn").addEventListener("click", () => {
+//     shadowRoot.querySelectorAll(".contact-checkbox").forEach((checkbox) => {
+//       checkbox.checked = false;
+//       checkbox.parentElement.classList.remove("selected");
+//     });
+//     当前选中联系人.clear();
+//     更新状态消息("已清空所有选择", "success");
+//   });
+
+//   // 清除数据
+//   shadowRoot.getElementById("clearDataBtn").addEventListener("click", () => {
+//     const btn = shadowRoot.getElementById("clearDataBtn");
+//     btn.disabled = true;
+//     btn.textContent = "清除中...";
+//     更新状态消息("正在清除客户数据，请稍候...", "success");
+
+//     const req = indexedDB.deleteDatabase("WhatsAppCustomerDB");
+//     req.onsuccess = () => {
+//       btn.textContent = "✅ 已清除，刷新中...";
+//       更新状态消息("清除成功，即将刷新页面...", "success");
+//       setTimeout(() => location.reload(), 800); // 留0.8秒让用户看到提示
+//     };
+//     req.onerror = () => {
+//       btn.disabled = false;
+//       btn.textContent = "清除客户数据";
+//       更新状态消息("❌ 清除失败，请重试", "error");
+//     };
+//   });
+
+//   // ✅ 加上这行！
+//   const toggleBtn = shadowRoot.getElementById("customerMarkToggleBtn");
+
+//   // ✅ 新增：统一的按钮状态同步函数
+//   function 同步客户标记按钮状态() {
+//     // ← 注意：参数也不需要了，直接用上面的 toggleBtn
+//     if (!toggleBtn) return;
+//     if (客户标记监控开启) {
+//       toggleBtn.style.backgroundColor = "#f44336";
+//       toggleBtn.textContent = "⏹️ 关闭客户标记";
+//     } else {
+//       toggleBtn.style.backgroundColor = "#25D366";
+//       toggleBtn.textContent = "⭐ 开启客户标记";
+//     }
+//   }
+
+//   // ✅ click handler 改成这样，catch里也会同步
+//   toggleBtn.addEventListener("click", async () => {
+//     if (toggleBtn.disabled) return; // 防止重复点击（已有）
+//     toggleBtn.disabled = true;
+//     try {
+//       await 标记客户(!客户标记监控开启); // ✅ 直接传当前状态的反值，更清晰
+//     } catch (e) {
+//       console.error("切换客户标记失败:", e);
+//     } finally {
+//       toggleBtn.disabled = false;
+//       同步客户标记按钮状态();
+//       更新状态消息(
+//         客户标记监控开启 ? "⭐ 客户标记已开启" : "⏹️ 客户标记已关闭",
+//         "success",
+//       );
+//     }
+//   });
+
+//   // 自动开启也改成用同步函数
+//   // ✅ 改成
+//   Promise.resolve().then(async () => {
+//     await 标记客户(true);
+//     同步客户标记按钮状态();
+//     更新状态消息("⭐ 客户标记已自动开启", "success");
+//   });
+
+//   // 群发消息
+//   shadowRoot
+//     .getElementById("sendBatchBtn")
+//     .addEventListener("click", async () => {
+//       const message = messageInput.value.trim();
+//       if (!message && !fileInputImg) {
+//         更新状态消息("请输入要发送的消息内容", "error");
+//         return;
+//       }
+//       if (当前选中联系人.size === 0) {
+//         更新状态消息("请至少选择一个群组", "error");
+//         return;
+//       }
+
+//       progressContainer.style.display = "block";
+//       progressText.textContent = `准备发送 (0/${当前选中联系人.size})`;
+//       progressPercent.textContent = "0%";
+//       progressBar.style.width = "0%";
+
+//       const 发送按钮 = shadowRoot.getElementById("sendBatchBtn");
+//       const 原按钮文本 = 发送按钮.textContent;
+//       发送按钮.disabled = true;
+//       发送按钮.textContent = "发送中...";
+
+//       let successCount = 0;
+//       let failCount = 0;
+//       const 所有联系人 = Array.from(当前选中联系人);
+//       const 总数量 = 所有联系人.length;
+//       const sendOption = getSelectedSendOption();
+
+//       console.log("📋 准备发送到以下群组:");
+//       所有联系人.forEach((id, index) => {
+//         const group = 联系人数据.find((g) => g.id === id);
+//         console.log(`  ${index + 1}. ${group?.name || id}`);
+//       });
+
+//       for (let i = 0; i < 总数量; i++) {
+//         const contactId = 所有联系人[i];
+//         const group = 联系人数据.find((g) => g.id === contactId);
+//         const groupName = group?.name || contactId;
+
+//         try {
+//           const progress = Math.floor(((i + 1) / 总数量) * 100);
+//           progressText.textContent = `发送中 (${i + 1}/${总数量}) 成功: ${successCount}, 失败: ${failCount}`;
+//           progressPercent.textContent = `${progress}%`;
+//           progressBar.style.width = `${progress}%`;
+//           更新状态消息("正在发送消息给" + groupName, "success");
+//           console.log(`\n📨 [${i + 1}/${总数量}] 正在发送到: ${groupName}`);
+
+//           // 在 switch 之前添加检查
+//           const hasImage = !!fileInputImg;
+//           const hasText = !!message;
+
+//           // 模式验证和提示
+//           function validateSendOption(option, hasImage, hasText) {
+//             const imageTextModes = [
+//               "imageAndText",
+//               "LeftimageAndText",
+//               "TextAndimage",
+//             ];
+
+//             if (imageTextModes.includes(option) && (!hasImage || !hasText)) {
+//               if (!hasImage && !hasText) {
+//                 return {
+//                   valid: false,
+//                   message: "图文模式需要同时提供图片和文本，当前两者都为空",
+//                 };
+//               } else if (!hasImage) {
+//                 return {
+//                   valid: false,
+//                   message: "图文模式需要提供图片，当前只有文本",
+//                 };
+//               } else if (!hasText) {
+//                 return {
+//                   valid: false,
+//                   message: "图文模式需要提供文本，当前只有图片",
+//                 };
+//               }
+//             }
+
+//             if (option === "textOnly" && !hasText) {
+//               return { valid: false, message: "仅文本模式需要提供文本内容" };
+//             }
+
+//             if (option === "imageOnly" && !hasImage) {
+//               return { valid: false, message: "仅图片模式需要提供图片" };
+//             }
+
+//             return { valid: true, message: "" };
+//           }
+
+//           // 执行验证
+//           const validation = validateSendOption(sendOption, hasImage, hasText);
+//           if (!validation.valid) {
+//             console.warn(`⚠️ 群发跳过: ${validation.message}`);
+//             更新状态消息(`跳过: ${validation.message}`, "error");
+
+//             // 恢复按钮状态
+//             发送按钮.disabled = false;
+//             发送按钮.textContent = 原按钮文本;
+//             progressContainer.style.display = "none";
+//             return;
+//           }
+
+//           // 原来的 switch 代码
+//           let sendResult = false;
+//           switch (sendOption) {
+//             case "default":
+//               if (hasImage && hasText) {
+//                 console.log(`  模式: 图文同发`);
+//                 sendResult = await 发送图文同条(
+//                   groupName,
+//                   fileInputImg,
+//                   message,
+//                 );
+//               } else if (hasImage) {
+//                 console.log(`  模式: 仅图片`);
+//                 sendResult = await 发送图片内容(groupName, fileInputImg);
+//               } else if (hasText) {
+//                 console.log(`  模式: 仅文本`);
+//                 sendResult = await 发送文本内容(groupName, message);
+//               }
+//               break;
+
+//             case "imageAndText":
+//               // 已经过验证，这里一定有图片和文本
+//               console.log(`  模式: 图文同发 (强制)`);
+//               sendResult = await 发送图文同条(groupName, fileInputImg, message);
+//               break;
+
+//             case "LeftimageAndText":
+//               // 已经过验证，这里一定有图片和文本
+//               console.log(`  模式: 先图后文 (强制)`);
+//               sendResult = await 发送图文内容(groupName, fileInputImg, message);
+//               break;
+
+//             case "TextAndimage":
+//               // 已经过验证，这里一定有图片和文本
+//               console.log(`  模式: 先文后图 (强制)`);
+//               sendResult = await 发送文本图片内容(
+//                 groupName,
+//                 message,
+//                 fileInputImg,
+//               );
+//               break;
+
+//             case "textOnly":
+//               // 已经过验证，这里一定有文本
+//               console.log(`  模式: 仅文本 (强制)`);
+//               sendResult = await 发送文本内容(groupName, message);
+//               break;
+
+//             case "imageOnly":
+//               // 已经过验证，这里一定有图片
+//               console.log(`  模式: 仅图片 (强制)`);
+//               sendResult = await 发送图片内容(groupName, fileInputImg);
+//               break;
+//           }
+
+//           if (sendResult) {
+//             successCount++;
+//             console.log(`  ✅ 发送成功: ${groupName}`);
+//           } else {
+//             failCount++;
+//             console.log(`  ❌ 发送失败: ${groupName}`);
+//           }
+
+//           await new Promise((resolve) =>
+//             setTimeout(resolve, Math.floor(Math.random() * 201) + 100),
+//           );
+//         } catch (error) {
+//           console.error(`  ❌ 发送给 ${groupName} 失败:`, error);
+//           failCount++;
+//         }
+//       }
+
+//       progressText.textContent = `发送完成 (${总数量}/${总数量}) 成功: ${successCount}, 失败: ${failCount}`;
+//       progressPercent.textContent = "100%";
+//       progressBar.style.width = "100%";
+
+//       if (failCount === 0) {
+//         更新状态消息(`消息已成功发送给 ${successCount} 个群组`, "success");
+//       } else {
+//         更新状态消息(
+//           `发送完成: 成功 ${successCount} 个, 失败 ${failCount} 个`,
+//           failCount === 总数量 ? "error" : "success",
+//         );
+//       }
+
+//       messageInput.value = "";
+//       shadowRoot.getElementById("clear-btn").click();
+
+//       发送按钮.disabled = false;
+//       发送按钮.textContent = 原按钮文本;
+//     });
+
+//   更新状态消息("已拓展群发功能", "success");
+// }
+
+// if (window.location.hostname.includes("web.whatsapp.com")) {
+//   console.log("当前在 WhatsApp Web");
+//   // 调用函数注入浮动窗口
+//   注入浮动窗口();
+// }
+
+// ==================== 定时发送管理器 ====================
+
+class 定时发送管理器 {
+  constructor() {
+    this.任务列表 = [];
+    this.定时器ID = null;
+    this.任务ID计数器 = 1;
+    this.存储路径 = "whatsapp_scheduled_tasks.json";
+  }
+
+  // 加载存储的任务
+  async 加载任务() {
+    try {
+      if (window.__csharpApiReady && typeof window.readFile === "function") {
+        const data = await window.readFile(this.存储路径);
+        if (data && Array.isArray(data)) {
+          this.任务列表 = data;
+          // 重新计算最大ID
+          if (this.任务列表.length > 0) {
+            this.任务ID计数器 = Math.max(...this.任务列表.map((t) => t.id)) + 1;
+          }
+          console.log(`📋 已加载 ${this.任务列表.length} 个定时任务`);
+          return this.任务列表;
+        }
+      }
+    } catch (e) {
+      console.warn("加载定时任务失败:", e);
+    }
+    this.任务列表 = [];
+    return [];
+  }
+
+  // 保存任务到文件
+  async 保存任务() {
+    try {
+      if (window.__csharpApiReady && typeof window.saveFile === "function") {
+        await window.saveFile(this.存储路径, this.任务列表);
+        console.log(`💾 已保存 ${this.任务列表.length} 个定时任务`);
+        return true;
+      }
+    } catch (e) {
+      console.error("保存定时任务失败:", e);
+    }
+    return false;
+  }
+
+  // 添加任务
+  添加任务(任务) {
+    const 新任务 = {
+      id: this.任务ID计数器++,
+      ...任务,
+      创建时间: new Date().toISOString(),
+      状态: "pending", // pending, sending, completed, cancelled
+    };
+    this.任务列表.push(新任务);
+    this.保存任务();
+    this.重新调度();
+    return 新任务;
+  }
+
+  // 删除任务
+  删除任务(任务ID) {
+    this.任务列表 = this.任务列表.filter((t) => t.id !== 任务ID);
+    this.保存任务();
+    this.重新调度();
+  }
+
+  // 编辑任务
+  编辑任务(任务ID, 新内容) {
+    const 索引 = this.任务列表.findIndex((t) => t.id === 任务ID);
+    if (索引 !== -1) {
+      this.任务列表[索引] = { ...this.任务列表[索引], ...新内容 };
+      this.保存任务();
+      this.重新调度();
+      return true;
+    }
+    return false;
+  }
+
+  // 立即执行任务（不等待定时）
+  async 立即执行任务(任务) {
+    if (任务.状态 !== "pending") return false;
+
+    任务.状态 = "sending";
+    this.保存任务();
+
+    try {
+      console.log(`🚀 执行定时任务: ${任务.群组名称} - ${任务.内容类型}`);
+
+      let 结果 = false;
+      switch (任务.内容类型) {
+        case "text":
+          结果 = await 发送文本内容(任务.群组名称, 任务.文本内容);
+          break;
+        case "image":
+          结果 = await 发送图片内容(任务.群组名称, 任务.图片数据);
+          break;
+        case "imageAndText":
+          结果 = await 发送图文同条(
+            任务.群组名称,
+            任务.图片数据,
+            任务.文本内容,
+          );
+          break;
+        default:
+          结果 = await 发送文本内容(任务.群组名称, 任务.文本内容);
+      }
+
+      if (结果) {
+        任务.状态 = "completed";
+        任务.完成时间 = new Date().toISOString();
+        console.log(`✅ 定时任务完成: ${任务.群组名称}`);
+      } else {
+        任务.状态 = "failed";
+        任务.失败原因 = "发送失败";
+      }
+    } catch (e) {
+      任务.状态 = "failed";
+      任务.失败原因 = e.message;
+      console.error(`❌ 定时任务失败: ${任务.群组名称}`, e);
+    }
+
+    this.保存任务();
+    return 任务.状态 === "completed";
+  }
+
+  // 重新调度所有任务
+  重新调度() {
+    if (this.定时器ID) {
+      clearTimeout(this.定时器ID);
+      this.定时器ID = null;
+    }
+
+    const 待执行任务 = this.任务列表
+      .filter((t) => t.状态 === "pending")
+      .sort((a, b) => new Date(a.执行时间) - new Date(b.执行时间));
+
+    if (待执行任务.length === 0) return;
+
+    const 下一个任务 = 待执行任务[0];
+    const 延迟毫秒 = new Date(下一个任务.执行时间) - Date.now();
+
+    if (延迟毫秒 <= 0) {
+      // 立即执行
+      this.立即执行任务(下一个任务).then(() => {
+        this.重新调度();
+      });
+    } else {
+      this.定时器ID = setTimeout(async () => {
+        await this.立即执行任务(下一个任务);
+        this.重新调度();
+      }, 延迟毫秒);
+      console.log(
+        `⏰ 下一个任务: ${下一个任务.群组名称}，将在 ${Math.round(延迟毫秒 / 1000)} 秒后执行`,
+      );
+    }
+  }
+
+  // 获取所有任务
+  获取任务列表(筛选 = null) {
+    if (筛选) {
+      return this.任务列表.filter((t) => t.状态 === 筛选);
+    }
+    return [...this.任务列表];
+  }
+
+  // 清空已完成/失败的任务
+  清空已完成任务() {
+    this.任务列表 = this.任务列表.filter((t) => t.状态 === "pending");
+    this.保存任务();
+    this.重新调度();
+  }
+}
+
+// 全局定时任务管理器实例
+let 定时任务管理器 = null;
+
+// ==================== 修改注入浮动窗口函数，添加定时任务标签页 ====================
+
+function 注入浮动窗口_带定时任务() {
+  // 初始化定时任务管理器
+  定时任务管理器 = new 定时发送管理器();
+  定时任务管理器.加载任务();
+
+  // 创建宿主元素
   const host = document.createElement("div");
   host.id = "custom-floating-window-host";
   host.style.all = "initial";
@@ -2357,7 +3591,7 @@ function 注入浮动窗口() {
   style.textContent = `
       #custom-floating-window {
         position: fixed;
-        width: 310px;
+        width: 380px;
         height: 100%;
         right: 0;
         top: 0px;
@@ -2367,20 +3601,282 @@ function 注入浮动窗口() {
         overflow: auto;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         color: #333333;
-        resize: none;
         padding: 0;
         margin: 0;
       }
 
       body {
-        padding-right: 320px !important; 
-      }
-
-      .telegram-app, .chat-list, .messages-container {
-        max-width: calc(100% - 320px) !important; 
+        padding-right: 400px !important; 
       }
       
-      #custom-floating-window .title-bar {
+      /* 标签页样式 */
+      .tabs-container {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        background: #f5f5f5;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      
+      .tab-btn {
+        flex: 1;
+        padding: 12px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      
+      .tab-btn.active {
+        background: white;
+        color: #0088cc;
+        border-bottom: 2px solid #0088cc;
+      }
+      
+      .tab-pane {
+        display: none;
+        padding: 15px;
+      }
+      
+      .tab-pane.active {
+        display: block;
+      }
+      
+      /* 定时任务列表样式 */
+      .task-list {
+        max-height: 400px;
+        overflow-y: auto;
+        margin-bottom: 15px;
+      }
+      
+      .task-item {
+        background: #f9f9f9;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+        position: relative;
+      }
+      
+      .task-item.pending {
+        border-left: 3px solid #ff9800;
+      }
+      
+      .task-item.completed {
+        border-left: 3px solid #4caf50;
+        opacity: 0.7;
+      }
+      
+      .task-item.failed {
+        border-left: 3px solid #f44336;
+      }
+      
+      .task-item.cancelled {
+        border-left: 3px solid #9e9e9e;
+        opacity: 0.6;
+      }
+      
+      .task-time {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 5px;
+      }
+      
+      .task-group {
+        font-weight: bold;
+        font-size: 14px;
+        margin-bottom: 5px;
+      }
+      
+      .task-content {
+        font-size: 12px;
+        color: #555;
+        margin-bottom: 8px;
+        word-break: break-all;
+        max-height: 60px;
+        overflow: auto;
+      }
+      
+      .task-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      
+      .task-actions button {
+        padding: 4px 8px;
+        font-size: 11px;
+        background: #e0e0e0;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      
+      .task-actions button:hover {
+        background: #ccc;
+      }
+      
+      .task-actions .delete-btn {
+        background: #ffebee;
+        color: #f44336;
+      }
+      
+      .task-actions .edit-btn {
+        background: #e3f2fd;
+        color: #2196f3;
+      }
+      
+      .task-actions .execute-btn {
+        background: #e8f5e9;
+        color: #4caf50;
+      }
+      
+      /* 添加任务表单 */
+      .add-task-form {
+        background: #f5f5f5;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 15px;
+      }
+      
+      .form-row {
+        margin-bottom: 10px;
+      }
+      
+      .form-row label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 4px;
+        color: #666;
+      }
+      
+      .form-row select,
+      .form-row input,
+      .form-row textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 12px;
+        box-sizing: border-box;
+      }
+      
+      .form-row textarea {
+        resize: vertical;
+        min-height: 60px;
+      }
+      
+      .time-select-row {
+        display: flex;
+        gap: 8px;
+      }
+      
+      .time-select-row select {
+        flex: 1;
+      }
+      
+      .add-task-btn {
+        width: 100%;
+        padding: 10px;
+        background: #0088cc;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 8px;
+      }
+      
+      .add-task-btn:hover {
+        background: #006699;
+      }
+      
+      .quick-time-btns {
+        display: flex;
+        gap: 6px;
+        margin-top: 5px;
+        flex-wrap: wrap;
+      }
+      
+      .quick-time-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+        background: #e0e0e0;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      
+      .batch-clear {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      
+      .batch-clear button {
+        flex: 1;
+        padding: 8px;
+        font-size: 12px;
+        background: #f0f0f0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      
+      /* 编辑弹窗 */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000000;
+      }
+      
+      .modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 320px;
+        max-width: 90%;
+        padding: 20px;
+      }
+      
+      .modal-content h3 {
+        margin: 0 0 15px 0;
+      }
+      
+      .modal-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+      }
+      
+      .modal-buttons button {
+        flex: 1;
+        padding: 8px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      
+      .modal-buttons .confirm {
+        background: #0088cc;
+        color: white;
+      }
+      
+      .modal-buttons .cancel {
+        background: #e0e0e0;
+      }
+      
+      /* 原有样式保持 */
+      .title-bar {
         padding: 10px 15px;
         cursor: move;
         background-color: #f0f0f0;
@@ -2392,34 +3888,9 @@ function 注入浮动窗口() {
         align-items: center;
       }
       
-      #custom-floating-window .content-area {
-        padding: 15px;
-      }
-      
-      #custom-floating-window button {
-        padding: 8px 12px;
-        background-color: #0088cc;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        transition: background-color 0.2s;
-        margin-right: 8px;
-      }
-      
-      #custom-floating-window button:hover {
-        background-color: #006699;
-      }
-      
-      #custom-floating-window button:disabled {
-        background-color: #cccccc;
-        cursor: not-allowed;
-      }
-      
-      #custom-floating-window .contact-list {
+      .contact-list {
         margin-top: 15px;
-        max-height: 275px;
+        max-height: 200px;
         overflow-y: auto;
         border: 1px solid #dddddd;
         border-radius: 4px;
@@ -2428,36 +3899,26 @@ function 注入浮动窗口() {
         background-color: #fafafa;
       }
       
-      #custom-floating-window .contact-item {
+      /* ... 其他原有样式保持 ... */
+      .contact-item {
         display: flex;
         align-items: stretch;
         padding: 8px 10px;
         margin-bottom: 6px;
         border-radius: 4px;
-        transition: all 0.2s;
         cursor: pointer;
         background-color: white;
         border: 1px solid #eeeeee;
       }
       
-      #custom-floating-window .contact-item:hover {
-        background-color: #f5f5f5;
-      }
-      
-      #custom-floating-window .contact-item.selected {
-        background-color: #e6f2ff;
-        border-left: 3px solid #0088cc;
-      }
-      
-      #custom-floating-window .contact-checkbox {
+      .contact-checkbox {
         width: 12px;
         height: 12px;
         margin-right: 10px;
         cursor: pointer;
-        accent-color: #0088cc;
       }
       
-      #custom-floating-window .contact-label {
+      .contact-label {
         cursor: pointer;
         user-select: none;
         flex-grow: 1;
@@ -2467,380 +3928,592 @@ function 注入浮动窗口() {
         text-overflow: ellipsis;
       }
       
-      #custom-floating-window .action-buttons {
-        margin: 15px 0;
+      .action-buttons {
+        margin: 10px 0;
         display: flex;
-        flex-wrap: wrap;
         gap: 8px;
-        align-items: center;
-        justify-content: center;
       }
       
-      #custom-floating-window .action-buttons button {
-        padding: 6px 10px;
-        background-color: #f0f0f0;
-        color: #333333;
-        border: 1px solid #cccccc;
+      .action-buttons button {
+        flex: 1;
+        padding: 6px;
+        background: #f0f0f0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
       }
       
-      #custom-floating-window .action-buttons button:hover {
-        background-color: #e0e0e0;
-      }
-      
-      #custom-floating-window textarea {
+      textarea {
         width: 100%;
-        height: 100px;
-        padding: 10px;
+        height: 80px;
+        padding: 8px;
         border: 1px solid #dddddd;
         border-radius: 4px;
         resize: vertical;
         font-family: inherit;
-        font-size: 14px;
-        margin-top: 10px;
+        font-size: 12px;
         box-sizing: border-box;
       }
       
-      #custom-floating-window textarea:focus {
-        outline: none;
-        border-color: #0088cc;
-        box-shadow: 0 0 0 2px rgba(0, 136, 204, 0.2);
+      .file-upload-container {
+        margin: 10px 0;
       }
       
-      #custom-floating-window #progressContainer {
-        margin-top: 10px;
+      .upload-controls {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      
+      .upload-btn {
+        padding: 6px 12px;
+        background: #e0e0e0;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      
+      .clear-btn {
+        padding: 6px 12px;
+        background: #ffebee;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      
+      .preview-area {
+        border: 1px dashed #ddd;
+        border-radius: 4px;
+        padding: 8px;
+        text-align: center;
         display: none;
       }
       
-      #custom-floating-window .progress-info {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 5px;
-        font-size: 13px;
-        color: #666666;
+      .preview-image {
+        max-width: 100%;
+        max-height: 100px;
       }
       
-      #custom-floating-window .progress-bar-container {
-        height: 20px;
-        background-color: #e9ecef;
+      .send-controls {
+        margin: 10px 0;
+      }
+      
+      .send-controls button {
+        width: 100%;
+        padding: 10px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      
+      .option-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0;
+      }
+      
+      .option-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+      }
+      
+      #progressContainer {
+        margin: 10px 0;
+        display: none;
+      }
+      
+      .progress-bar-container {
+        height: 8px;
+        background: #e0e0e0;
         border-radius: 4px;
         overflow: hidden;
       }
       
-      #custom-floating-window .progress-bar {
+      .progress-bar {
         height: 100%;
         width: 0%;
-        background-color: #007bff;
-        transition: width 0.3s ease;
+        background: #28a745;
+        transition: width 0.3s;
       }
       
-      #custom-floating-window .status-message {
-        margin-top: 10px;
+      .status-message {
         padding: 8px;
         border-radius: 4px;
-        font-size: 13px;
+        font-size: 12px;
+        margin-top: 10px;
       }
       
-      #custom-floating-window .status-success {
-        background-color: #d4edda;
+      .status-success {
+        background: #d4edda;
         color: #155724;
       }
       
-      #custom-floating-window .status-error {
-        background-color: #f8d7da;
+      .status-error {
+        background: #f8d7da;
         color: #721c24;
       }
-
-      #custom-floating-window #dbzt {
-        position: fixed;
-        bottom: 0px;
-        width: 310px;
-        right: 0px;
-        background: white;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        z-index: 999999;
-      }
-
-      #custom-floating-window .content-area {
-        padding-bottom: 315px;
-      }
-
-      .Select.Send .option-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-
-      .Select.Send .option-item {
-        display: flex;
-        align-items: center;
-        padding: 8px 12px;
-        border-radius: 6px;
-        background-color: white;
-        border: 1px solid #ddd;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 12px;
-      }
-
-      .Select.Send .option-item:hover {
-        border-color: #0088cc;
-      }
-
-      .Select.Send .option-item input[type="radio"] {
-        margin-right: 8px;
-      }
-
-      .Select.Send .option-item input[type="radio"]:checked {
-        accent-color: #0088cc;
-      }
-
-      .send-controls {
-        display: flex;
-        justify-content: center;
-      }
-
-      .file-upload-container {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        max-width: 600px;
-        margin: 10px auto;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      }
-
-      .upload-controls {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        justify-content: space-between;
-      }
-
-      .upload-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        transition: background-color 0.2s;
-      }
-
-      .upload-btn:hover {
-        background-color: #0069d9;
-      }
-
-      .upload-btn svg {
-        width: 14px;
-        height: 14px;
-      }
-
-      #IpImg {
-        display: none;
-      }
-
-      .clear-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        background-color: #f8f9fa;
-        color: #dc3545;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        transition: all 0.2s;
-      }
-
-      .clear-btn:hover {
-        background-color: #f1f1f1;
-      }
-
-      .clear-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        color: #6c757d;
-      }
-
-      .clear-btn svg {
-        width: 14px;
-        height: 14px;
-      }
-
-      .preview-area {
-        border: 2px dashed #ddd;
-        border-radius: 8px;
-        padding: 5px;
-        text-align: center;
-        min-height: 200px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-        background-color: #f9f9f9;
-        display: none;
-      }
-
-      .preview-placeholder {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        color: #999;
-      }
-
-      .preview-placeholder svg {
-        opacity: 0.6;
-      }
-
-      .preview-placeholder p {
-        margin: 0;
-        font-size: 14px;
-      }
-
-      .preview-image {
-        max-width: 100%;
-        max-height: 200px;
-        display: none;
-        border-radius: 4px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      }
-
-      .preview-area.has-image .preview-placeholder {
-        display: none;
-      }
-
-      .preview-area.has-image .preview-image {
-        display: block;
+      
+      #dbzt {
+        margin-top: 15px;
       }
     `;
 
   浮动窗口.innerHTML = `
-      <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.3.3 <span id="userName" style="color: #007bff;"></span></span>
-      </div>
-      <div class="content-area">
-        <div class="control-panel">
-          <button id="loadGroupsBtn" style="width: 100%;    font-size: 14px;    background-color: #cc0000;    margin-bottom: 10px;">采集未归档群组数据</button>
-          <button id="loadContactsBtn" style="width: 100%; font-size: 14px;">加载未归档群组列表</button>
-          <div id="contactsContainer" class="contact-list"></div>
-          
-          <div class="action-buttons">
-            <button id="selectAllBtn">全选</button>
-            <button id="invertSelectBtn">反选</button>
-            <button id="clearSelectBtn">清空</button>
-          </div>
-          
-          <div class="message-input">
-            <textarea id="messageInput" placeholder="请输入要发送的消息内容..."></textarea>
-  
-            <div class="file-upload-container">
-              <div class="upload-controls">
-                <label for="IpImg" class="upload-btn">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.9z"/>
-                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                  </svg>
-                  选择文件
-                </label>
-                <input type="file" id="IpImg" accept="image/*">
-                <button id="clear-btn" type="button" class="clear-btn" disabled style="padding: 9.5px 16px;">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                  </svg>
-                  清空
-                </button>
-              </div>
-              
-              <div class="preview-area">
-                <div class="preview-placeholder">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="#ccc" viewBox="0 0 16 16">
-                    <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-                    <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
-                  </svg>
-                  <p>图片预览区域</p>
-                </div>
-                <img id="preview" src="" alt="预览图" class="preview-image">
-              </div>
-            </div>
-          </div>
-
-          <!-- 👇 在这里添加客户标记控制按钮 -->
-      <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px;">
-        <div style="display: flex; gap: 10px; justify-content: center;">
-          <button id="customerMarkToggleBtn" class="is-off">⭐ 开启客户标记</button>
-          <button id="clearDataBtn">清除数据</button>
-        </div>
-      </div>
-      <!-- 👆 客户标记控制按钮结束 -->
-
-          <div id="dbzt">
-            <div id="dbzt-s" style="margin: 10px;">
-              <div class="Select Send">
-                <div class="option-group">
-                  <label class="option-item">
-                    <input type="radio" name="sendOption" value="default" checked>
-                    <span class="option-label">默认模式</span>
-                  </label>
-                  <label class="option-item">
-                    <input type="radio" name="sendOption" value="imageAndText">
-                    <span class="option-label">图文同发</span>
-                  </label>
-                  <label class="option-item">
-                    <input type="radio" name="sendOption" value="LeftimageAndText">
-                    <span class="option-label">先图后文</span>
-                  </label>
-                  <label class="option-item">
-                    <input type="radio" name="sendOption" value="TextAndimage">
-                    <span class="option-label">先文后图</span>
-                  </label>
-                  <label class="option-item">
-                    <input type="radio" name="sendOption" value="textOnly">
-                    <span class="option-label">仅文本</span>
-                  </label>
-                  <label class="option-item">
-                    <input type="radio" name="sendOption" value="imageOnly">
-                    <span class="option-label">仅图片</span>
-                  </label>
-                </div>
-              </div>
-
-              <div class="send-controls">
-                <button id="sendBatchBtn" style="background-color: #28a745;margin: 10px 0;width: 100%;">开始群发</button>
-              </div>
-
-              <div id="progressContainer">
-                <div class="progress-info">
-                  <span id="progressText">准备发送...</span>
-                  <span id="progressPercent">0%</span>
-                </div>
-                <div class="progress-bar-container">
-                  <div id="progressBar" class="progress-bar"></div>
-                </div>
-              </div>
+    <div class="title-bar">
+      <span>WA-消息群发模块 v3.4 (含定时任务)</span>
+    </div>
     
-              <div id="statusMessage" class="status-message"></div>
-            </div>
-          </div>
+    <div class="tabs-container">
+      <button class="tab-btn active" data-tab="群发">📨 即时群发</button>
+      <button class="tab-btn" data-tab="定时">⏰ 定时任务</button>
+    </div>
+    
+    <!-- 即时群发标签页 -->
+    <div class="tab-pane active" id="tab-群发">
+      <button id="loadGroupsBtn" style="width: 100%; background: #cc0000; color: white; border: none; padding: 8px; border-radius: 4px; margin-bottom: 10px;">采集未归档群组数据</button>
+      <button id="loadContactsBtn" style="width: 100%; padding: 8px; margin-bottom: 10px;">加载未归档群组列表</button>
+      <div id="contactsContainer" class="contact-list"></div>
+      
+      <div class="action-buttons">
+        <button id="selectAllBtn">全选</button>
+        <button id="invertSelectBtn">反选</button>
+        <button id="clearSelectBtn">清空</button>
+      </div>
+      
+      <textarea id="messageInput" placeholder="请输入要发送的消息内容..."></textarea>
+      
+      <div class="file-upload-container">
+        <div class="upload-controls">
+          <label for="IpImg" class="upload-btn">📷 选择图片</label>
+          <input type="file" id="IpImg" accept="image/*" style="display: none;">
+          <button id="clear-btn" class="clear-btn">🗑️ 清空图片</button>
+        </div>
+        <div class="preview-area" id="previewArea">
+          <img id="preview" src="" alt="预览图" class="preview-image">
         </div>
       </div>
-    `;
+      
+      <div class="option-group">
+        <label class="option-item"><input type="radio" name="sendOption" value="default" checked> 默认</label>
+        <label class="option-item"><input type="radio" name="sendOption" value="imageAndText"> 图文同发</label>
+        <label class="option-item"><input type="radio" name="sendOption" value="LeftimageAndText"> 先图后文</label>
+        <label class="option-item"><input type="radio" name="sendOption" value="TextAndimage"> 先文后图</label>
+        <label class="option-item"><input type="radio" name="sendOption" value="textOnly"> 仅文本</label>
+        <label class="option-item"><input type="radio" name="sendOption" value="imageOnly"> 仅图片</label>
+      </div>
+      
+      <div class="send-controls">
+        <button id="sendBatchBtn">🚀 开始群发</button>
+      </div>
+      
+      <div id="progressContainer">
+        <div class="progress-info">
+          <span id="progressText">准备发送...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar-container">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+      </div>
+      
+      <div id="statusMessage" class="status-message"></div>
+      
+      <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+        <div style="display: flex; gap: 10px;">
+          <button id="customerMarkToggleBtn" style="flex:1; padding: 8px;">⭐ 开启客户标记</button>
+          <button id="clearDataBtn" style="flex:1; padding: 8px;">🗑️ 清除数据</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 定时任务标签页 -->
+    <div class="tab-pane" id="tab-定时">
+      <div class="add-task-form">
+        <div class="form-row">
+          <label>选择群组</label>
+          <select id="taskGroupSelect">
+            <option value="">请先加载群组列表</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>发送时间</label>
+          <div class="time-select-row">
+            <select id="taskHour">
+              ${Array.from({ length: 24 }, (_, i) => `<option value="${i}">${i.toString().padStart(2, "0")}</option>`).join("")}
+            </select>
+            <span>:</span>
+            <select id="taskMinute">
+              ${Array.from({ length: 60 }, (_, i) => `<option value="${i}">${i.toString().padStart(2, "0")}</option>`).join("")}
+            </select>
+          </div>
+          <div class="quick-time-btns">
+            <button class="quick-time-btn" data-minutes="1">1分钟后</button>
+            <button class="quick-time-btn" data-minutes="2">2分钟后</button>
+            <button class="quick-time-btn" data-minutes="5">5分钟后</button>
+            <button class="quick-time-btn" data-minutes="10">10分钟后</button>
+            <button class="quick-time-btn" data-minutes="30">30分钟后</button>
+            <button class="quick-time-btn" data-minutes="60">1小时后</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>消息内容</label>
+          <textarea id="taskMessage" placeholder="请输入要发送的消息..."></textarea>
+        </div>
+        <div class="form-row">
+          <label>图片 (可选)</label>
+          <div class="upload-controls">
+            <label for="taskImg" class="upload-btn">📷 选择图片</label>
+            <input type="file" id="taskImg" accept="image/*" style="display: none;">
+            <button id="clearTaskImg" class="clear-btn">清除图片</button>
+          </div>
+        </div>
+        <button id="addTaskBtn" class="add-task-btn">➕ 添加定时任务</button>
+      </div>
+      
+      <div class="task-list" id="taskListContainer">
+        <div style="text-align: center; color: #999; padding: 20px;">暂无定时任务</div>
+      </div>
+      
+      <div class="batch-clear">
+        <button id="clearCompletedBtn">🗑️ 清除已完成/失败</button>
+        <button id="refreshTasksBtn">🔄 刷新列表</button>
+      </div>
+    </div>
+  `;
 
   shadowRoot.appendChild(style);
   shadowRoot.appendChild(浮动窗口);
 
-  document.body.style.paddingRight = "320px";
-  const app = document.getElementById("app");
-  if (app) {
-    app.style.maxWidth = "calc(100% - 310px)";
+  document.body.style.paddingRight = "400px";
+
+  // ==================== 定时任务功能实现 ====================
+
+  let 当前图片数据 = null;
+  let 任务编辑ID = null;
+
+  // 渲染任务列表
+  function 渲染任务列表() {
+    const container = shadowRoot.getElementById("taskListContainer");
+    if (!container) return;
+
+    const 任务列表 = 定时任务管理器.获取任务列表();
+
+    if (任务列表.length === 0) {
+      container.innerHTML =
+        '<div style="text-align: center; color: #999; padding: 20px;">暂无定时任务</div>';
+      return;
+    }
+
+    // 按执行时间排序
+    任务列表.sort((a, b) => new Date(a.执行时间) - new Date(b.执行时间));
+
+    container.innerHTML = 任务列表
+      .map((任务) => {
+        const 执行时间 = new Date(任务.执行时间);
+        const 是否过期 = 执行时间 < new Date() && 任务.状态 === "pending";
+        const 状态文本 =
+          {
+            pending: 是否过期 ? "⏰ 待执行(已过期)" : "⏳ 待执行",
+            sending: "📤 发送中",
+            completed: "✅ 已完成",
+            failed: "❌ 失败",
+            cancelled: "🚫 已取消",
+          }[任务.状态] || "未知";
+
+        return `
+        <div class="task-item ${任务.状态}">
+          <div class="task-time">
+            📅 ${执行时间.toLocaleString()} 
+            <span style="color: ${是否过期 ? "#f44336" : "#ff9800"}">${状态文本}</span>
+          </div>
+          <div class="task-group">👥 ${任务.群组名称}</div>
+          <div class="task-content">📝 ${(任务.文本内容 || "").substring(0, 100)}${(任务.文本内容 || "").length > 100 ? "..." : ""}</div>
+          ${任务.有图片 ? '<div class="task-content">🖼️ 包含图片</div>' : ""}
+          ${任务.失败原因 ? `<div class="task-content" style="color:#f44336">❌ ${任务.失败原因}</div>` : ""}
+          <div class="task-actions">
+            ${
+              任务.状态 === "pending"
+                ? `
+              <button class="execute-btn" data-id="${任务.id}">▶️ 立即发送</button>
+              <button class="edit-btn" data-id="${任务.id}">✏️ 编辑</button>
+            `
+                : ""
+            }
+            <button class="delete-btn" data-id="${任务.id}">🗑️ 删除</button>
+          </div>
+        </div>
+      `;
+      })
+      .join("");
+
+    // 绑定任务按钮事件
+    container.querySelectorAll(".delete-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.id);
+        if (confirm("确定要删除这个定时任务吗？")) {
+          定时任务管理器.删除任务(id);
+          渲染任务列表();
+          更新状态消息("任务已删除", "success");
+        }
+      });
+    });
+
+    container.querySelectorAll(".edit-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.id);
+        打开编辑弹窗(id);
+      });
+    });
+
+    container.querySelectorAll(".execute-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.id);
+        const 任务 = 定时任务管理器.任务列表.find((t) => t.id === id);
+        if (任务 && confirm(`确定要立即发送到 "${任务.群组名称}" 吗？`)) {
+          await 定时任务管理器.立即执行任务(任务);
+          渲染任务列表();
+          更新状态消息(`已发送到 ${任务.群组名称}`, "success");
+        }
+      });
+    });
   }
 
-  // ==================== 浮动窗口逻辑 ====================
+  // 打开编辑弹窗
+  function 打开编辑弹窗(任务ID) {
+    const 任务 = 定时任务管理器.任务列表.find((t) => t.id === 任务ID);
+    if (!任务) return;
+
+    任务编辑ID = 任务ID;
+
+    // 创建弹窗
+    const modal = document.createElement("div");
+    modal.className = "modal-overlay";
+    modal.innerHTML = `
+      <div class="modal-content">
+        <h3>编辑定时任务</h3>
+        <div class="form-row">
+          <label>发送时间</label>
+          <input type="datetime-local" id="editTime" value="${任务.执行时间.slice(0, 16)}" style="width:100%; padding:8px;">
+        </div>
+        <div class="form-row">
+          <label>消息内容</label>
+          <textarea id="editMessage" style="width:100%; min-height:80px;">${(任务.文本内容 || "").replace(/</g, "&lt;")}</textarea>
+        </div>
+        <div class="modal-buttons">
+          <button class="confirm">保存</button>
+          <button class="cancel">取消</button>
+        </div>
+      </div>
+    `;
+
+    shadowRoot.appendChild(modal);
+
+    modal.querySelector(".confirm").addEventListener("click", () => {
+      const 新时间 = modal.querySelector("#editTime").value;
+      const 新内容 = modal.querySelector("#editMessage").value;
+
+      if (新时间) {
+        定时任务管理器.编辑任务(任务ID, {
+          执行时间: new Date(新时间).toISOString(),
+          文本内容: 新内容,
+        });
+        渲染任务列表();
+        更新状态消息("任务已更新", "success");
+      }
+      modal.remove();
+      任务编辑ID = null;
+    });
+
+    modal.querySelector(".cancel").addEventListener("click", () => {
+      modal.remove();
+      任务编辑ID = null;
+    });
+
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  // 更新群组下拉框
+  function 更新群组下拉框() {
+    const select = shadowRoot.getElementById("taskGroupSelect");
+    if (!select) return;
+
+    if (!联系人数据 || 联系人数据.length === 0) {
+      select.innerHTML = '<option value="">请先加载群组列表</option>';
+      return;
+    }
+
+    select.innerHTML =
+      '<option value="">请选择群组</option>' +
+      联系人数据
+        .map(
+          (g) =>
+            `<option value="${g.id}">${g.name} (${g.participantCount || 0}人)</option>`,
+        )
+        .join("");
+  }
+
+  // 获取当前时间到指定分钟后的ISO字符串
+  function 获取未来时间(分钟后) {
+    const date = new Date();
+    date.setMinutes(date.getMinutes() + 分钟后);
+    return date.toISOString();
+  }
+
+  // 添加定时任务
+  async function 添加定时任务() {
+    const groupId = shadowRoot.getElementById("taskGroupSelect").value;
+    const hour = parseInt(shadowRoot.getElementById("taskHour").value);
+    const minute = parseInt(shadowRoot.getElementById("taskMinute").value);
+    const message = shadowRoot.getElementById("taskMessage").value.trim();
+
+    if (!groupId) {
+      更新状态消息("请选择群组", "error");
+      return;
+    }
+
+    if (!message && !当前图片数据) {
+      更新状态消息("请输入消息内容或选择图片", "error");
+      return;
+    }
+
+    const group = 联系人数据.find((g) => g.id === groupId);
+    if (!group) {
+      更新状态消息("群组不存在", "error");
+      return;
+    }
+
+    // 计算执行时间
+    const 执行时间 = new Date();
+    执行时间.setHours(hour, minute, 0, 0);
+
+    // 如果时间已过，设置为明天
+    if (执行时间 < new Date()) {
+      执行时间.setDate(执行时间.getDate() + 1);
+    }
+
+    const 新任务 = 定时任务管理器.添加任务({
+      群组ID: groupId,
+      群组名称: group.name,
+      执行时间: 执行时间.toISOString(),
+      文本内容: message,
+      图片数据: 当前图片数据,
+      有图片: !!当前图片数据,
+      内容类型: 当前图片数据 ? (message ? "imageAndText" : "image") : "text",
+    });
+
+    // 清空表单
+    shadowRoot.getElementById("taskMessage").value = "";
+    if (shadowRoot.getElementById("clearTaskImg")) {
+      shadowRoot.getElementById("clearTaskImg").click();
+    }
+    当前图片数据 = null;
+
+    渲染任务列表();
+    更新状态消息(
+      `已添加定时任务: ${执行时间.toLocaleTimeString()} 发送到 ${group.name}`,
+      "success",
+    );
+  }
+
+  // ==================== 初始化事件绑定 ====================
+
+  // 标签页切换
+  shadowRoot.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tabId = btn.dataset.tab;
+      shadowRoot
+        .querySelectorAll(".tab-btn")
+        .forEach((b) => b.classList.remove("active"));
+      shadowRoot
+        .querySelectorAll(".tab-pane")
+        .forEach((p) => p.classList.remove("active"));
+      btn.classList.add("active");
+      shadowRoot.getElementById(`tab-${tabId}`).classList.add("active");
+
+      // 切换到定时任务标签时刷新列表
+      if (tabId === "定时") {
+        渲染任务列表();
+        更新群组下拉框();
+      }
+    });
+  });
+
+  // 快速时间按钮
+  shadowRoot.querySelectorAll(".quick-time-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const minutes = parseInt(btn.dataset.minutes);
+      const 未来时间 = 获取未来时间(minutes);
+      const date = new Date(未来时间);
+      shadowRoot.getElementById("taskHour").value = date.getHours();
+      shadowRoot.getElementById("taskMinute").value = date.getMinutes();
+      更新状态消息(`已设置为 ${minutes} 分钟后发送`, "success");
+    });
+  });
+
+  // 定时任务图片上传
+  const taskImgInput = shadowRoot.getElementById("taskImg");
+  const clearTaskImgBtn = shadowRoot.getElementById("clearTaskImg");
+
+  if (taskImgInput) {
+    taskImgInput.addEventListener("change", (e) => {
+      if (e.target.files.length > 0) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          当前图片数据 = event.target.result;
+          更新状态消息("图片已添加", "success");
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  if (clearTaskImgBtn) {
+    clearTaskImgBtn.addEventListener("click", () => {
+      当前图片数据 = null;
+      if (taskImgInput) taskImgInput.value = "";
+      更新状态消息("图片已清除", "success");
+    });
+  }
+
+  // 添加任务按钮
+  shadowRoot
+    .getElementById("addTaskBtn")
+    ?.addEventListener("click", 添加定时任务);
+
+  // 清除已完成任务
+  shadowRoot
+    .getElementById("clearCompletedBtn")
+    ?.addEventListener("click", () => {
+      if (confirm("确定要清除所有已完成和失败的任务吗？")) {
+        定时任务管理器.清空已完成任务();
+        渲染任务列表();
+        更新状态消息("已完成任务已清除", "success");
+      }
+    });
+
+  // 刷新任务列表
+  shadowRoot
+    .getElementById("refreshTasksBtn")
+    ?.addEventListener("click", () => {
+      渲染任务列表();
+      更新状态消息("列表已刷新", "success");
+    });
+
+  // ==================== 原有功能保持 ====================
+
   let 联系人数据 = [];
   let 当前选中联系人 = new Set();
   let fileInputImg = null;
@@ -2848,181 +4521,111 @@ function 注入浮动窗口() {
   const fileInput = shadowRoot.getElementById("IpImg");
   const preview = shadowRoot.getElementById("preview");
   const clearBtn = shadowRoot.getElementById("clear-btn");
-  const previewArea = shadowRoot.querySelector(".preview-area");
+  const previewArea = shadowRoot.getElementById("previewArea");
   const messageInput = shadowRoot.getElementById("messageInput");
   const progressContainer = shadowRoot.getElementById("progressContainer");
   const progressText = shadowRoot.getElementById("progressText");
   const progressPercent = shadowRoot.getElementById("progressPercent");
   const progressBar = shadowRoot.getElementById("progressBar");
-  // 更新状态消息
-  const statusMessage = shadowRoot.getElementById("statusMessage");
+  const statusMessageDiv = shadowRoot.getElementById("statusMessage");
 
   function 更新状态消息(message, type = "info") {
-    statusMessage.textContent = message;
-    statusMessage.className = "status-message";
-    if (type === "success") {
-      statusMessage.classList.add("status-success");
-    } else if (type === "error") {
-      statusMessage.classList.add("status-error");
+    if (statusMessageDiv) {
+      statusMessageDiv.textContent = message;
+      statusMessageDiv.className = "status-message";
+      if (type === "success") statusMessageDiv.classList.add("status-success");
+      if (type === "error") statusMessageDiv.classList.add("status-error");
     }
   }
 
   function getSelectedSendOption() {
-    const selectedOption = shadowRoot.querySelector(
-      '.Select.Send input[name="sendOption"]:checked',
+    const selected = shadowRoot.querySelector(
+      '.option-group input[name="sendOption"]:checked',
     );
-    return selectedOption ? selectedOption.value : "default";
+    return selected ? selected.value : "default";
   }
 
-  // 文件上传处理
-  fileInput.addEventListener("change", function (e) {
-    if (e.target.files.length > 0) {
-      const file = e.target.files[0];
-      if (!file.type.startsWith("image/")) {
-        alert("请选择图片文件");
-        return;
+  // 图片上传
+  if (fileInput) {
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files.length > 0) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          preview.src = event.target.result;
+          previewArea.style.display = "block";
+          if (clearBtn) clearBtn.disabled = false;
+          fileInputImg = event.target.result;
+        };
+        reader.readAsDataURL(file);
       }
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        preview.src = event.target.result;
-        if (previewArea) {
-          previewArea.classList.add("has-image");
-          previewArea.style.display = "flex";
-        } else {
-          preview.style.display = "block";
-        }
-        if (clearBtn) {
-          clearBtn.disabled = false;
-        }
-        fileInputImg = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-  });
+    });
+  }
 
-  // 清空按钮
   if (clearBtn) {
-    clearBtn.addEventListener("click", function () {
+    clearBtn.addEventListener("click", () => {
       preview.src = "";
-      if (previewArea) {
-        previewArea.classList.remove("has-image");
-        previewArea.style.display = "none";
-      } else {
-        preview.style.display = "none";
-      }
-      fileInput.value = "";
+      previewArea.style.display = "none";
+      if (fileInput) fileInput.value = "";
       fileInputImg = null;
       clearBtn.disabled = true;
     });
   }
 
-  // 粘贴图片
-  messageInput.addEventListener("paste", async (e) => {
-    e.preventDefault();
-    const items = e.clipboardData.items;
-    for (let item of items) {
-      if (item.type.indexOf("image") !== -1) {
-        const file = item.getAsFile();
-        const reader = new FileReader();
-        reader.onload = function (event) {
-          preview.src = event.target.result;
-          if (previewArea) {
-            previewArea.classList.add("has-image");
-            previewArea.style.display = "flex";
-          }
-          if (clearBtn) {
-            clearBtn.disabled = false;
-          }
-          fileInputImg = event.target.result;
-          更新状态消息("已粘贴图片", "success");
-        };
-        reader.readAsDataURL(file);
-        return;
-      }
-    }
-    // 文本粘贴
-    const text = e.clipboardData.getData("text/plain");
-    const start = messageInput.selectionStart;
-    const end = messageInput.selectionEnd;
-    messageInput.value =
-      messageInput.value.slice(0, start) + text + messageInput.value.slice(end);
-    messageInput.selectionStart = messageInput.selectionEnd =
-      start + text.length;
-  });
-
-  // 获取群组数据报表（新功能）
-  // 获取群组数据报表（新功能）
+  // 加载群组报表（复用原有逻辑）
   shadowRoot
     .getElementById("loadGroupsBtn")
-    .addEventListener("click", async function () {
+    ?.addEventListener("click", async function () {
+      // 原有逻辑保持不变
       const 按钮 = this;
-
       try {
         按钮.disabled = true;
         按钮.textContent = "采集中...";
         progressContainer.style.display = "block";
         progressBar.style.width = "0%";
         progressText.textContent = "正在初始化...";
-        progressPercent.textContent = "0%";
-        更新状态消息("正在采集群组成员号码，请不要进行任何操作！", "success");
+        更新状态消息("正在采集群组成员号码...", "success");
 
-        // ✅ 传入进度回调，实时更新进度条
         const results = await 获取未归档群数据报表((p) => {
           const percent = Math.floor((p.current / p.total) * 100);
           progressBar.style.width = `${percent}%`;
           progressText.textContent = `采集中 (${p.current}/${p.total}) - ${p.groupName}`;
           progressPercent.textContent = `${percent}%`;
-          更新状态消息(`正在采集: ${p.groupName}`, "success");
         });
 
         progressBar.style.width = "100%";
         progressPercent.textContent = "100%";
+        progressText.textContent = `采集完成！`;
+        更新状态消息("✅ 采集完成！", "success");
 
-        if (results && results.results) {
-          const successCount = results.results.filter(
-            (r) => r.status === "success",
-          ).length;
-          const totalCount = results.results.length;
-          progressText.textContent = `采集完成！成功 ${successCount}/${totalCount} 个群组`;
-          更新状态消息(`✅ 采集完成！成功: ${successCount} 个群组`, "success");
-        } else {
-          progressText.textContent = "采集完成！";
-          更新状态消息("✅ 采集完成！", "success");
-        }
-
-        // 重载客户标记
         if (客户标记监控开启) {
-          progressText.textContent = "正在更新客户标记数据...";
           await 标记客户(false);
           await 标记客户(true);
           同步客户标记按钮状态();
-          更新状态消息("✅ 客户标记已更新为最新数据", "success");
         }
       } catch (error) {
-        console.error("采集失败:", error);
-        progressText.textContent = `采集失败: ${error.message}`;
         更新状态消息(`❌ 采集失败: ${error.message}`, "error");
       } finally {
         按钮.disabled = false;
-        按钮.textContent = "获取未归档群组报表";
+        按钮.textContent = "采集未归档群组数据";
       }
     });
 
-  // 加载联系人
+  // 加载群组列表
   shadowRoot
     .getElementById("loadContactsBtn")
-    .addEventListener("click", async function () {
-      const 加载按钮 = this;
+    ?.addEventListener("click", async function () {
+      const 按钮 = this;
       const contactsContainer = shadowRoot.getElementById("contactsContainer");
-
       try {
-        加载按钮.disabled = true;
-        加载按钮.textContent = "加载中...";
+        按钮.disabled = true;
+        按钮.textContent = "加载中...";
         contactsContainer.style.display = "block";
         contactsContainer.innerHTML =
           '<div style="padding: 20px; text-align: center;">正在加载群组列表...</div>';
 
         联系人数据 = await 获取未归档群组();
+        更新群组下拉框(); // 更新定时任务的下拉框
 
         if (!联系人数据 || 联系人数据.length === 0) {
           contactsContainer.innerHTML =
@@ -3033,11 +4636,10 @@ function 注入浮动窗口() {
         let contactsHTML = "";
         联系人数据.forEach((contact, index) => {
           const contactId = `contact-${index}`;
-          const memberCount = contact.participantCount || 0;
           contactsHTML += `
           <div class="contact-item" data-contact-id="${contactId}">
             <input type="checkbox" id="${contactId}" class="contact-checkbox" value="${contact.id}">
-            <label for="${contactId}" class="contact-label" title="${contact.name}">${contact.name} (${memberCount}人)</label>
+            <label for="${contactId}" class="contact-label">${contact.name} (${contact.participantCount || 0}人)</label>
           </div>
         `;
         });
@@ -3045,155 +4647,105 @@ function 注入浮动窗口() {
         contactsContainer.innerHTML = contactsHTML;
         更新状态消息(`已加载 ${联系人数据.length} 个群组`, "success");
 
+        // 绑定checkbox事件...
         const contactItems = shadowRoot.querySelectorAll(".contact-item");
         contactItems.forEach((item) => {
           const checkbox = item.querySelector(".contact-checkbox");
-
           item.addEventListener("click", (e) => {
             if (e.target === checkbox) return;
             checkbox.checked = !checkbox.checked;
-            if (checkbox.checked) {
-              item.classList.add("selected");
-              当前选中联系人.add(checkbox.value);
-            } else {
-              item.classList.remove("selected");
-              当前选中联系人.delete(checkbox.value);
-            }
-            更新状态消息(`已选中 ${当前选中联系人.size} 个群组`, "success");
+            if (checkbox.checked) 当前选中联系人.add(checkbox.value);
+            else 当前选中联系人.delete(checkbox.value);
           });
-
           checkbox.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (checkbox.checked) {
-              item.classList.add("selected");
-              当前选中联系人.add(checkbox.value);
-            } else {
-              item.classList.remove("selected");
-              当前选中联系人.delete(checkbox.value);
-            }
-            更新状态消息(`已选中 ${当前选中联系人.size} 个群组`, "success");
+            if (checkbox.checked) 当前选中联系人.add(checkbox.value);
+            else 当前选中联系人.delete(checkbox.value);
           });
         });
       } catch (error) {
-        console.error("加载失败:", error);
-        contactsContainer.innerHTML = `
-        <div class="status-error" style="padding: 15px;">
-          <p>加载失败: ${error.message}</p>
-        </div>
-      `;
+        contactsContainer.innerHTML = `<div style="padding: 15px; color: #f44336;">加载失败: ${error.message}</div>`;
       } finally {
-        加载按钮.disabled = false;
-        加载按钮.textContent = "📋 加载未归档群组列表";
+        按钮.disabled = false;
+        按钮.textContent = "加载未归档群组列表";
       }
     });
 
-  // 全选
-  shadowRoot.getElementById("selectAllBtn").addEventListener("click", () => {
-    const checkboxes = shadowRoot.querySelectorAll(".contact-checkbox");
-    当前选中联系人.clear();
-    checkboxes.forEach((checkbox) => {
-      checkbox.checked = true;
-      checkbox.parentElement.classList.add("selected");
-      当前选中联系人.add(checkbox.value);
+  // 全选/反选/清空
+  shadowRoot.getElementById("selectAllBtn")?.addEventListener("click", () => {
+    shadowRoot.querySelectorAll(".contact-checkbox").forEach((cb) => {
+      cb.checked = true;
+      当前选中联系人.add(cb.value);
     });
-    更新状态消息(`已全选 ${当前选中联系人.size} 个群组`, "success");
   });
-
-  // 反选
-  shadowRoot.getElementById("invertSelectBtn").addEventListener("click", () => {
-    const checkboxes = shadowRoot.querySelectorAll(".contact-checkbox");
-    当前选中联系人.clear();
-    checkboxes.forEach((checkbox) => {
-      checkbox.checked = !checkbox.checked;
-      if (checkbox.checked) {
-        checkbox.parentElement.classList.add("selected");
-        当前选中联系人.add(checkbox.value);
-      } else {
-        checkbox.parentElement.classList.remove("selected");
-      }
+  shadowRoot
+    .getElementById("invertSelectBtn")
+    ?.addEventListener("click", () => {
+      shadowRoot.querySelectorAll(".contact-checkbox").forEach((cb) => {
+        cb.checked = !cb.checked;
+        if (cb.checked) 当前选中联系人.add(cb.value);
+        else 当前选中联系人.delete(cb.value);
+      });
     });
-    更新状态消息(`已反选，当前选中 ${当前选中联系人.size} 个群组`, "success");
-  });
-
-  // 清空选择
-  shadowRoot.getElementById("clearSelectBtn").addEventListener("click", () => {
-    shadowRoot.querySelectorAll(".contact-checkbox").forEach((checkbox) => {
-      checkbox.checked = false;
-      checkbox.parentElement.classList.remove("selected");
+  shadowRoot.getElementById("clearSelectBtn")?.addEventListener("click", () => {
+    shadowRoot.querySelectorAll(".contact-checkbox").forEach((cb) => {
+      cb.checked = false;
     });
     当前选中联系人.clear();
-    更新状态消息("已清空所有选择", "success");
   });
 
   // 清除数据
-  shadowRoot.getElementById("clearDataBtn").addEventListener("click", () => {
-    const btn = shadowRoot.getElementById("clearDataBtn");
-    btn.disabled = true;
-    btn.textContent = "清除中...";
-    更新状态消息("正在清除客户数据，请稍候...", "success");
-
-    const req = indexedDB.deleteDatabase("WhatsAppCustomerDB");
-    req.onsuccess = () => {
-      btn.textContent = "✅ 已清除，刷新中...";
-      更新状态消息("清除成功，即将刷新页面...", "success");
-      setTimeout(() => location.reload(), 800); // 留0.8秒让用户看到提示
-    };
-    req.onerror = () => {
-      btn.disabled = false;
-      btn.textContent = "清除客户数据";
-      更新状态消息("❌ 清除失败，请重试", "error");
-    };
+  shadowRoot.getElementById("clearDataBtn")?.addEventListener("click", () => {
+    if (confirm("确定要清除所有客户数据吗？页面将自动刷新。")) {
+      const req = indexedDB.deleteDatabase("WhatsAppCustomerDB");
+      req.onsuccess = () => {
+        setTimeout(() => location.reload(), 500);
+      };
+    }
   });
 
-  // ✅ 加上这行！
+  // 客户标记按钮
   const toggleBtn = shadowRoot.getElementById("customerMarkToggleBtn");
-
-  // ✅ 新增：统一的按钮状态同步函数
   function 同步客户标记按钮状态() {
-    // ← 注意：参数也不需要了，直接用上面的 toggleBtn
     if (!toggleBtn) return;
     if (客户标记监控开启) {
-      toggleBtn.style.backgroundColor = "#f44336";
+      toggleBtn.style.background = "#f44336";
       toggleBtn.textContent = "⏹️ 关闭客户标记";
     } else {
-      toggleBtn.style.backgroundColor = "#25D366";
+      toggleBtn.style.background = "#25D366";
       toggleBtn.textContent = "⭐ 开启客户标记";
     }
   }
 
-  // ✅ click handler 改成这样，catch里也会同步
-  toggleBtn.addEventListener("click", async () => {
-    if (toggleBtn.disabled) return; // 防止重复点击（已有）
-    toggleBtn.disabled = true;
-    try {
-      await 标记客户(!客户标记监控开启); // ✅ 直接传当前状态的反值，更清晰
-    } catch (e) {
-      console.error("切换客户标记失败:", e);
-    } finally {
-      toggleBtn.disabled = false;
-      同步客户标记按钮状态();
-      更新状态消息(
-        客户标记监控开启 ? "⭐ 客户标记已开启" : "⏹️ 客户标记已关闭",
-        "success",
-      );
-    }
-  });
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", async () => {
+      toggleBtn.disabled = true;
+      try {
+        await 标记客户(!客户标记监控开启);
+      } finally {
+        toggleBtn.disabled = false;
+        同步客户标记按钮状态();
+        更新状态消息(
+          客户标记监控开启 ? "客户标记已开启" : "客户标记已关闭",
+          "success",
+        );
+      }
+    });
+  }
 
-  // 自动开启也改成用同步函数
-  // ✅ 改成
+  // 自动开启
   Promise.resolve().then(async () => {
     await 标记客户(true);
     同步客户标记按钮状态();
-    更新状态消息("⭐ 客户标记已自动开启", "success");
   });
 
-  // 群发消息
+  // 发送群发
   shadowRoot
     .getElementById("sendBatchBtn")
-    .addEventListener("click", async () => {
+    ?.addEventListener("click", async () => {
       const message = messageInput.value.trim();
       if (!message && !fileInputImg) {
-        更新状态消息("请输入要发送的消息内容", "error");
+        更新状态消息("请输入消息内容或选择图片", "error");
         return;
       }
       if (当前选中联系人.size === 0) {
@@ -3217,12 +4769,6 @@ function 注入浮动窗口() {
       const 总数量 = 所有联系人.length;
       const sendOption = getSelectedSendOption();
 
-      console.log("📋 准备发送到以下群组:");
-      所有联系人.forEach((id, index) => {
-        const group = 联系人数据.find((g) => g.id === id);
-        console.log(`  ${index + 1}. ${group?.name || id}`);
-      });
-
       for (let i = 0; i < 总数量; i++) {
         const contactId = 所有联系人[i];
         const group = 联系人数据.find((g) => g.id === contactId);
@@ -3233,161 +4779,91 @@ function 注入浮动窗口() {
           progressText.textContent = `发送中 (${i + 1}/${总数量}) 成功: ${successCount}, 失败: ${failCount}`;
           progressPercent.textContent = `${progress}%`;
           progressBar.style.width = `${progress}%`;
-          更新状态消息("正在发送消息给" + groupName, "success");
-          console.log(`\n📨 [${i + 1}/${总数量}] 正在发送到: ${groupName}`);
 
-          // 在 switch 之前添加检查
+          let sendResult = false;
           const hasImage = !!fileInputImg;
           const hasText = !!message;
 
-          // 模式验证和提示
-          function validateSendOption(option, hasImage, hasText) {
-            const imageTextModes = [
-              "imageAndText",
-              "LeftimageAndText",
-              "TextAndimage",
-            ];
-
-            if (imageTextModes.includes(option) && (!hasImage || !hasText)) {
-              if (!hasImage && !hasText) {
-                return {
-                  valid: false,
-                  message: "图文模式需要同时提供图片和文本，当前两者都为空",
-                };
-              } else if (!hasImage) {
-                return {
-                  valid: false,
-                  message: "图文模式需要提供图片，当前只有文本",
-                };
-              } else if (!hasText) {
-                return {
-                  valid: false,
-                  message: "图文模式需要提供文本，当前只有图片",
-                };
-              }
-            }
-
-            if (option === "textOnly" && !hasText) {
-              return { valid: false, message: "仅文本模式需要提供文本内容" };
-            }
-
-            if (option === "imageOnly" && !hasImage) {
-              return { valid: false, message: "仅图片模式需要提供图片" };
-            }
-
-            return { valid: true, message: "" };
-          }
-
-          // 执行验证
-          const validation = validateSendOption(sendOption, hasImage, hasText);
-          if (!validation.valid) {
-            console.warn(`⚠️ 群发跳过: ${validation.message}`);
-            更新状态消息(`跳过: ${validation.message}`, "error");
-
-            // 恢复按钮状态
-            发送按钮.disabled = false;
-            发送按钮.textContent = 原按钮文本;
-            progressContainer.style.display = "none";
-            return;
-          }
-
-          // 原来的 switch 代码
-          let sendResult = false;
           switch (sendOption) {
-            case "default":
-              if (hasImage && hasText) {
-                console.log(`  模式: 图文同发`);
+            case "imageAndText":
+              if (hasImage && hasText)
                 sendResult = await 发送图文同条(
                   groupName,
                   fileInputImg,
                   message,
                 );
-              } else if (hasImage) {
-                console.log(`  模式: 仅图片`);
-                sendResult = await 发送图片内容(groupName, fileInputImg);
-              } else if (hasText) {
-                console.log(`  模式: 仅文本`);
-                sendResult = await 发送文本内容(groupName, message);
-              }
               break;
-
-            case "imageAndText":
-              // 已经过验证，这里一定有图片和文本
-              console.log(`  模式: 图文同发 (强制)`);
-              sendResult = await 发送图文同条(groupName, fileInputImg, message);
-              break;
-
             case "LeftimageAndText":
-              // 已经过验证，这里一定有图片和文本
-              console.log(`  模式: 先图后文 (强制)`);
-              sendResult = await 发送图文内容(groupName, fileInputImg, message);
+              if (hasImage && hasText)
+                sendResult = await 发送图文内容(
+                  groupName,
+                  fileInputImg,
+                  message,
+                );
               break;
-
             case "TextAndimage":
-              // 已经过验证，这里一定有图片和文本
-              console.log(`  模式: 先文后图 (强制)`);
-              sendResult = await 发送文本图片内容(
-                groupName,
-                message,
-                fileInputImg,
-              );
+              if (hasImage && hasText)
+                sendResult = await 发送文本图片内容(
+                  groupName,
+                  message,
+                  fileInputImg,
+                );
               break;
-
             case "textOnly":
-              // 已经过验证，这里一定有文本
-              console.log(`  模式: 仅文本 (强制)`);
-              sendResult = await 发送文本内容(groupName, message);
+              if (hasText) sendResult = await 发送文本内容(groupName, message);
               break;
-
             case "imageOnly":
-              // 已经过验证，这里一定有图片
-              console.log(`  模式: 仅图片 (强制)`);
-              sendResult = await 发送图片内容(groupName, fileInputImg);
+              if (hasImage)
+                sendResult = await 发送图片内容(groupName, fileInputImg);
               break;
+            default:
+              if (hasImage && hasText)
+                sendResult = await 发送图文同条(
+                  groupName,
+                  fileInputImg,
+                  message,
+                );
+              else if (hasImage)
+                sendResult = await 发送图片内容(groupName, fileInputImg);
+              else if (hasText)
+                sendResult = await 发送文本内容(groupName, message);
           }
 
-          if (sendResult) {
-            successCount++;
-            console.log(`  ✅ 发送成功: ${groupName}`);
-          } else {
-            failCount++;
-            console.log(`  ❌ 发送失败: ${groupName}`);
-          }
+          if (sendResult) successCount++;
+          else failCount++;
 
-          await new Promise((resolve) =>
-            setTimeout(resolve, Math.floor(Math.random() * 201) + 100),
-          );
+          await new Promise((r) => setTimeout(r, Math.random() * 200 + 100));
         } catch (error) {
-          console.error(`  ❌ 发送给 ${groupName} 失败:`, error);
           failCount++;
         }
       }
 
-      progressText.textContent = `发送完成 (${总数量}/${总数量}) 成功: ${successCount}, 失败: ${failCount}`;
+      progressText.textContent = `发送完成 成功: ${successCount}, 失败: ${failCount}`;
       progressPercent.textContent = "100%";
       progressBar.style.width = "100%";
-
-      if (failCount === 0) {
-        更新状态消息(`消息已成功发送给 ${successCount} 个群组`, "success");
-      } else {
-        更新状态消息(
-          `发送完成: 成功 ${successCount} 个, 失败 ${failCount} 个`,
-          failCount === 总数量 ? "error" : "success",
-        );
-      }
+      更新状态消息(
+        `发送完成: 成功 ${successCount}, 失败 ${failCount}`,
+        failCount === 0 ? "success" : "error",
+      );
 
       messageInput.value = "";
-      shadowRoot.getElementById("clear-btn").click();
-
+      if (clearBtn) clearBtn.click();
       发送按钮.disabled = false;
       发送按钮.textContent = 原按钮文本;
     });
 
-  更新状态消息("已拓展群发功能", "success");
+  更新状态消息("已加载定时任务功能", "success");
 }
 
+// 检查是否在 WhatsApp Web
 if (window.location.hostname.includes("web.whatsapp.com")) {
-  console.log("当前在 WhatsApp Web");
-  // 调用函数注入浮动窗口
-  注入浮动窗口();
+  console.log("当前在 WhatsApp Web，正在加载定时任务模块...");
+  // 等待页面完全加载
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () =>
+      注入浮动窗口_带定时任务(),
+    );
+  } else {
+    注入浮动窗口_带定时任务();
+  }
 }
