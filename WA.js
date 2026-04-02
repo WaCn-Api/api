@@ -2373,13 +2373,13 @@ function 注入浮动窗口() {
       }
 
       body {
-        padding-right: 320px !important; 
+        padding-right: 320px !important;
       }
 
       .telegram-app, .chat-list, .messages-container {
-        max-width: calc(100% - 320px) !important; 
+        max-width: calc(100% - 320px) !important;
       }
-      
+
       #custom-floating-window .title-bar {
         padding: 10px 15px;
         cursor: move;
@@ -2391,11 +2391,11 @@ function 注入浮动窗口() {
         justify-content: space-between;
         align-items: center;
       }
-      
+
       #custom-floating-window .content-area {
         padding: 15px;
       }
-      
+
       #custom-floating-window button {
         padding: 8px 12px;
         background-color: #0088cc;
@@ -2407,16 +2407,16 @@ function 注入浮动窗口() {
         transition: background-color 0.2s;
         margin-right: 8px;
       }
-      
+
       #custom-floating-window button:hover {
         background-color: #006699;
       }
-      
+
       #custom-floating-window button:disabled {
         background-color: #cccccc;
         cursor: not-allowed;
       }
-      
+
       #custom-floating-window .contact-list {
         margin-top: 15px;
         max-height: 275px;
@@ -2427,7 +2427,7 @@ function 注入浮动窗口() {
         display: none;
         background-color: #fafafa;
       }
-      
+
       #custom-floating-window .contact-item {
         display: flex;
         align-items: stretch;
@@ -2439,16 +2439,16 @@ function 注入浮动窗口() {
         background-color: white;
         border: 1px solid #eeeeee;
       }
-      
+
       #custom-floating-window .contact-item:hover {
         background-color: #f5f5f5;
       }
-      
+
       #custom-floating-window .contact-item.selected {
         background-color: #e6f2ff;
         border-left: 3px solid #0088cc;
       }
-      
+
       #custom-floating-window .contact-checkbox {
         width: 12px;
         height: 12px;
@@ -2456,7 +2456,7 @@ function 注入浮动窗口() {
         cursor: pointer;
         accent-color: #0088cc;
       }
-      
+
       #custom-floating-window .contact-label {
         cursor: pointer;
         user-select: none;
@@ -2466,7 +2466,7 @@ function 注入浮动窗口() {
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      
+
       #custom-floating-window .action-buttons {
         margin: 15px 0;
         display: flex;
@@ -2475,18 +2475,18 @@ function 注入浮动窗口() {
         align-items: center;
         justify-content: center;
       }
-      
+
       #custom-floating-window .action-buttons button {
         padding: 6px 10px;
         background-color: #f0f0f0;
         color: #333333;
         border: 1px solid #cccccc;
       }
-      
+
       #custom-floating-window .action-buttons button:hover {
         background-color: #e0e0e0;
       }
-      
+
       #custom-floating-window textarea {
         width: 100%;
         height: 100px;
@@ -2499,18 +2499,18 @@ function 注入浮动窗口() {
         margin-top: 10px;
         box-sizing: border-box;
       }
-      
+
       #custom-floating-window textarea:focus {
         outline: none;
         border-color: #0088cc;
         box-shadow: 0 0 0 2px rgba(0, 136, 204, 0.2);
       }
-      
+
       #custom-floating-window #progressContainer {
         margin-top: 10px;
         display: none;
       }
-      
+
       #custom-floating-window .progress-info {
         display: flex;
         justify-content: space-between;
@@ -2518,33 +2518,33 @@ function 注入浮动窗口() {
         font-size: 13px;
         color: #666666;
       }
-      
+
       #custom-floating-window .progress-bar-container {
         height: 20px;
         background-color: #e9ecef;
         border-radius: 4px;
         overflow: hidden;
       }
-      
+
       #custom-floating-window .progress-bar {
         height: 100%;
         width: 0%;
         background-color: #007bff;
         transition: width 0.3s ease;
       }
-      
+
       #custom-floating-window .status-message {
         margin-top: 10px;
         padding: 8px;
         border-radius: 4px;
         font-size: 13px;
       }
-      
+
       #custom-floating-window .status-success {
         background-color: #d4edda;
         color: #155724;
       }
-      
+
       #custom-floating-window .status-error {
         background-color: #f8d7da;
         color: #721c24;
@@ -2717,6 +2717,58 @@ function 注入浮动窗口() {
       .preview-area.has-image .preview-image {
         display: block;
       }
+
+      /* ===== 定时发送样式 ===== */
+      .sched-card {
+        background:#fafafa;
+        border:1px solid #eee;
+        border-radius:6px;
+        padding:8px 10px;
+        margin-bottom:6px;
+        position:relative;
+      }
+      .sched-card.running {
+        border-left:3px solid #4CAF50;
+        background:#f1f8e9;
+      }
+      .sched-card .card-delay {
+        font-size:11px;
+        color:#ff9800;
+        font-weight:bold;
+        margin-bottom:3px;
+      }
+      .sched-card .card-text {
+        font-size:12px;
+        color:#333;
+        white-space:pre-wrap;
+        word-break:break-all;
+        max-height:48px;
+        overflow:hidden;
+        line-height:1.4;
+      }
+      .sched-card .card-actions {
+        display:flex;
+        gap:4px;
+        margin-top:6px;
+        justify-content:flex-end;
+      }
+      .sched-card .card-actions button {
+        font-size:11px;
+        padding:3px 7px;
+        border-radius:3px;
+        border:1px solid #ddd;
+        background:#fff;
+        cursor:pointer;
+        color:#555;
+        margin:0;
+        line-height:1.4;
+      }
+      .sched-card .card-actions button:disabled {
+        opacity:.4;
+        cursor:not-allowed;
+      }
+      .sched-card .card-actions .del-btn { color:#f44336; border-color:#ffcdd2; }
+      .sched-card .card-actions .edit-btn { color:#2196F3; border-color:#bbdefb; }
     `;
 
   浮动窗口.innerHTML = `
@@ -2728,16 +2780,16 @@ function 注入浮动窗口() {
           <button id="loadGroupsBtn" style="width: 100%;    font-size: 14px;    background-color: #cc0000;    margin-bottom: 10px;">采集未归档群组数据</button>
           <button id="loadContactsBtn" style="width: 100%; font-size: 14px;">加载未归档群组列表</button>
           <div id="contactsContainer" class="contact-list"></div>
-          
+
           <div class="action-buttons">
             <button id="selectAllBtn">全选</button>
             <button id="invertSelectBtn">反选</button>
             <button id="clearSelectBtn">清空</button>
           </div>
-          
+
           <div class="message-input">
             <textarea id="messageInput" placeholder="请输入要发送的消息内容..."></textarea>
-  
+
             <div class="file-upload-container">
               <div class="upload-controls">
                 <label for="IpImg" class="upload-btn">
@@ -2756,7 +2808,7 @@ function 注入浮动窗口() {
                   清空
                 </button>
               </div>
-              
+
               <div class="preview-area">
                 <div class="preview-placeholder">
                   <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="#ccc" viewBox="0 0 16 16">
@@ -2812,6 +2864,7 @@ function 注入浮动窗口() {
 
               <div class="send-controls">
                 <button id="sendBatchBtn" style="background-color: #28a745;margin: 10px 0;width: 100%;">开始群发</button>
+                <button id="scheduleOpenBtn" style="background-color:#ff9800;margin:0 0 8px 0;width:100%;">⏰ 定时发送管理</button>
               </div>
 
               <div id="progressContainer">
@@ -2823,8 +2876,85 @@ function 注入浮动窗口() {
                   <div id="progressBar" class="progress-bar"></div>
                 </div>
               </div>
-    
+
               <div id="statusMessage" class="status-message"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⏰ 定时发送抽屉（在主面板左侧滑出） -->
+      <div id="scheduleDrawer" style="
+        display:none;
+        position:fixed;
+        right:310px;
+        top:0;
+        width:300px;
+        height:100%;
+        background:#fff;
+        border-left:3px solid #ff9800;
+        z-index:999999998;
+        overflow:hidden;
+        flex-direction:column;
+        box-shadow:-4px 0 16px rgba(0,0,0,.18);
+        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        font-size:13px;
+      ">
+        <!-- 标题栏 -->
+        <div style="background:#ff9800;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+          <span style="font-weight:bold;font-size:14px;">⏰ 定时发送管理</span>
+          <button id="schedCloseBtn" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0;line-height:1;margin:0;">✕</button>
+        </div>
+
+        <!-- 添加区 -->
+        <div style="padding:10px;border-bottom:1px solid #eee;flex-shrink:0;background:#fffbf5;">
+          <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.5px;">📋 添加定时任务</div>
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">
+            <input id="schedDelayMin" type="number" min="0" placeholder="分" style="width:50px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:13px;"/>
+            <span style="font-size:12px;color:#666;">分</span>
+            <input id="schedDelaySecAdd" type="number" min="0" max="59" placeholder="秒" style="width:48px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:13px;"/>
+            <span style="font-size:12px;color:#666;">秒后发送</span>
+          </div>
+          <textarea id="schedText" placeholder="输入定时发送的文本内容..." style="width:100%;height:66px;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button id="schedAddBtn" style="flex:1;background:#ff9800;color:#fff;border:none;border-radius:4px;padding:7px 0;font-size:12px;cursor:pointer;margin:0;">＋ 添加到队尾</button>
+            <button id="schedInsertBtn" style="flex:1;background:#2196F3;color:#fff;border:none;border-radius:4px;padding:7px 0;font-size:12px;cursor:pointer;margin:0;">⬆ 插入队首</button>
+          </div>
+        </div>
+
+        <!-- 队列控制栏 -->
+        <div style="padding:8px 10px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#f9f9f9;">
+          <span style="font-size:11px;color:#888;">📌 待发队列</span>
+          <div style="display:flex;gap:4px;">
+            <button id="schedStartBtn" style="background:#4CAF50;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer;margin:0;">▶ 开始</button>
+            <button id="schedPauseBtn" style="background:#FF9800;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer;margin:0;display:none;">⏸ 暂停</button>
+            <button id="schedStopBtn" style="background:#f44336;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer;margin:0;display:none;">⏹ 停止</button>
+          </div>
+        </div>
+
+        <!-- 倒计时 -->
+        <div id="schedCountdown" style="display:none;background:#fff3e0;border-bottom:1px solid #ffe0b2;padding:7px 12px;text-align:center;font-size:12px;color:#e65100;flex-shrink:0;"></div>
+
+        <!-- 任务列表 -->
+        <div style="flex:1;overflow-y:auto;padding:8px;">
+          <div id="schedTaskList"></div>
+          <div id="schedEmpty" style="text-align:center;color:#ccc;font-size:12px;padding:24px 0;">暂无定时任务<br>点击上方添加 ➕</div>
+        </div>
+
+        <!-- 编辑弹窗（绝对定位覆盖抽屉） -->
+        <div id="schedEditModal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:10;align-items:center;justify-content:center;">
+          <div style="background:#fff;border-radius:10px;padding:18px;width:260px;box-shadow:0 4px 24px rgba(0,0,0,.3);">
+            <div style="font-weight:bold;margin-bottom:10px;font-size:14px;">✏️ 编辑定时任务</div>
+            <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px;">
+              <input id="editDelayMin" type="number" min="0" placeholder="分" style="width:52px;padding:5px;border:1px solid #ddd;border-radius:4px;font-size:13px;"/>
+              <span style="font-size:12px;">分</span>
+              <input id="editDelaySec" type="number" min="0" max="59" placeholder="秒" style="width:50px;padding:5px;border:1px solid #ddd;border-radius:4px;font-size:13px;"/>
+              <span style="font-size:12px;">秒后发</span>
+            </div>
+            <textarea id="editText" style="width:100%;height:80px;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button id="editSaveBtn" style="flex:1;background:#4CAF50;color:#fff;border:none;border-radius:4px;padding:8px 0;font-size:13px;cursor:pointer;margin:0;">✅ 保存</button>
+              <button id="editCancelBtn" style="flex:1;background:#9E9E9E;color:#fff;border:none;border-radius:4px;padding:8px 0;font-size:13px;cursor:pointer;margin:0;">取消</button>
             </div>
           </div>
         </div>
@@ -3384,6 +3514,353 @@ function 注入浮动窗口() {
     });
 
   更新状态消息("已拓展群发功能", "success");
+
+  // ==================== 定时发送模块逻辑 ====================
+  (function 初始化定时发送模块() {
+    const SCHED_DB = "WA_ScheduleDB";
+    const SCHED_STORE = "tasks";
+
+    // --- IndexedDB helpers ---
+    function openSchedDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(SCHED_DB, 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(SCHED_STORE)) {
+            db.createObjectStore(SCHED_STORE, { keyPath: "id" });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    async function dbGetAll() {
+      const db = await openSchedDB();
+      return new Promise((resolve, reject) => {
+        const req = db.transaction(SCHED_STORE, "readonly").objectStore(SCHED_STORE).getAll();
+        req.onsuccess = () => resolve((req.result || []).sort((a, b) => a.order - b.order));
+        req.onerror = () => reject(req.error);
+      });
+    }
+    async function dbPut(task) {
+      const db = await openSchedDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(SCHED_STORE, "readwrite");
+        tx.objectStore(SCHED_STORE).put(task);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    async function dbDelete(id) {
+      const db = await openSchedDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(SCHED_STORE, "readwrite");
+        tx.objectStore(SCHED_STORE).delete(id);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    // --- state ---
+    let schedTasks = [];
+    let schedRunning = false;
+    let schedPaused = false;
+    let schedCurrentTimer = null;
+    let schedCountdownTimer = null;
+    let schedEditingId = null;
+
+    // --- DOM refs ---
+    const drawer        = shadowRoot.getElementById("scheduleDrawer");
+    const openBtn       = shadowRoot.getElementById("scheduleOpenBtn");
+    const closeBtn      = shadowRoot.getElementById("schedCloseBtn");
+    const addBtn        = shadowRoot.getElementById("schedAddBtn");
+    const insertBtn     = shadowRoot.getElementById("schedInsertBtn");
+    const startBtn      = shadowRoot.getElementById("schedStartBtn");
+    const pauseBtn      = shadowRoot.getElementById("schedPauseBtn");
+    const stopBtn       = shadowRoot.getElementById("schedStopBtn");
+    const taskListEl    = shadowRoot.getElementById("schedTaskList");
+    const emptyTip      = shadowRoot.getElementById("schedEmpty");
+    const countdownEl   = shadowRoot.getElementById("schedCountdown");
+    const editModal     = shadowRoot.getElementById("schedEditModal");
+    const editSaveBtn   = shadowRoot.getElementById("editSaveBtn");
+    const editCancelBtn = shadowRoot.getElementById("editCancelBtn");
+    const minInput      = shadowRoot.getElementById("schedDelayMin");
+    const secInput      = shadowRoot.getElementById("schedDelaySecAdd");
+    const textInput     = shadowRoot.getElementById("schedText");
+
+    function genId() { return Date.now() + "_" + Math.random().toString(36).slice(2,7); }
+
+    function formatDelay(ms) {
+      const s = Math.round(ms / 1000);
+      const m = Math.floor(s / 60), sec = s % 60;
+      if (m > 0 && sec > 0) return `${m}分${sec}秒后发`;
+      if (m > 0) return `${m}分钟后发`;
+      return `${sec}秒后发`;
+    }
+
+    // --- render ---
+    function renderSched() {
+      taskListEl.innerHTML = "";
+      const pending = schedTasks.filter(t => t.status === "pending");
+      emptyTip.style.display = pending.length === 0 ? "block" : "none";
+
+      pending.forEach((task, idx) => {
+        const card = document.createElement("div");
+        card.className = "sched-card" + (schedRunning && idx === 0 ? " running" : "");
+        const isFirst = idx === 0;
+        const isLast  = idx === pending.length - 1;
+        const isActive = schedRunning && isFirst;
+        card.innerHTML = `
+          <div class="card-delay">${formatDelay(task.delayMs)}</div>
+          <div class="card-text">${task.text.replace(/&/g,"&amp;").replace(/</g,"&lt;").substring(0,150)}${task.text.length>150?"…":""}</div>
+          <div class="card-actions">
+            <button class="up-btn" data-id="${task.id}" ${isFirst?"disabled":""}>↑</button>
+            <button class="down-btn" data-id="${task.id}" ${isLast?"disabled":""}>↓</button>
+            <button class="edit-btn" data-id="${task.id}" ${isActive?"disabled":""}>✏️编辑</button>
+            <button class="del-btn" data-id="${task.id}" ${isActive?"disabled":""}>🗑删除</button>
+          </div>
+        `;
+        taskListEl.appendChild(card);
+      });
+
+      taskListEl.querySelectorAll(".up-btn").forEach(btn =>
+        btn.addEventListener("click", () => moveSchedTask(btn.dataset.id, -1)));
+      taskListEl.querySelectorAll(".down-btn").forEach(btn =>
+        btn.addEventListener("click", () => moveSchedTask(btn.dataset.id, 1)));
+      taskListEl.querySelectorAll(".edit-btn").forEach(btn =>
+        btn.addEventListener("click", () => openEditSched(btn.dataset.id)));
+      taskListEl.querySelectorAll(".del-btn").forEach(btn =>
+        btn.addEventListener("click", () => deleteSchedTask(btn.dataset.id)));
+
+      startBtn.style.display = !schedRunning ? "inline-block" : "none";
+      pauseBtn.style.display = schedRunning ? "inline-block" : "none";
+      stopBtn.style.display  = schedRunning ? "inline-block" : "none";
+      startBtn.disabled = pending.length === 0;
+    }
+
+    async function loadSched() {
+      schedTasks = await dbGetAll();
+      renderSched();
+    }
+
+    // --- add task ---
+    async function addSchedTask(toFront) {
+      const min = parseInt(minInput.value) || 0;
+      const sec = parseInt(secInput.value) || 0;
+      const delayMs = (min * 60 + sec) * 1000;
+      const text = textInput.value.trim();
+      if (!text) { 更新状态消息("请输入定时发送的文本内容", "error"); return; }
+      if (delayMs <= 0) { 更新状态消息("发送时间必须大于0秒", "error"); return; }
+
+      const pending = schedTasks.filter(t => t.status === "pending");
+      const orders = pending.map(t => t.order);
+      const maxOrder = orders.length ? Math.max(...orders) : 0;
+      const minOrder = orders.length ? Math.min(...orders) : 0;
+
+      let order;
+      if (toFront) {
+        if (schedRunning && pending.length > 1) {
+          // 插在第1位之后（不打断正在倒计时的那条）
+          order = (pending[0].order + pending[1].order) / 2;
+          更新状态消息("⬆ 已插入到当前任务完成后（第2位）", "success");
+        } else {
+          order = minOrder - 1;
+          更新状态消息("⬆ 已插入到队首", "success");
+        }
+      } else {
+        order = maxOrder + 1;
+        更新状态消息("✅ 已添加定时任务到队尾", "success");
+      }
+
+      const task = { id: genId(), delayMs, text, status: "pending", order, createdAt: Date.now() };
+      await dbPut(task);
+      schedTasks = await dbGetAll();
+      renderSched();
+      minInput.value = ""; secInput.value = ""; textInput.value = "";
+    }
+
+    // --- delete ---
+    async function deleteSchedTask(id) {
+      const pending = schedTasks.filter(t => t.status === "pending");
+      if (schedRunning && pending[0]?.id === id) {
+        更新状态消息("正在发送中，请先停止后再删除", "error"); return;
+      }
+      await dbDelete(id);
+      schedTasks = await dbGetAll();
+      renderSched();
+      更新状态消息("已删除任务", "success");
+    }
+
+    // --- move ---
+    async function moveSchedTask(id, dir) {
+      const pending = schedTasks.filter(t => t.status === "pending");
+      const idx = pending.findIndex(t => t.id === id);
+      const swapIdx = idx + dir;
+      if (swapIdx < 0 || swapIdx >= pending.length) return;
+      const tmp = pending[idx].order;
+      pending[idx].order = pending[swapIdx].order;
+      pending[swapIdx].order = tmp;
+      await dbPut(pending[idx]);
+      await dbPut(pending[swapIdx]);
+      schedTasks = await dbGetAll();
+      renderSched();
+    }
+
+    // --- edit ---
+    function openEditSched(id) {
+      schedEditingId = id;
+      const task = schedTasks.find(t => t.id === id);
+      if (!task) return;
+      const s = Math.round(task.delayMs / 1000);
+      shadowRoot.getElementById("editDelayMin").value = Math.floor(s / 60);
+      shadowRoot.getElementById("editDelaySec").value = s % 60;
+      shadowRoot.getElementById("editText").value = task.text;
+      editModal.style.display = "flex";
+    }
+    editSaveBtn.addEventListener("click", async () => {
+      if (!schedEditingId) return;
+      const min = parseInt(shadowRoot.getElementById("editDelayMin").value) || 0;
+      const sec = parseInt(shadowRoot.getElementById("editDelaySec").value) || 0;
+      const delayMs = (min * 60 + sec) * 1000;
+      const text = shadowRoot.getElementById("editText").value.trim();
+      if (!text || delayMs <= 0) { 更新状态消息("请填写完整信息", "error"); return; }
+      const task = schedTasks.find(t => t.id === schedEditingId);
+      if (task) { task.delayMs = delayMs; task.text = text; await dbPut(task); }
+      schedTasks = await dbGetAll();
+      renderSched();
+      editModal.style.display = "none";
+      schedEditingId = null;
+      更新状态消息("✅ 编辑已保存", "success");
+    });
+    editCancelBtn.addEventListener("click", () => {
+      editModal.style.display = "none"; schedEditingId = null;
+    });
+
+    // --- countdown ---
+    function startSchedCountdown(ms, text) {
+      if (schedCountdownTimer) clearInterval(schedCountdownTimer);
+      countdownEl.style.display = "block";
+      let rem = ms;
+      const update = () => {
+        const s = Math.ceil(rem / 1000);
+        const m = Math.floor(s / 60), sec = s % 60;
+        const t = m > 0 ? `${m}分${sec}秒` : `${sec}秒`;
+        countdownEl.textContent = `⏳ 「${text.substring(0,14)}${text.length>14?"…":""}」${t}后发送`;
+      };
+      update();
+      schedCountdownTimer = setInterval(() => {
+        if (schedPaused) { countdownEl.textContent = "⏸ 已暂停..."; return; }
+        rem -= 300;
+        if (rem <= 0) { clearInterval(schedCountdownTimer); countdownEl.textContent = "📤 发送中..."; }
+        else update();
+      }, 300);
+    }
+    function stopSchedCountdown() {
+      if (schedCountdownTimer) clearInterval(schedCountdownTimer);
+      countdownEl.style.display = "none";
+    }
+
+    // --- wait helper ---
+    function waitWithControl(ms) {
+      return new Promise(resolve => {
+        let elapsed = 0;
+        const TICK = 200;
+        const timer = setInterval(() => {
+          if (!schedRunning) { clearInterval(timer); resolve(false); return; }
+          if (!schedPaused) {
+            elapsed += TICK;
+            if (elapsed >= ms) { clearInterval(timer); resolve(true); }
+          }
+        }, TICK);
+        schedCurrentTimer = timer;
+      });
+    }
+
+    // --- run queue ---
+    async function runSchedQueue() {
+      const pending = schedTasks.filter(t => t.status === "pending");
+      if (pending.length === 0) {
+        schedRunning = false; schedPaused = false;
+        stopSchedCountdown(); renderSched();
+        更新状态消息("✅ 所有定时任务已发送完毕！", "success");
+        return;
+      }
+      const task = pending[0];
+      renderSched();
+      startSchedCountdown(task.delayMs, task.text);
+
+      const ok = await waitWithControl(task.delayMs);
+      if (!ok) return; // 被停止
+
+      stopSchedCountdown();
+      更新状态消息(`📤 正在定时发送...`, "success");
+
+      // 发送给当前已选群组
+      const selectedContacts = Array.from(当前选中联系人);
+      if (selectedContacts.length === 0) {
+        更新状态消息("⚠️ 没有选中群组，跳过此任务", "error");
+      } else {
+        for (const contactId of selectedContacts) {
+          if (!schedRunning) break;
+          const group = 联系人数据.find(g => g.id === contactId);
+          const groupName = group?.name || contactId;
+          try {
+            await 发送文本内容(groupName, task.text);
+            await new Promise(r => setTimeout(r, 200 + Math.floor(Math.random() * 200)));
+          } catch(e) { console.error("定时发送失败:", e); }
+        }
+      }
+
+      // 发完删除
+      await dbDelete(task.id);
+      schedTasks = await dbGetAll();
+      const remainCount = schedTasks.filter(t => t.status === "pending").length;
+      更新状态消息(`✅ 定时任务已发送，还剩 ${remainCount} 条`, "success");
+
+      if (schedRunning) setTimeout(() => runSchedQueue(), 500);
+    }
+
+    // --- button events ---
+    openBtn.addEventListener("click", () => {
+      const isOpen = drawer.style.display === "flex";
+      drawer.style.display = isOpen ? "none" : "flex";
+      if (!isOpen) loadSched();
+    });
+    closeBtn.addEventListener("click", () => { drawer.style.display = "none"; });
+    addBtn.addEventListener("click", () => addSchedTask(false));
+    insertBtn.addEventListener("click", () => addSchedTask(true));
+
+    startBtn.addEventListener("click", async () => {
+      if (当前选中联系人.size === 0) {
+        更新状态消息("⚠️ 请先在主面板勾选要发送的群组", "error"); return;
+      }
+      schedRunning = true; schedPaused = false;
+      schedTasks = await dbGetAll();
+      renderSched();
+      更新状态消息("⏰ 定时发送队列已启动", "success");
+      runSchedQueue();
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      schedPaused = !schedPaused;
+      pauseBtn.textContent = schedPaused ? "▶ 继续" : "⏸ 暂停";
+      更新状态消息(schedPaused ? "⏸ 已暂停，点「继续」恢复" : "▶ 已继续", "success");
+    });
+
+    stopBtn.addEventListener("click", async () => {
+      schedRunning = false; schedPaused = false;
+      if (schedCurrentTimer) clearInterval(schedCurrentTimer);
+      stopSchedCountdown();
+      schedTasks = await dbGetAll();
+      renderSched();
+      pauseBtn.textContent = "⏸ 暂停";
+      更新状态消息("⏹ 定时发送已停止，未发任务已保留", "success");
+    });
+
+    // 初始加载
+    loadSched();
+  })();
+  // ==================== 定时发送模块结束 ====================
 }
 
 if (window.location.hostname.includes("web.whatsapp.com")) {
