@@ -1,3 +1,9 @@
+// 后台接口
+// await advancedApi.popOutCurrentTab(window.__VbrTabId) 分离当前标签页
+// await advancedApi.restorePoppedTab(window.__VbrTabId) 还原当前标签页
+// await advancedApi.restorePoppedTab() 依次分离标签页
+// await advancedApi.popOutCurrentTab() 依次还原标签页
+
 // ==================== 本地数据库管理 ====================
 
 // 数据库名称和版本
@@ -2773,10 +2779,11 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.3.4 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.5 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
+          <button id="分离当前页面" style="width: 100%;    font-size: 14px;    background-color: #cc0000;    margin-bottom: 10px;">分离当前页面</button>
           <button id="loadGroupsBtn" style="width: 100%;    font-size: 14px;    background-color: #cc0000;    margin-bottom: 10px;">采集未归档群组数据</button>
           <button id="loadContactsBtn" style="width: 100%; font-size: 14px;">加载未归档群组列表</button>
           <div id="contactsContainer" class="contact-list"></div>
@@ -3080,7 +3087,33 @@ function 注入浮动窗口() {
       start + text.length;
   });
 
-  // 获取群组数据报表（新功能）
+  // 分离/还原当前页面
+  let 已分离 = false;
+
+  shadowRoot
+    .getElementById("分离当前页面")
+    .addEventListener("click", async function () {
+      const 按钮 = this;
+
+      try {
+        按钮.disabled = true;
+
+        if (已分离) {
+          await advancedApi.restorePoppedTab(window.__VbrTabId);
+          按钮.textContent = "分离当前页面";
+          已分离 = false;
+        } else {
+          await advancedApi.popOutCurrentTab(window.__VbrTabId);
+          按钮.textContent = "还原当前页面";
+          已分离 = true;
+        }
+      } catch (error) {
+        console.error("操作失败:", error);
+      } finally {
+        按钮.disabled = false;
+      }
+    });
+
   // 获取群组数据报表（新功能）
   shadowRoot
     .getElementById("loadGroupsBtn")
