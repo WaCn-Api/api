@@ -2892,7 +2892,7 @@ function 注入浮动窗口() {
         width:300px;
         height:100%;
         background:#fff;
-        border-left:3px solid #ff9800;
+        border: 1px solid rgb(255, 152, 0);
         z-index:999999998;
         overflow:hidden;
         flex-direction:column;
