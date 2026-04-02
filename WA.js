@@ -2362,7 +2362,7 @@ function 注入浮动窗口() {
         right: 0;
         top: 0px;
         background-color: #ffffff;
-        border: 1px solid #cccccc;
+        border: 1px solid #28a745;
         z-index: 99999999;
         overflow: auto;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -2772,7 +2772,7 @@ function 注入浮动窗口() {
     `;
 
   浮动窗口.innerHTML = `
-      <div class="title-bar">
+      <div class="title-bar" style="background-color: #28a745; color: white;">
         <span>WA-消息群发模块(群组报表) v3.3.4 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
