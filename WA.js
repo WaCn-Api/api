@@ -2773,7 +2773,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar">
-        <span>WA-消息群发模块(群组报表) v3.3.3 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.4 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -2901,7 +2901,7 @@ function 注入浮动窗口() {
         font-size:13px;
       ">
         <!-- 标题栏 -->
-        <div style="background:#ff9800;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <div style="background:#ff9800;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;margin: 10px;">
           <span style="font-weight:bold;font-size:14px;">⏰ 定时发送管理</span>
           <button id="schedCloseBtn" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0;line-height:1;margin:0;">✕</button>
         </div>
@@ -3537,8 +3537,12 @@ function 注入浮动窗口() {
     async function dbGetAll() {
       const db = await openSchedDB();
       return new Promise((resolve, reject) => {
-        const req = db.transaction(SCHED_STORE, "readonly").objectStore(SCHED_STORE).getAll();
-        req.onsuccess = () => resolve((req.result || []).sort((a, b) => a.order - b.order));
+        const req = db
+          .transaction(SCHED_STORE, "readonly")
+          .objectStore(SCHED_STORE)
+          .getAll();
+        req.onsuccess = () =>
+          resolve((req.result || []).sort((a, b) => a.order - b.order));
         req.onerror = () => reject(req.error);
       });
     }
@@ -3570,29 +3574,32 @@ function 注入浮动窗口() {
     let schedEditingId = null;
 
     // --- DOM refs ---
-    const drawer        = shadowRoot.getElementById("scheduleDrawer");
-    const openBtn       = shadowRoot.getElementById("scheduleOpenBtn");
-    const closeBtn      = shadowRoot.getElementById("schedCloseBtn");
-    const addBtn        = shadowRoot.getElementById("schedAddBtn");
-    const insertBtn     = shadowRoot.getElementById("schedInsertBtn");
-    const startBtn      = shadowRoot.getElementById("schedStartBtn");
-    const pauseBtn      = shadowRoot.getElementById("schedPauseBtn");
-    const stopBtn       = shadowRoot.getElementById("schedStopBtn");
-    const taskListEl    = shadowRoot.getElementById("schedTaskList");
-    const emptyTip      = shadowRoot.getElementById("schedEmpty");
-    const countdownEl   = shadowRoot.getElementById("schedCountdown");
-    const editModal     = shadowRoot.getElementById("schedEditModal");
-    const editSaveBtn   = shadowRoot.getElementById("editSaveBtn");
+    const drawer = shadowRoot.getElementById("scheduleDrawer");
+    const openBtn = shadowRoot.getElementById("scheduleOpenBtn");
+    const closeBtn = shadowRoot.getElementById("schedCloseBtn");
+    const addBtn = shadowRoot.getElementById("schedAddBtn");
+    const insertBtn = shadowRoot.getElementById("schedInsertBtn");
+    const startBtn = shadowRoot.getElementById("schedStartBtn");
+    const pauseBtn = shadowRoot.getElementById("schedPauseBtn");
+    const stopBtn = shadowRoot.getElementById("schedStopBtn");
+    const taskListEl = shadowRoot.getElementById("schedTaskList");
+    const emptyTip = shadowRoot.getElementById("schedEmpty");
+    const countdownEl = shadowRoot.getElementById("schedCountdown");
+    const editModal = shadowRoot.getElementById("schedEditModal");
+    const editSaveBtn = shadowRoot.getElementById("editSaveBtn");
     const editCancelBtn = shadowRoot.getElementById("editCancelBtn");
-    const minInput      = shadowRoot.getElementById("schedDelayMin");
-    const secInput      = shadowRoot.getElementById("schedDelaySecAdd");
-    const textInput     = shadowRoot.getElementById("schedText");
+    const minInput = shadowRoot.getElementById("schedDelayMin");
+    const secInput = shadowRoot.getElementById("schedDelaySecAdd");
+    const textInput = shadowRoot.getElementById("schedText");
 
-    function genId() { return Date.now() + "_" + Math.random().toString(36).slice(2,7); }
+    function genId() {
+      return Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+    }
 
     function formatDelay(ms) {
       const s = Math.round(ms / 1000);
-      const m = Math.floor(s / 60), sec = s % 60;
+      const m = Math.floor(s / 60),
+        sec = s % 60;
       if (m > 0 && sec > 0) return `${m}分${sec}秒后发`;
       if (m > 0) return `${m}分钟后发`;
       return `${sec}秒后发`;
@@ -3601,40 +3608,55 @@ function 注入浮动窗口() {
     // --- render ---
     function renderSched() {
       taskListEl.innerHTML = "";
-      const pending = schedTasks.filter(t => t.status === "pending");
+      const pending = schedTasks.filter((t) => t.status === "pending");
       emptyTip.style.display = pending.length === 0 ? "block" : "none";
 
       pending.forEach((task, idx) => {
         const card = document.createElement("div");
-        card.className = "sched-card" + (schedRunning && idx === 0 ? " running" : "");
+        card.className =
+          "sched-card" + (schedRunning && idx === 0 ? " running" : "");
         const isFirst = idx === 0;
-        const isLast  = idx === pending.length - 1;
+        const isLast = idx === pending.length - 1;
         const isActive = schedRunning && isFirst;
         card.innerHTML = `
           <div class="card-delay">${formatDelay(task.delayMs)}</div>
-          <div class="card-text">${task.text.replace(/&/g,"&amp;").replace(/</g,"&lt;").substring(0,150)}${task.text.length>150?"…":""}</div>
+          <div class="card-text">${task.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").substring(0, 150)}${task.text.length > 150 ? "…" : ""}</div>
           <div class="card-actions">
-            <button class="up-btn" data-id="${task.id}" ${isFirst?"disabled":""}>↑</button>
-            <button class="down-btn" data-id="${task.id}" ${isLast?"disabled":""}>↓</button>
-            <button class="edit-btn" data-id="${task.id}" ${isActive?"disabled":""}>✏️编辑</button>
-            <button class="del-btn" data-id="${task.id}" ${isActive?"disabled":""}>🗑删除</button>
+            <button class="up-btn" data-id="${task.id}" ${isFirst ? "disabled" : ""}>↑</button>
+            <button class="down-btn" data-id="${task.id}" ${isLast ? "disabled" : ""}>↓</button>
+            <button class="edit-btn" data-id="${task.id}" ${isActive ? "disabled" : ""}>✏️编辑</button>
+            <button class="del-btn" data-id="${task.id}" ${isActive ? "disabled" : ""}>🗑删除</button>
           </div>
         `;
         taskListEl.appendChild(card);
       });
 
-      taskListEl.querySelectorAll(".up-btn").forEach(btn =>
-        btn.addEventListener("click", () => moveSchedTask(btn.dataset.id, -1)));
-      taskListEl.querySelectorAll(".down-btn").forEach(btn =>
-        btn.addEventListener("click", () => moveSchedTask(btn.dataset.id, 1)));
-      taskListEl.querySelectorAll(".edit-btn").forEach(btn =>
-        btn.addEventListener("click", () => openEditSched(btn.dataset.id)));
-      taskListEl.querySelectorAll(".del-btn").forEach(btn =>
-        btn.addEventListener("click", () => deleteSchedTask(btn.dataset.id)));
+      taskListEl
+        .querySelectorAll(".up-btn")
+        .forEach((btn) =>
+          btn.addEventListener("click", () =>
+            moveSchedTask(btn.dataset.id, -1),
+          ),
+        );
+      taskListEl
+        .querySelectorAll(".down-btn")
+        .forEach((btn) =>
+          btn.addEventListener("click", () => moveSchedTask(btn.dataset.id, 1)),
+        );
+      taskListEl
+        .querySelectorAll(".edit-btn")
+        .forEach((btn) =>
+          btn.addEventListener("click", () => openEditSched(btn.dataset.id)),
+        );
+      taskListEl
+        .querySelectorAll(".del-btn")
+        .forEach((btn) =>
+          btn.addEventListener("click", () => deleteSchedTask(btn.dataset.id)),
+        );
 
       startBtn.style.display = !schedRunning ? "inline-block" : "none";
       pauseBtn.style.display = schedRunning ? "inline-block" : "none";
-      stopBtn.style.display  = schedRunning ? "inline-block" : "none";
+      stopBtn.style.display = schedRunning ? "inline-block" : "none";
       startBtn.disabled = pending.length === 0;
     }
 
@@ -3649,11 +3671,17 @@ function 注入浮动窗口() {
       const sec = parseInt(secInput.value) || 0;
       const delayMs = (min * 60 + sec) * 1000;
       const text = textInput.value.trim();
-      if (!text) { 更新状态消息("请输入定时发送的文本内容", "error"); return; }
-      if (delayMs <= 0) { 更新状态消息("发送时间必须大于0秒", "error"); return; }
+      if (!text) {
+        更新状态消息("请输入定时发送的文本内容", "error");
+        return;
+      }
+      if (delayMs <= 0) {
+        更新状态消息("发送时间必须大于0秒", "error");
+        return;
+      }
 
-      const pending = schedTasks.filter(t => t.status === "pending");
-      const orders = pending.map(t => t.order);
+      const pending = schedTasks.filter((t) => t.status === "pending");
+      const orders = pending.map((t) => t.order);
       const maxOrder = orders.length ? Math.max(...orders) : 0;
       const minOrder = orders.length ? Math.min(...orders) : 0;
 
@@ -3672,18 +3700,28 @@ function 注入浮动窗口() {
         更新状态消息("✅ 已添加定时任务到队尾", "success");
       }
 
-      const task = { id: genId(), delayMs, text, status: "pending", order, createdAt: Date.now() };
+      const task = {
+        id: genId(),
+        delayMs,
+        text,
+        status: "pending",
+        order,
+        createdAt: Date.now(),
+      };
       await dbPut(task);
       schedTasks = await dbGetAll();
       renderSched();
-      minInput.value = ""; secInput.value = ""; textInput.value = "";
+      minInput.value = "";
+      secInput.value = "";
+      textInput.value = "";
     }
 
     // --- delete ---
     async function deleteSchedTask(id) {
-      const pending = schedTasks.filter(t => t.status === "pending");
+      const pending = schedTasks.filter((t) => t.status === "pending");
       if (schedRunning && pending[0]?.id === id) {
-        更新状态消息("正在发送中，请先停止后再删除", "error"); return;
+        更新状态消息("正在发送中，请先停止后再删除", "error");
+        return;
       }
       await dbDelete(id);
       schedTasks = await dbGetAll();
@@ -3693,8 +3731,8 @@ function 注入浮动窗口() {
 
     // --- move ---
     async function moveSchedTask(id, dir) {
-      const pending = schedTasks.filter(t => t.status === "pending");
-      const idx = pending.findIndex(t => t.id === id);
+      const pending = schedTasks.filter((t) => t.status === "pending");
+      const idx = pending.findIndex((t) => t.id === id);
       const swapIdx = idx + dir;
       if (swapIdx < 0 || swapIdx >= pending.length) return;
       const tmp = pending[idx].order;
@@ -3709,7 +3747,7 @@ function 注入浮动窗口() {
     // --- edit ---
     function openEditSched(id) {
       schedEditingId = id;
-      const task = schedTasks.find(t => t.id === id);
+      const task = schedTasks.find((t) => t.id === id);
       if (!task) return;
       const s = Math.round(task.delayMs / 1000);
       shadowRoot.getElementById("editDelayMin").value = Math.floor(s / 60);
@@ -3719,13 +3757,22 @@ function 注入浮动窗口() {
     }
     editSaveBtn.addEventListener("click", async () => {
       if (!schedEditingId) return;
-      const min = parseInt(shadowRoot.getElementById("editDelayMin").value) || 0;
-      const sec = parseInt(shadowRoot.getElementById("editDelaySec").value) || 0;
+      const min =
+        parseInt(shadowRoot.getElementById("editDelayMin").value) || 0;
+      const sec =
+        parseInt(shadowRoot.getElementById("editDelaySec").value) || 0;
       const delayMs = (min * 60 + sec) * 1000;
       const text = shadowRoot.getElementById("editText").value.trim();
-      if (!text || delayMs <= 0) { 更新状态消息("请填写完整信息", "error"); return; }
-      const task = schedTasks.find(t => t.id === schedEditingId);
-      if (task) { task.delayMs = delayMs; task.text = text; await dbPut(task); }
+      if (!text || delayMs <= 0) {
+        更新状态消息("请填写完整信息", "error");
+        return;
+      }
+      const task = schedTasks.find((t) => t.id === schedEditingId);
+      if (task) {
+        task.delayMs = delayMs;
+        task.text = text;
+        await dbPut(task);
+      }
       schedTasks = await dbGetAll();
       renderSched();
       editModal.style.display = "none";
@@ -3733,7 +3780,8 @@ function 注入浮动窗口() {
       更新状态消息("✅ 编辑已保存", "success");
     });
     editCancelBtn.addEventListener("click", () => {
-      editModal.style.display = "none"; schedEditingId = null;
+      editModal.style.display = "none";
+      schedEditingId = null;
     });
 
     // --- countdown ---
@@ -3743,16 +3791,22 @@ function 注入浮动窗口() {
       let rem = ms;
       const update = () => {
         const s = Math.ceil(rem / 1000);
-        const m = Math.floor(s / 60), sec = s % 60;
+        const m = Math.floor(s / 60),
+          sec = s % 60;
         const t = m > 0 ? `${m}分${sec}秒` : `${sec}秒`;
-        countdownEl.textContent = `⏳ 「${text.substring(0,14)}${text.length>14?"…":""}」${t}后发送`;
+        countdownEl.textContent = `⏳ 「${text.substring(0, 14)}${text.length > 14 ? "…" : ""}」${t}后发送`;
       };
       update();
       schedCountdownTimer = setInterval(() => {
-        if (schedPaused) { countdownEl.textContent = "⏸ 已暂停..."; return; }
+        if (schedPaused) {
+          countdownEl.textContent = "⏸ 已暂停...";
+          return;
+        }
         rem -= 300;
-        if (rem <= 0) { clearInterval(schedCountdownTimer); countdownEl.textContent = "📤 发送中..."; }
-        else update();
+        if (rem <= 0) {
+          clearInterval(schedCountdownTimer);
+          countdownEl.textContent = "📤 发送中...";
+        } else update();
       }, 300);
     }
     function stopSchedCountdown() {
@@ -3762,14 +3816,21 @@ function 注入浮动窗口() {
 
     // --- wait helper ---
     function waitWithControl(ms) {
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         let elapsed = 0;
         const TICK = 200;
         const timer = setInterval(() => {
-          if (!schedRunning) { clearInterval(timer); resolve(false); return; }
+          if (!schedRunning) {
+            clearInterval(timer);
+            resolve(false);
+            return;
+          }
           if (!schedPaused) {
             elapsed += TICK;
-            if (elapsed >= ms) { clearInterval(timer); resolve(true); }
+            if (elapsed >= ms) {
+              clearInterval(timer);
+              resolve(true);
+            }
           }
         }, TICK);
         schedCurrentTimer = timer;
@@ -3778,10 +3839,12 @@ function 注入浮动窗口() {
 
     // --- run queue ---
     async function runSchedQueue() {
-      const pending = schedTasks.filter(t => t.status === "pending");
+      const pending = schedTasks.filter((t) => t.status === "pending");
       if (pending.length === 0) {
-        schedRunning = false; schedPaused = false;
-        stopSchedCountdown(); renderSched();
+        schedRunning = false;
+        schedPaused = false;
+        stopSchedCountdown();
+        renderSched();
         更新状态消息("✅ 所有定时任务已发送完毕！", "success");
         return;
       }
@@ -3802,19 +3865,25 @@ function 注入浮动窗口() {
       } else {
         for (const contactId of selectedContacts) {
           if (!schedRunning) break;
-          const group = 联系人数据.find(g => g.id === contactId);
+          const group = 联系人数据.find((g) => g.id === contactId);
           const groupName = group?.name || contactId;
           try {
             await 发送文本内容(groupName, task.text);
-            await new Promise(r => setTimeout(r, 200 + Math.floor(Math.random() * 200)));
-          } catch(e) { console.error("定时发送失败:", e); }
+            await new Promise((r) =>
+              setTimeout(r, 200 + Math.floor(Math.random() * 200)),
+            );
+          } catch (e) {
+            console.error("定时发送失败:", e);
+          }
         }
       }
 
       // 发完删除
       await dbDelete(task.id);
       schedTasks = await dbGetAll();
-      const remainCount = schedTasks.filter(t => t.status === "pending").length;
+      const remainCount = schedTasks.filter(
+        (t) => t.status === "pending",
+      ).length;
       更新状态消息(`✅ 定时任务已发送，还剩 ${remainCount} 条`, "success");
 
       if (schedRunning) setTimeout(() => runSchedQueue(), 500);
@@ -3826,15 +3895,19 @@ function 注入浮动窗口() {
       drawer.style.display = isOpen ? "none" : "flex";
       if (!isOpen) loadSched();
     });
-    closeBtn.addEventListener("click", () => { drawer.style.display = "none"; });
+    closeBtn.addEventListener("click", () => {
+      drawer.style.display = "none";
+    });
     addBtn.addEventListener("click", () => addSchedTask(false));
     insertBtn.addEventListener("click", () => addSchedTask(true));
 
     startBtn.addEventListener("click", async () => {
       if (当前选中联系人.size === 0) {
-        更新状态消息("⚠️ 请先在主面板勾选要发送的群组", "error"); return;
+        更新状态消息("⚠️ 请先在主面板勾选要发送的群组", "error");
+        return;
       }
-      schedRunning = true; schedPaused = false;
+      schedRunning = true;
+      schedPaused = false;
       schedTasks = await dbGetAll();
       renderSched();
       更新状态消息("⏰ 定时发送队列已启动", "success");
@@ -3844,11 +3917,15 @@ function 注入浮动窗口() {
     pauseBtn.addEventListener("click", () => {
       schedPaused = !schedPaused;
       pauseBtn.textContent = schedPaused ? "▶ 继续" : "⏸ 暂停";
-      更新状态消息(schedPaused ? "⏸ 已暂停，点「继续」恢复" : "▶ 已继续", "success");
+      更新状态消息(
+        schedPaused ? "⏸ 已暂停，点「继续」恢复" : "▶ 已继续",
+        "success",
+      );
     });
 
     stopBtn.addEventListener("click", async () => {
-      schedRunning = false; schedPaused = false;
+      schedRunning = false;
+      schedPaused = false;
       if (schedCurrentTimer) clearInterval(schedCurrentTimer);
       stopSchedCountdown();
       schedTasks = await dbGetAll();
