@@ -2864,7 +2864,7 @@ function 注入浮动窗口() {
 
               <div class="send-controls">
                 <button id="sendBatchBtn" style="background-color: #28a745;margin: 10px 0;width: 100%;">开始群发</button>
-                <button id="scheduleOpenBtn" style="background-color:#ff9800;margin:10px;width:100%;">⏰ 定时发送管理</button>
+                <button id="scheduleOpenBtn" style="background-color:#ff9800;margin: 10px 0 10px 5px;width:100%;">⏰ 定时发送管理</button>
               </div>
 
               <div id="progressContainer">
