@@ -4498,3 +4498,9 @@ function 注入浮动窗口() {
     });
   })();
 } // ==================== 点赞模块结束 ====================
+
+if (window.location.hostname.includes("web.whatsapp.com")) {
+  console.log("当前在 WhatsApp Web");
+  // 调用函数注入浮动窗口
+  注入浮动窗口();
+}
