@@ -2779,7 +2779,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.3.5 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.6 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -4193,75 +4193,34 @@ function 注入浮动窗口() {
     }
 
     async function reactToOneMessage(msgElement, emoji) {
-      // 先滚动到元素可见
-      msgElement.scrollIntoView({ behavior: "smooth", block: "center" });
-      await sleep(500);
-
-      // 触发鼠标悬停事件（更真实）
+      // 触发悬停
       msgElement.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
       msgElement.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
-      await sleep(800);
+      await sleep(700);
 
-      // 查找"留下心情"按钮
+      // 找到"留下心情"按钮并点击
       const moodBtns = document.querySelectorAll('[aria-label="留下心情"]');
       if (!moodBtns.length) {
         console.warn("没找到留下心情按钮");
         return false;
       }
+      moodBtns[moodBtns.length - 1].click();
+      await sleep(600);
 
-      // 取最后一个（当前消息的）
-      const moodBtn = moodBtns[moodBtns.length - 1];
-
-      // 确保按钮可见并点击
-      moodBtn.scrollIntoView({ behavior: "smooth", block: "center" });
-      await sleep(200);
-
-      // 使用模拟点击
-      await 模拟真实点击(moodBtn);
-      await sleep(800);
-
-      // 等待面板出现
-      let panel = document.querySelector(
-        '[data-menu-content="true"], div[role="menu"]',
-      );
-      let waitCount = 0;
-      while (!panel && waitCount < 10) {
-        await sleep(200);
-        panel = document.querySelector(
-          '[data-menu-content="true"], div[role="menu"]',
+      // 查找点赞面板
+      const panel = document.querySelector('[data-menu-content="true"]');
+      if (panel) {
+        // 在快捷面板找对应表情
+        const img = [...panel.querySelectorAll("img[alt]")].find(
+          (i) => i.alt === emoji,
         );
-        waitCount++;
-      }
-
-      if (!panel) {
-        console.warn("点赞面板未出现");
-        return false;
-      }
-
-      // 先在快捷面板找 emoji
-      const img = [...panel.querySelectorAll("img[alt]")].find(
-        (i) => i.alt === emoji,
-      );
-      if (img) {
-        const btn = img.closest('[role="button"], button');
-        if (btn) {
-          await 模拟真实点击(btn);
+        if (img) {
+          img.closest("button").click();
           console.log(`✅ 快捷面板 ${emoji}`);
           return true;
         }
-      }
-
-      // 点击"更多回应"
-      const moreBtn = panel.querySelector('[aria-label="更多回应"]');
-      if (moreBtn) {
-        await 模拟真实点击(moreBtn);
-        await sleep(800);
-      } else {
-        // 尝试其他选择器
-        const otherMore = document.querySelector(
-          'button[aria-label*="更多"], div[aria-label*="更多回应"]',
-        );
-        if (otherMore) await 模拟真实点击(otherMore);
+        // 点"更多回应"
+        panel.querySelector('[aria-label="更多回应"]')?.click();
         await sleep(800);
       }
 
@@ -4272,49 +4231,24 @@ function 注入浮动窗口() {
         return false;
       }
 
-      // 获取所有分类标签
+      // 遍历分类标签
       const categoryBtns = document.querySelectorAll(
-        '.x1avzhq7 [role="tab"], [class*="_ajxx"] button, div[role="tablist"] button',
+        '.x1avzhq7 button, [class*="_ajxx"] button',
       );
-
       for (let i = 0; i < categoryBtns.length; i++) {
         const tab = categoryBtns[i];
-        if (!reactionRunning) return false;
+        const label =
+          tab.getAttribute("aria-label") || tab.getAttribute("title") || i;
 
-        // 点击分类标签
-        await 模拟真实点击(tab);
-        await sleep(600);
+        tab.click();
+        await sleep(500);
 
-        // 滚动查找目标 emoji
-        scroller.scrollTop = 0;
-        await sleep(300);
-
-        let lastScrollTop = -1;
-        let found = false;
-
-        while (true) {
-          // 查找可点击的 emoji
-          const emojiBtn = document.querySelector(
-            `span[data-emoji="${emoji}"][role="button"], div[data-emoji="${emoji}"], button img[alt="${emoji}"]`,
-          );
-
-          if (emojiBtn) {
-            const clickable = emojiBtn.closest('[role="button"], button');
-            if (clickable) {
-              await 模拟真实点击(clickable);
-              console.log(`✅ 在分类 ${i + 1} 发送 ${emoji}`);
-              found = true;
-              break;
-            }
-          }
-
-          if (scroller.scrollTop === lastScrollTop) break;
-          lastScrollTop = scroller.scrollTop;
-          scroller.scrollTop += 200;
-          await sleep(300);
+        const target = await scrollAndFind(emoji, scroller);
+        if (target) {
+          target.click();
+          console.log(`✅ 在「${label}」发送 ${emoji}`);
+          return true;
         }
-
-        if (found) return true;
       }
 
       console.warn(`❌ 找不到 ${emoji}`);
