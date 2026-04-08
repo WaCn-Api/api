@@ -2779,7 +2779,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.3.6 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.3.7 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -4070,7 +4070,7 @@ function 注入浮动窗口() {
   })();
   // ==================== 定时发送模块结束 ====================
 
-  // ==================== 点赞模块（完整版 - 模拟人工操作） ====================
+  // ==================== 点赞模块（完整版） ====================
   (() => {
     let reactionRunning = false;
     let reactionStopRequested = false;
@@ -4134,7 +4134,7 @@ function 注入浮动窗口() {
           .forEach((cb) => (cb.checked = false));
       });
 
-    // 表情选择
+    // Emoji 选择
     shadowRoot.querySelectorAll(".reaction-emoji-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         shadowRoot
@@ -4208,9 +4208,6 @@ function 注入浮动窗口() {
 
     // ==================== 消息滚动和查找 ====================
 
-    /**
-     * 获取消息滚动容器
-     */
     function getMessageScroller() {
       const selectors = [
         '[data-testid="conversation-panel-messages"]',
@@ -4237,11 +4234,7 @@ function 注入浮动窗口() {
       return null;
     }
 
-    /**
-     * 获取所有消息元素
-     */
     function getAllMessageElements() {
-      // WhatsApp 消息的多种可能选择器
       return document.querySelectorAll(
         [
           "div[data-pre-plain-text]",
@@ -4252,9 +4245,6 @@ function 注入浮动窗口() {
       );
     }
 
-    /**
-     * 滚动到底部
-     */
     async function scrollToBottom(scroller) {
       if (!scroller) return;
 
@@ -4273,14 +4263,10 @@ function 注入浮动窗口() {
       }
     }
 
-    /**
-     * 向上滚动加载历史消息
-     */
     async function scrollUpToLoadMessages(scroller, maxScrolls = 50) {
       if (!scroller) return;
 
       let scrollCount = 0;
-      let lastMessageCount = 0;
       let noChangeCount = 0;
 
       setStatus("正在向上滚动加载历史消息...");
@@ -4288,7 +4274,6 @@ function 注入浮动窗口() {
       while (scrollCount < maxScrolls && !reactionStopRequested) {
         const currentCount = getAllMessageElements().length;
 
-        // 向上滚动
         scroller.scrollTop = Math.max(0, scroller.scrollTop - 250);
         await sleep(450);
 
@@ -4309,9 +4294,6 @@ function 注入浮动窗口() {
       }
     }
 
-    /**
-     * 根据条件查找目标消息
-     */
     function findTargetMessages(targetType, keyword, index) {
       const allMessages = getAllMessageElements();
       const messagesArray = Array.from(allMessages);
@@ -4323,7 +4305,6 @@ function 注入浮动窗口() {
           return [messagesArray[messagesArray.length - 1]];
 
         case "all":
-          // 返回所有消息，但限制数量避免过多
           return messagesArray.slice(-100);
 
         case "keyword":
@@ -4349,178 +4330,182 @@ function 注入浮动窗口() {
       }
     }
 
-    // ==================== 表情面板操作（模拟人工） ====================
+    // ==================== 表情面板操作（模拟人工持续滚动） ====================
 
-    /**
-     * 获取表情面板的滚动容器
-     */
     function getEmojiPanelScroller() {
-      // 表情面板的选择器
-      const selectors = [
-        '[data-menu-content="true"] div[style*="height"]',
-        '._ajxx div[style*="height"]',
-        'div[role="grid"]',
-      ];
+      const emojiSpan = document.querySelector("[data-emoji]");
+      if (!emojiSpan) return null;
 
-      for (const sel of selectors) {
-        const el = document.querySelector(sel);
-        if (el && el.scrollHeight > 300) {
-          return el;
+      let parent = emojiSpan.parentElement;
+      while (parent) {
+        const style = window.getComputedStyle(parent);
+        const overflowY = style.overflowY;
+
+        if (
+          (overflowY === "auto" || overflowY === "scroll") &&
+          parent.scrollHeight > parent.clientHeight
+        ) {
+          return parent;
         }
+        parent = parent.parentElement;
       }
 
-      // 找包含 data-emoji 的父容器
-      const emojiSpan = document.querySelector("[data-emoji]");
-      if (emojiSpan) {
-        let parent = emojiSpan.parentElement;
-        while (parent) {
-          if (parent.scrollHeight > parent.clientHeight) {
-            return parent;
-          }
-          parent = parent.parentElement;
+      const candidates = document.querySelectorAll('[style*="height"]');
+      for (const el of candidates) {
+        if (el.scrollHeight > el.clientHeight + 10) {
+          return el;
         }
       }
 
       return null;
     }
 
-    /**
-     * 点击分类标签
-     */
-    async function clickEmojiCategory(categoryName) {
-      // 查找分类按钮
-      const buttons = document.querySelectorAll(
+    function getCategoryButtons() {
+      const panel = document.querySelector('[data-menu-content="true"]');
+      if (!panel) return [];
+
+      return panel.querySelectorAll(
         [
           '[role="tab"]',
           'button[aria-label*="表情"]',
-          'button[title*="表情"]',
-          "._ajxx button",
+          'button[aria-label*="人物"]',
+          'button[aria-label*="动物"]',
+          'button[aria-label*="食物"]',
+          'button[aria-label*="活动"]',
+          'button[aria-label*="旅行"]',
+          'button[aria-label*="物件"]',
+          'button[aria-label*="符号"]',
+          'button[aria-label*="旗帜"]',
+          "._ajxx button[aria-label]",
         ].join(","),
       );
-
-      for (const btn of buttons) {
-        const label = (
-          btn.getAttribute("aria-label") ||
-          btn.getAttribute("title") ||
-          ""
-        ).toLowerCase();
-        const text = btn.textContent || "";
-
-        if (
-          label.includes(categoryName.toLowerCase()) ||
-          text.includes(categoryName)
-        ) {
-          btn.click();
-          await sleep(500);
-          return true;
-        }
-      }
-      return false;
     }
 
-    /**
-     * 在表情面板中滚动查找指定表情（模拟人工）
-     */
-    async function findEmojiInPanel(targetEmoji) {
-      // 先检查当前可见区域
-      const allEmojiSpans = document.querySelectorAll("[data-emoji]");
-      for (const span of allEmojiSpans) {
+    function findVisibleEmoji(targetEmoji) {
+      const allEmojis = document.querySelectorAll("[data-emoji]");
+
+      for (const span of allEmojis) {
+        if (span.getAttribute("data-emoji") !== targetEmoji) continue;
+        if (span.offsetParent === null) continue;
+
+        const rect = span.getBoundingClientRect();
+        const containerRect = span
+          .closest('[data-menu-content="true"]')
+          ?.getBoundingClientRect() || { top: 0, bottom: window.innerHeight };
+
         if (
-          span.getAttribute("data-emoji") === targetEmoji &&
-          span.offsetParent !== null
+          rect.top >= containerRect.top - 50 &&
+          rect.bottom <= containerRect.bottom + 50
         ) {
           return span;
         }
       }
 
-      // 获取滚动容器
+      return null;
+    }
+
+    async function scrollAndFindEmojiInCurrentCategory(
+      targetEmoji,
+      maxScrollAttempts = 100,
+    ) {
       const scroller = getEmojiPanelScroller();
       if (!scroller) {
         console.warn("找不到表情面板滚动容器");
         return null;
       }
 
-      setStatus(`在表情面板中查找 ${targetEmoji}...`);
+      setStatus(`在分类中滚动查找 ${targetEmoji}...`);
 
-      // 模拟人工：慢慢向下滚动，边滚边找
-      const maxScrolls = 30;
+      let found = findVisibleEmoji(targetEmoji);
+      if (found) return found;
+
+      let scrollCount = 0;
       let lastScrollTop = -1;
+      let noChangeCount = 0;
 
-      for (let i = 0; i < maxScrolls; i++) {
-        if (reactionStopRequested) return null;
+      while (scrollCount < maxScrollAttempts && !reactionStopRequested) {
+        scroller.scrollTop += 40;
+        await sleep(150);
 
-        // 向下滚动一点
-        scroller.scrollTop += 80;
-        await sleep(200);
-
-        // 检查是否到底了
         if (scroller.scrollTop === lastScrollTop) {
-          break;
+          noChangeCount++;
+          if (noChangeCount >= 3) {
+            break;
+          }
+        } else {
+          noChangeCount = 0;
         }
         lastScrollTop = scroller.scrollTop;
 
-        // 查找目标表情
-        const spans = document.querySelectorAll("[data-emoji]");
-        for (const span of spans) {
-          if (
-            span.getAttribute("data-emoji") === targetEmoji &&
-            span.offsetParent !== null
-          ) {
-            // 确保表情完全可见
-            span.scrollIntoView({ block: "nearest", behavior: "auto" });
-            await sleep(200);
-            return span;
-          }
-        }
-      }
-
-      return null;
-    }
-
-    /**
-     * 遍历所有分类查找表情
-     */
-    async function findEmojiAcrossAllCategories(targetEmoji) {
-      // 表情分类列表（WhatsApp 的标准分类）
-      const categories = [
-        "最近使用",
-        "表情符号",
-        "人物",
-        "动物",
-        "食物",
-        "活动",
-        "旅行",
-        "物件",
-        "符号",
-        "旗帜",
-      ];
-
-      for (const category of categories) {
-        if (reactionStopRequested) return null;
-
-        setStatus(`切换分类: ${category}`);
-        await clickEmojiCategory(category);
-        await sleep(600);
-
-        const found = await findEmojiInPanel(targetEmoji);
+        found = findVisibleEmoji(targetEmoji);
         if (found) {
+          found.scrollIntoView({ block: "nearest", behavior: "auto" });
+          await sleep(200);
           return found;
         }
+
+        scrollCount++;
+
+        if (scrollCount % 20 === 0) {
+          setStatus(`滚动查找中... (${scrollCount}次)`);
+        }
       }
 
       return null;
     }
 
-    /**
-     * 为单条消息点赞
-     */
+    async function findEmojiAcrossAllCategories(targetEmoji) {
+      const categoryButtons = getCategoryButtons();
+
+      if (categoryButtons.length === 0) {
+        console.warn("找不到分类按钮");
+        return await scrollAndFindEmojiInCurrentCategory(targetEmoji, 150);
+      }
+
+      setStatus(`找到 ${categoryButtons.length} 个分类标签`);
+
+      const searchedCategories = new Set();
+
+      for (let i = 0; i < categoryButtons.length; i++) {
+        if (reactionStopRequested) return null;
+
+        const btn = categoryButtons[i];
+        const label =
+          btn.getAttribute("aria-label") ||
+          btn.getAttribute("title") ||
+          btn.textContent?.trim() ||
+          `分类${i + 1}`;
+
+        if (searchedCategories.has(label)) continue;
+        searchedCategories.add(label);
+
+        if (label.includes("肤色") || label.includes("skin")) continue;
+
+        setStatus(`切换到: ${label}`);
+
+        btn.click();
+        await sleep(600);
+
+        const found = await scrollAndFindEmojiInCurrentCategory(
+          targetEmoji,
+          80,
+        );
+        if (found) {
+          setStatus(`在"${label}"中找到 ${targetEmoji}`);
+          return found;
+        }
+
+        setStatus(`"${label}"中未找到，继续...`);
+      }
+
+      return null;
+    }
+
     async function reactToOneMessage(msgElement, targetEmoji) {
       try {
-        // 1. 滚动到消息可见
         msgElement.scrollIntoView({ behavior: "auto", block: "center" });
         await sleep(400);
 
-        // 2. 悬浮显示按钮
         msgElement.dispatchEvent(
           new MouseEvent("mouseover", { bubbles: true }),
         );
@@ -4529,7 +4514,6 @@ function 注入浮动窗口() {
         );
         await sleep(500);
 
-        // 3. 点击"留下心情"
         const moodBtn = document.querySelector(
           '[aria-label="留下心情"], [aria-label="React to message"]',
         );
@@ -4540,10 +4524,11 @@ function 注入浮动窗口() {
         moodBtn.click();
         await sleep(500);
 
-        // 4. 先检查快捷面板（最近使用的表情）
+        // 先检查快捷面板
         const quickEmojis = document.querySelectorAll("[data-emoji]");
-        for (let i = 0; i < Math.min(quickEmojis.length, 6); i++) {
-          if (quickEmojis[i].getAttribute("data-emoji") === targetEmoji) {
+        for (let i = 0; i < quickEmojis.length; i++) {
+          const emoji = quickEmojis[i].getAttribute("data-emoji");
+          if (emoji === targetEmoji && quickEmojis[i].offsetParent !== null) {
             quickEmojis[i].click();
             await sleep(300);
             console.log(`✅ 快捷面板点赞成功: ${targetEmoji}`);
@@ -4551,42 +4536,39 @@ function 注入浮动窗口() {
           }
         }
 
-        // 5. 如果快捷面板没有，点击"更多"展开完整面板
+        // 点击更多展开完整面板
         const moreBtn = document.querySelector(
           '[aria-label="更多回应"], [aria-label="更多心情"]',
         );
         if (!moreBtn) {
-          // 如果没有更多按钮，尝试直接在当前面板找
-          const found = await findEmojiInPanel(targetEmoji);
+          const found = await scrollAndFindEmojiInCurrentCategory(
+            targetEmoji,
+            80,
+          );
           if (found) {
             found.click();
             await sleep(300);
             return true;
           }
+          document.body.click();
           return false;
         }
 
         moreBtn.click();
         await sleep(800);
 
-        // 6. 在所有分类中查找
         const foundEmoji = await findEmojiAcrossAllCategories(targetEmoji);
         if (foundEmoji) {
           foundEmoji.click();
           await sleep(300);
-          console.log(`✅ 完整面板点赞成功: ${targetEmoji}`);
+          console.log(`✅ 点赞成功: ${targetEmoji}`);
           return true;
         }
 
-        // 7. 没找到，直接关闭面板（点击空白区域）
-        const panel = document.querySelector('[data-menu-content="true"]');
-        if (panel) {
-          // 点击面板外的区域关闭
-          document.body.click();
-          await sleep(200);
-        }
+        setStatus(`未找到表情 ${targetEmoji}`);
+        document.body.click();
+        await sleep(200);
 
-        console.warn(`❌ 未找到表情: ${targetEmoji}`);
         return false;
       } catch (error) {
         console.error("点赞出错:", error);
@@ -4594,82 +4576,65 @@ function 注入浮动窗口() {
       }
     }
 
+    async function findScroller() {
+      return getEmojiPanelScroller();
+    }
+
+    async function scrollAndFind(emoji, scroller) {
+      return await scrollAndFindEmojiInCurrentCategory(emoji, 100);
+    }
+
     // ==================== 群组点赞主流程 ====================
 
     async function runReactionForGroup(
       groupName,
-      targetType,
+      emoji,
+      target,
       keyword,
       index,
       delayMs,
     ) {
       setStatus(`${groupName}: 正在打开聊天...`);
 
-      // 1. 打开聊天
       const clicked = await 点击聊天列表(groupName);
       if (!clicked) {
-        console.warn(`❌ 无法打开: ${groupName}`);
-        return { success: false, count: 0 };
+        console.warn(`无法打开: ${groupName}`);
+        return;
       }
       await sleep(2500);
 
-      // 2. 获取滚动容器并加载消息
       const scroller = getMessageScroller();
       if (!scroller) {
-        console.warn(`❌ 找不到消息容器`);
-        return { success: false, count: 0 };
+        console.warn(`找不到消息容器`);
+        return;
       }
 
       setStatus(`${groupName}: 滚动到底部...`);
       await scrollToBottom(scroller);
 
-      // 3. 根据目标类型决定是否加载更多历史消息
-      if (targetType === "all" || targetType === "keyword") {
+      if (target === "all" || target === "keyword") {
         await scrollUpToLoadMessages(scroller, 40);
-      } else if (targetType === "index" && index > 1) {
-        // 如果是指定第N条，可能需要向上滚动
+      } else if (target === "index" && index > 1) {
         await scrollUpToLoadMessages(scroller, Math.min(index + 10, 50));
       }
 
-      // 4. 查找目标消息
-      const targetMessages = findTargetMessages(targetType, keyword, index);
+      const targetMessages = findTargetMessages(target, keyword, index);
 
       if (targetMessages.length === 0) {
-        setStatus(`${groupName}: ⚠️ 未找到目标消息`);
-        return { success: false, count: 0 };
+        setStatus(`${groupName}: 未找到目标消息`);
+        return;
       }
 
       setStatus(`${groupName}: 找到 ${targetMessages.length} 条消息`);
 
-      // 5. 逐条点赞
-      let successCount = 0;
       for (let i = 0; i < targetMessages.length; i++) {
-        if (reactionStopRequested) {
-          setStatus(`${groupName}: ⏹ 已停止`);
-          break;
-        }
+        if (!reactionRunning) return;
+        setStatus(`${groupName}: 点赞第 ${i + 1}/${targetMessages.length} 条`);
 
-        setStatus(
-          `${groupName}: 点赞 ${i + 1}/${targetMessages.length} (${selectedEmoji})`,
-        );
+        await reactToOneMessage(targetMessages[i], emoji);
 
-        const success = await reactToOneMessage(
-          targetMessages[i],
-          selectedEmoji,
-        );
-        if (success) {
-          successCount++;
-        }
-
-        if (i < targetMessages.length - 1) {
-          await sleep(delayMs);
-        }
+        if (i < targetMessages.length - 1) await sleep(delayMs);
       }
-
-      setStatus(
-        `${groupName}: ✅ 完成 ${successCount}/${targetMessages.length}`,
-      );
-      return { success: true, count: successCount };
     }
 
     // ==================== 开始/停止 ====================
@@ -4703,7 +4668,6 @@ function 注入浮动窗口() {
       reactionStartBtn.style.display = "none";
       reactionStopBtn.style.display = "block";
 
-      let totalSuccess = 0;
       let totalGroups = 0;
 
       for (let i = 0; i < selectedGroups.length; i++) {
@@ -4715,17 +4679,15 @@ function 注入浮动窗口() {
 
         setStatus(`[${i + 1}/${selectedGroups.length}] ${groupName}`);
 
-        const result = await runReactionForGroup(
+        await runReactionForGroup(
           groupName,
+          selectedEmoji,
           targetType,
           keyword,
           index,
           delayMs,
         );
-        if (result.success) {
-          totalSuccess += result.count;
-          totalGroups++;
-        }
+        totalGroups++;
 
         if (i < selectedGroups.length - 1 && !reactionStopRequested) {
           await sleep(2000);
@@ -4737,11 +4699,9 @@ function 注入浮动窗口() {
       reactionStopBtn.style.display = "none";
 
       if (reactionStopRequested) {
-        setStatus(
-          `⏹ 已停止。完成 ${totalGroups} 个群组，点赞 ${totalSuccess} 条`,
-        );
+        setStatus(`⏹ 已停止。完成 ${totalGroups} 个群组`);
       } else {
-        setStatus(`🎉 完成！${totalGroups} 个群组，点赞 ${totalSuccess} 条`);
+        setStatus(`🎉 全部完成！共 ${totalGroups} 个群组`);
       }
     });
 
