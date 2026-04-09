@@ -2779,7 +2779,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.3.9 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.4.1 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -2919,16 +2919,48 @@ function 注入浮动窗口() {
           <button id="reactionCloseBtn" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0;line-height:1;margin:0;">✕</button>
         </div>
 
+        <!-- 🎨 自定义表情输入区域（输入即自动选择） -->
+        <!-- 🎨 自定义表情输入区域（输入即自动选择） -->
+<div id="customEmojiArea" style="padding:10px;border-bottom:1px solid #eee;flex-shrink:0;background:#fafafa;">
+    <div style="font-size:11px;color:#aaa;margin-bottom:6px;">🎨 自定义表情（输入即自动选择）</div>
+    <div style="display:flex;gap:6px;align-items:center;">
+        <div id="customEmojiPreview" style="font-size:28px;background:#f0f0f0;padding:6px 12px;border-radius:8px;min-width:50px;text-align:center;">👍</div>
+        <div style="flex:1;">
+            <input id="customEmojiInput" type="text" placeholder="输入任意表情，如: ✈️ 🎉 🎂 💯" 
+                   style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;box-sizing:border-box;">
+        </div>
+        <button id="clearCustomEmojiBtn" style="padding:6px 12px;background:#e0e0e0;color:#666;border:none;border-radius:4px;cursor:pointer;">清空</button>
+    </div>
+    <div style="margin-top:6px;font-size:10px;color:#999;display:flex;flex-wrap:wrap;gap:4px;">
+        <span>💡 常用:</span>
+        <span class="quick-custom-emoji" data-emoji="👍" style="cursor:pointer;font-size:16px;padding:2px;">👍</span>
+        <span class="quick-custom-emoji" data-emoji="❤️" style="cursor:pointer;font-size:16px;padding:2px;">❤️</span>
+        <span class="quick-custom-emoji" data-emoji="🎉" style="cursor:pointer;font-size:16px;padding:2px;">🎉</span>
+        <span class="quick-custom-emoji" data-emoji="🎂" style="cursor:pointer;font-size:16px;padding:2px;">🎂</span>
+        <span class="quick-custom-emoji" data-emoji="💯" style="cursor:pointer;font-size:16px;padding:2px;">💯</span>
+        <span class="quick-custom-emoji" data-emoji="🤣" style="cursor:pointer;font-size:16px;padding:2px;">🤣</span>
+        <span class="quick-custom-emoji" data-emoji="🥳" style="cursor:pointer;font-size:16px;padding:2px;">🥳</span>
+        <span class="quick-custom-emoji" data-emoji="🔥" style="cursor:pointer;font-size:16px;padding:2px;">🔥</span>
+        <span class="quick-custom-emoji" data-emoji="⭐" style="cursor:pointer;font-size:16px;padding:2px;">⭐</span>
+        <span class="quick-custom-emoji" data-emoji="💪" style="cursor:pointer;font-size:16px;padding:2px;">💪</span>
+        <span class="quick-custom-emoji" data-emoji="✈️" style="cursor:pointer;font-size:16px;padding:2px;">✈️</span>
+    </div>
+</div>
+
         <!-- Emoji 选择 -->
         <div style="padding:10px;border-bottom:1px solid #eee;flex-shrink:0;">
           <div style="font-size:11px;color:#aaa;margin-bottom:6px;">选择表情</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            ${["👍", "❤️", "😂", "😮", "😢", "🙏", "🙌", "👏", "🔥", "💯"]
-              .map(
-                (e) =>
-                  `<button class="reaction-emoji-btn" data-emoji="${e}" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">${e}</button>`,
-              )
-              .join("")}
+            <button class="reaction-emoji-btn" data-emoji="👍" style="font-size:20px;padding:4px 8px;border:2px solid #9c27b0;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">👍</button>
+            <button class="reaction-emoji-btn" data-emoji="❤️" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">❤️</button>
+            <button class="reaction-emoji-btn" data-emoji="😂" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">😂</button>
+            <button class="reaction-emoji-btn" data-emoji="😮" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">😮</button>
+            <button class="reaction-emoji-btn" data-emoji="😢" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">😢</button>
+            <button class="reaction-emoji-btn" data-emoji="🙏" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">🙏</button>
+            <button class="reaction-emoji-btn" data-emoji="🙌" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">🙌</button>
+            <button class="reaction-emoji-btn" data-emoji="👏" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">👏</button>
+            <button class="reaction-emoji-btn" data-emoji="🔥" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">🔥</button>
+            <button class="reaction-emoji-btn" data-emoji="💯" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">💯</button>
           </div>
           <div style="margin-top:8px;font-size:12px;color:#666;">已选: <span id="selectedEmojiDisplay" style="font-size:16px;">👍</span></div>
         </div>
@@ -2966,9 +2998,7 @@ function 注入浮动窗口() {
               <button id="reactionClearAll" style="font-size:10px;padding:2px 6px;border:1px solid #ddd;border-radius:3px;background:#fff;color:#666;cursor:pointer;margin:0;">清空</button>
             </div>
           </div>
-          <div id="reactionGroupList" style="max-height:180px;overflow-y:auto;border:1px solid #eee;border-radius:4px;padding:4px;font-size:12px;background:#fafafa;">
-            <div style="text-align:center;color:#aaa;padding:20px;">请先在主面板加载群组列表</div>
-          </div>
+          <div id="reactionGroupList" style="max-height:180px;overflow-y:auto;border:1px solid #eee;border-radius:4px;padding:4px;font-size:12px;background:#fafafa;"><div style="text-align:center;color:#aaa;padding:20px;">请先在主面板加载群组列表</div></div>
         </div>
 
         <!-- 间隔设置 -->
@@ -4071,11 +4101,17 @@ function 注入浮动窗口() {
   // ==================== 定时发送模块结束 ====================
 
   // ==================== 点赞模块（完整版） ====================
-  // ==================== 点赞模块（完整融合版） ====================
+  // ==================== 点赞模块（完整修复版） ====================
+  // ==================== 点赞模块（基于测试代码逻辑） ====================
+  // ==================== 点赞模块（完整修复版 - 支持自定义表情） ====================
+  // ==================== 点赞模块（完整版 - 已整合自定义表情） ====================
+  // ==================== 点赞模块（完整版 - 自动选择自定义表情） ====================
+  // ==================== 点赞模块（完整版 - 直接使用输入框原始值） ====================
   (() => {
     let reactionRunning = false;
     let reactionStopRequested = false;
     let selectedEmoji = "👍";
+    let totalScrollAttempts = 0;
 
     const reactionDrawer = shadowRoot.getElementById("reactionDrawer");
     const reactionOpenBtn = shadowRoot.getElementById("reactionPanelToggleBtn");
@@ -4122,20 +4158,91 @@ function 注入浮动窗口() {
     // 全选/清空
     shadowRoot
       .getElementById("reactionSelectAll")
-      .addEventListener("click", () => {
+      ?.addEventListener("click", () => {
         shadowRoot
           .querySelectorAll(".reaction-group-cb")
           .forEach((cb) => (cb.checked = true));
       });
     shadowRoot
       .getElementById("reactionClearAll")
-      .addEventListener("click", () => {
+      ?.addEventListener("click", () => {
         shadowRoot
           .querySelectorAll(".reaction-group-cb")
           .forEach((cb) => (cb.checked = false));
       });
 
-    // Emoji 选择
+    // ==================== 自定义表情功能（直接使用输入框原始值） ====================
+
+    const customEmojiInput = shadowRoot.getElementById("customEmojiInput");
+    const customEmojiPreview = shadowRoot.getElementById("customEmojiPreview");
+    const clearCustomEmojiBtn = shadowRoot.getElementById(
+      "clearCustomEmojiBtn",
+    );
+
+    // 设置自定义表情（直接使用输入框的值）
+    function setCustomEmoji() {
+      const rawValue = customEmojiInput?.value.trim();
+      if (rawValue && rawValue.length > 0) {
+        selectedEmoji = rawValue;
+        if (customEmojiPreview) customEmojiPreview.textContent = selectedEmoji;
+        if (selectedEmojiDisplay)
+          selectedEmojiDisplay.textContent = selectedEmoji;
+
+        // 取消其他表情的高亮
+        shadowRoot.querySelectorAll(".reaction-emoji-btn").forEach((b) => {
+          b.style.borderColor = "#eee";
+        });
+
+        setStatus(`✅ 已选择: ${selectedEmoji}`);
+      }
+    }
+
+    // 输入时实时更新
+    if (customEmojiInput) {
+      customEmojiInput.addEventListener("input", () => {
+        const val = customEmojiInput.value;
+        if (customEmojiPreview) customEmojiPreview.textContent = val || "?";
+        if (val && val.trim()) {
+          setCustomEmoji();
+        }
+      });
+
+      customEmojiInput.addEventListener("change", () => {
+        if (customEmojiInput.value && customEmojiInput.value.trim()) {
+          setCustomEmoji();
+        }
+      });
+    }
+
+    // 清空按钮
+    if (clearCustomEmojiBtn) {
+      clearCustomEmojiBtn.addEventListener("click", () => {
+        if (customEmojiInput) customEmojiInput.value = "";
+        if (customEmojiPreview) customEmojiPreview.textContent = "?";
+        setStatus("📝 已清空");
+      });
+    }
+
+    // 快捷表情点击
+    shadowRoot.querySelectorAll(".quick-custom-emoji").forEach((el) => {
+      el.addEventListener("click", () => {
+        const emoji = el.getAttribute("data-emoji");
+        if (emoji && customEmojiInput) {
+          customEmojiInput.value = emoji;
+          if (customEmojiPreview) customEmojiPreview.textContent = emoji;
+          selectedEmoji = emoji;
+          if (selectedEmojiDisplay) selectedEmojiDisplay.textContent = emoji;
+
+          shadowRoot.querySelectorAll(".reaction-emoji-btn").forEach((b) => {
+            b.style.borderColor = "#eee";
+          });
+
+          setStatus(`✅ 已选择: ${selectedEmoji}`);
+        }
+      });
+    });
+
+    // Emoji 快捷按钮（原有的）
     shadowRoot.querySelectorAll(".reaction-emoji-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         shadowRoot
@@ -4143,59 +4250,32 @@ function 注入浮动窗口() {
           .forEach((b) => (b.style.borderColor = "#eee"));
         btn.style.borderColor = "#9c27b0";
         selectedEmoji = btn.dataset.emoji;
-        selectedEmojiDisplay.textContent = selectedEmoji;
+        if (selectedEmojiDisplay)
+          selectedEmojiDisplay.textContent = selectedEmoji;
+        // 同步到自定义输入框预览
+        if (customEmojiPreview) customEmojiPreview.textContent = selectedEmoji;
+        setStatus(`✅ 已选择: ${selectedEmoji}`);
       });
     });
 
     const firstEmojiBtn = shadowRoot.querySelector(".reaction-emoji-btn");
     if (firstEmojiBtn) firstEmojiBtn.style.borderColor = "#9c27b0";
 
-    // 自定义表情输入
-    const customInputHtml = `
-        <div style="padding:8px 10px;border-bottom:1px solid #eee;flex-shrink:0;">
-            <div style="font-size:11px;color:#aaa;margin-bottom:6px;">自定义表情（粘贴任意表情）</div>
-            <div style="display:flex;gap:6px;">
-                <input id="customEmojiInput" type="text" placeholder="如: 🎉 🎂 💯" 
-                       style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:16px;">
-                <button id="useCustomEmojiBtn" style="padding:6px 12px;background:#9c27b0;color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">使用</button>
-            </div>
-        </div>
-    `;
-
-    const emojiSelectDiv =
-      shadowRoot.querySelector('[style*="选择表情"]')?.parentElement;
-    if (emojiSelectDiv) {
-      emojiSelectDiv.insertAdjacentHTML("afterend", customInputHtml);
-    }
-
-    shadowRoot
-      .getElementById("useCustomEmojiBtn")
-      ?.addEventListener("click", () => {
-        const input = shadowRoot.getElementById("customEmojiInput");
-        const customEmoji = input.value.trim();
-        if (customEmoji) {
-          selectedEmoji = customEmoji;
-          selectedEmojiDisplay.textContent = customEmoji;
-          shadowRoot
-            .querySelectorAll(".reaction-emoji-btn")
-            .forEach((b) => (b.style.borderColor = "#eee"));
-        }
-      });
-
     // 切换目标选项显示
     shadowRoot
       .querySelectorAll('input[name="reactionTarget"]')
       .forEach((radio) => {
         radio.addEventListener("change", () => {
-          reactionKeyword.style.display =
-            radio.value === "keyword" ? "block" : "none";
-          reactionIndexRow.style.display =
-            radio.value === "index" ? "flex" : "none";
+          if (reactionKeyword)
+            reactionKeyword.style.display =
+              radio.value === "keyword" ? "block" : "none";
+          if (reactionIndexRow)
+            reactionIndexRow.style.display =
+              radio.value === "index" ? "flex" : "none";
         });
       });
 
     // ==================== 工具函数 ====================
-
     function sleep(ms) {
       return new Promise((r) => setTimeout(r, ms));
     }
@@ -4208,21 +4288,18 @@ function 注入浮动窗口() {
     }
 
     // ==================== 消息滚动和查找 ====================
-
     function getMessageScroller() {
       const selectors = [
         '[data-testid="conversation-panel-messages"]',
         ".x1n2onr6.x1ye3gou",
         '#main [role="region"]',
       ];
-
       for (const sel of selectors) {
         const el = document.querySelector(sel);
         if (el && el.scrollHeight > el.clientHeight) {
           return el;
         }
       }
-
       const allDivs = document.querySelectorAll("div");
       for (const div of allDivs) {
         if (
@@ -4236,29 +4313,49 @@ function 注入浮动窗口() {
     }
 
     function getAllMessageElements() {
-      return document.querySelectorAll(
-        [
-          "div[data-pre-plain-text]",
-          'div[class*="_amjv"]',
-          'div[role="row"][data-id]',
-          "div.message-in, div.message-out",
-        ].join(","),
-      );
+      const selectors = [
+        "div[data-pre-plain-text]",
+        ".message-in, .message-out",
+        ".copyable-text",
+        'div[class*="message-in"]',
+        'div[class*="message-out"]',
+      ];
+
+      let allMessages = [];
+      for (const sel of selectors) {
+        const elements = document.querySelectorAll(sel);
+        if (elements.length > 0) {
+          console.log(`✅ 使用选择器: ${sel}, 找到 ${elements.length} 条消息`);
+
+          // 🔥 输出每条消息的完整内容
+          elements.forEach((el, idx) => {
+            const textSpan = el.querySelector(
+              '[data-testid="selectable-text"]',
+            );
+            const text = textSpan ? textSpan.textContent : el.textContent;
+            console.log(`  [${idx + 1}] ${text?.trim() || "(空消息)"}`);
+          });
+
+          allMessages = elements;
+          break;
+        }
+      }
+
+      if (allMessages.length === 0) {
+        console.warn("⚠️ 未找到任何消息元素");
+      }
+
+      return allMessages;
     }
 
     async function scrollToBottom(scroller) {
       if (!scroller) return;
-
       let lastScrollTop = -1;
       let attempts = 0;
-
       while (attempts < 10) {
         scroller.scrollTop = scroller.scrollHeight;
         await sleep(400);
-
-        if (scroller.scrollTop === lastScrollTop) {
-          break;
-        }
+        if (scroller.scrollTop === lastScrollTop) break;
         lastScrollTop = scroller.scrollTop;
         attempts++;
       }
@@ -4266,55 +4363,121 @@ function 注入浮动窗口() {
 
     async function scrollUpToLoadMessages(scroller, maxScrolls = 50) {
       if (!scroller) return;
-
       let scrollCount = 0;
       let noChangeCount = 0;
-
       while (scrollCount < maxScrolls && !reactionStopRequested) {
         const currentCount = getAllMessageElements().length;
-
         scroller.scrollTop = Math.max(0, scroller.scrollTop - 200);
         await sleep(400);
-
         const newCount = getAllMessageElements().length;
-
         if (newCount === currentCount) {
           noChangeCount++;
           if (noChangeCount >= 5) break;
         } else {
           noChangeCount = 0;
         }
-
         scrollCount++;
       }
     }
 
     function findTargetMessages(targetType, keyword, index) {
-      const allMessages = getAllMessageElements();
-      const messagesArray = Array.from(allMessages);
+      // 使用更可靠的选择器
+      const selectors = [
+        "div[data-pre-plain-text]",
+        ".message-in, .message-out",
+        ".copyable-text",
+        'div[class*="message-in"]',
+        'div[class*="message-out"]',
+      ];
+
+      let allMessages = [];
+      for (const sel of selectors) {
+        const elements = document.querySelectorAll(sel);
+        if (elements.length > 0) {
+          console.log(`[调试] 选择器 "${sel}" 找到 ${elements.length} 个元素`);
+          allMessages = elements;
+          break;
+        }
+      }
+
+      if (allMessages.length === 0) {
+        console.log(`[调试] 未找到任何消息元素`);
+        return [];
+      }
+
+      // 提取消息文本 - 每找到一条就输出一条
+      const messagesArray = [];
+      for (let i = 0; i < allMessages.length; i++) {
+        const msg = allMessages[i];
+
+        // 获取消息文本
+        let text = "";
+        const selectableText = msg.querySelector(
+          '[data-testid="selectable-text"]',
+        );
+        if (selectableText) {
+          text = selectableText.textContent || "";
+        } else {
+          text = msg.textContent || "";
+        }
+
+        // 过滤掉空消息和系统消息
+        if (
+          text.trim().length > 0 &&
+          !text.includes("已将该群组的设置更改为")
+        ) {
+          messagesArray.push(msg);
+
+          // 每找到一条消息就立即输出完整内容
+          console.log(`[消息 ${messagesArray.length}] ${text}`);
+          //console.log(`  └─ 是否包含 "${keyword}": ${text.includes(keyword) ? "✅ 是" : "❌ 否"}`,);
+        }
+      }
+
+      console.log(`[调试] 总共找到 ${messagesArray.length} 条有效消息`);
 
       if (messagesArray.length === 0) return [];
 
       switch (targetType) {
         case "last":
+          console.log(`[调试] 返回最后一条消息`);
           return [messagesArray[messagesArray.length - 1]];
         case "all":
-          return messagesArray.slice(-100);
+          console.log(`[调试] 返回所有 ${messagesArray.length} 条消息`);
+          return messagesArray;
         case "keyword":
-          return messagesArray.filter((msg) => {
-            const text = msg.textContent || "";
-            return text.toLowerCase().includes(keyword.toLowerCase());
-          });
+          console.log(`[调试] 搜索关键词: "${keyword}"`);
+          const matched = [];
+          for (let i = 0; i < messagesArray.length; i++) {
+            const msg = messagesArray[i];
+            let text =
+              msg.querySelector('[data-testid="selectable-text"]')
+                ?.textContent || msg.textContent;
+
+            // 🔥 统一引号格式：将弯引号替换为直引号，支持大小写不敏感
+            let normalizedText = text.toLowerCase().replace(/[''']/g, "'");
+            let normalizedKeyword = keyword
+              .toLowerCase()
+              .replace(/[''']/g, "'");
+
+            if (normalizedText.includes(normalizedKeyword)) {
+              matched.push(msg);
+              console.log(
+                `[调试] ✅ 匹配成功 [${i + 1}]: ${text.substring(0, 100)}...`,
+              );
+            }
+          }
+          console.log(`[调试] 匹配到 ${matched.length} 条消息`);
+          return matched;
         case "index":
           let idx = index;
-          if (idx < 0) {
-            idx = messagesArray.length + idx;
-          } else {
-            idx = idx - 1;
-          }
+          if (idx < 0) idx = messagesArray.length + idx;
+          else idx = idx - 1;
           if (idx >= 0 && idx < messagesArray.length) {
+            console.log(`[调试] 返回第 ${index} 条消息 (实际索引: ${idx})`);
             return [messagesArray[idx]];
           }
+          console.log(`[调试] 索引 ${index} 超出范围`);
           return [];
         default:
           return [];
@@ -4322,19 +4485,15 @@ function 注入浮动窗口() {
     }
 
     // ==================== 表情面板操作 ====================
-
     function getEmojiPanelScroller() {
       const emojiSpan = document.querySelector("[data-emoji]");
       if (emojiSpan) {
         let parent = emojiSpan.parentElement;
         while (parent) {
-          if (parent.scrollHeight > parent.clientHeight) {
-            return parent;
-          }
+          if (parent.scrollHeight > parent.clientHeight) return parent;
           parent = parent.parentElement;
         }
       }
-
       const virtualList = document.querySelector(
         '[style*="height"][style*="transform"]',
       );
@@ -4342,23 +4501,19 @@ function 注入浮动窗口() {
         let parent = virtualList.parentElement;
         while (parent) {
           const style = window.getComputedStyle(parent);
-          if (style.overflowY === "auto" || style.overflowY === "scroll") {
+          if (style.overflowY === "auto" || style.overflowY === "scroll")
             return parent;
-          }
           parent = parent.parentElement;
         }
       }
-
       const containers = document.querySelectorAll('div[style*="overflow"]');
       for (const el of containers) {
         if (
           el.scrollHeight > el.clientHeight &&
           el.querySelector("[data-emoji]")
-        ) {
+        )
           return el;
-        }
       }
-
       return null;
     }
 
@@ -4378,23 +4533,17 @@ function 注入浮动窗口() {
         'button[title*="表情"]',
         'button[title*="人物"]',
       ];
-
       return document.querySelectorAll(selectors.join(","));
     }
 
     function findEmojiInCurrentView(targetEmoji) {
       const allEmojis = document.querySelectorAll("[data-emoji]");
-
       for (const span of allEmojis) {
         if (span.getAttribute("data-emoji") !== targetEmoji) continue;
         if (!span.offsetParent) continue;
-
         const rect = span.getBoundingClientRect();
-        if (rect.top > 0 && rect.bottom < window.innerHeight) {
-          return span;
-        }
+        if (rect.top > 0 && rect.bottom < window.innerHeight) return span;
       }
-
       return null;
     }
 
@@ -4404,20 +4553,16 @@ function 注入浮动窗口() {
     ) {
       const scroller = getEmojiPanelScroller();
       if (!scroller) return null;
-
       let found = findEmojiInCurrentView(targetEmoji);
       if (found) return found;
-
       let scrollCount = 0;
       let lastScrollTop = -1;
       let noChangeCount = 0;
       const maxScrolls = 200;
-      const scrollStep = 120; // 3个表情高度
-
+      const scrollStep = 120;
       while (scrollCount < maxScrolls && !reactionStopRequested) {
         scroller.scrollTop += scrollStep;
         await sleep(100);
-
         if (Math.abs(scroller.scrollTop - lastScrollTop) < 5) {
           noChangeCount++;
           if (noChangeCount >= 5) break;
@@ -4425,68 +4570,51 @@ function 注入浮动窗口() {
           noChangeCount = 0;
         }
         lastScrollTop = scroller.scrollTop;
-
         found = findEmojiInCurrentView(targetEmoji);
         if (found) {
+          totalScrollAttempts += scrollCount;
           found.scrollIntoView({ block: "center", behavior: "auto" });
           await sleep(200);
           return found;
         }
-
         scrollCount++;
       }
-
+      totalScrollAttempts += scrollCount;
       return null;
     }
 
     async function findEmojiAcrossAllCategories(targetEmoji) {
       const categoryButtons = getAllCategoryButtons();
       const triedCategories = new Set();
-
-      // 先在当前分类查找
       let found = await scrollAndFindInCurrentCategory(targetEmoji, "当前");
       if (found) return found;
-
-      // 遍历所有分类
       for (let i = 0; i < categoryButtons.length; i++) {
         if (reactionStopRequested) return null;
-
         const btn = categoryButtons[i];
         const label =
           btn.getAttribute("aria-label") ||
           btn.getAttribute("title") ||
           btn.textContent?.trim() ||
           `分类${i + 1}`;
-
         if (triedCategories.has(label)) continue;
         triedCategories.add(label);
         if (label.includes("肤色") || label.includes("skin")) continue;
-
-        setStatus(`切换分类: ${label}`);
         btn.click();
         await sleep(600);
-
         found = await scrollAndFindInCurrentCategory(targetEmoji, label);
         if (found) return found;
       }
-
-      // 第二次尝试，回到顶部
       const scroller = getEmojiPanelScroller();
       if (scroller) {
         scroller.scrollTop = 0;
         await sleep(300);
-
         for (let i = 0; i < categoryButtons.length; i++) {
           if (reactionStopRequested) return null;
-
           const btn = categoryButtons[i];
-          const label =
-            btn.getAttribute("aria-label") || btn.getAttribute("title") || "";
+          const label = btn.getAttribute("aria-label") || "";
           if (label.includes("肤色")) continue;
-
           btn.click();
           await sleep(500);
-
           found = await scrollAndFindInCurrentCategory(
             targetEmoji,
             `${label}(2)`,
@@ -4494,12 +4622,10 @@ function 注入浮动窗口() {
           if (found) return found;
         }
       }
-
       return null;
     }
 
     // ==================== 肤色选择器处理 ====================
-
     function hasSkinTonePicker() {
       const pickers = document.querySelectorAll(
         '[aria-label*="肤色"], [aria-label*="skin tone"]',
@@ -4507,48 +4633,71 @@ function 注入浮动窗口() {
       for (const p of pickers) {
         if (p.offsetParent) return true;
       }
-
       const radioGroups = document.querySelectorAll('[role="radiogroup"]');
       for (const rg of radioGroups) {
         if (
           rg.offsetParent &&
           rg.querySelectorAll('[role="radio"]').length >= 5
-        ) {
+        )
           return true;
+      }
+      const emojiLis = document.querySelectorAll('li[role="button"]');
+      let skinCount = 0;
+      for (const li of emojiLis) {
+        const img = li.querySelector(
+          'img[alt*="🏻"], img[alt*="🏼"], img[alt*="🏽"], img[alt*="🏾"], img[alt*="🏿"]',
+        );
+        if (img && img.offsetParent) {
+          skinCount++;
+          if (skinCount >= 3) return true;
         }
       }
-
       return false;
     }
 
     function clickDefaultSkinTone() {
-      const radioButtons = document.querySelectorAll(
+      let radioButtons = document.querySelectorAll(
         '[role="radiogroup"] [role="radio"]',
       );
       if (radioButtons.length > 0) {
         radioButtons[0].click();
         return true;
       }
-
-      const allButtons = document.querySelectorAll('[role="radio"]');
-      if (allButtons.length >= 5) {
-        allButtons[0].click();
+      radioButtons = document.querySelectorAll('[role="radio"]');
+      if (radioButtons.length >= 5) {
+        radioButtons[0].click();
         return true;
       }
-
+      const emojiLis = document.querySelectorAll('li[role="button"]');
+      if (emojiLis.length > 0) {
+        const firstLi = emojiLis[0];
+        const img = firstLi.querySelector("img");
+        const alt = img?.getAttribute("alt") || "";
+        if (
+          !alt.includes("🏻") &&
+          !alt.includes("🏼") &&
+          !alt.includes("🏽") &&
+          !alt.includes("🏾") &&
+          !alt.includes("🏿")
+        ) {
+          firstLi.click();
+          return true;
+        }
+      }
       return false;
     }
 
     async function smartClickEmoji(emojiElement) {
       const emoji = emojiElement.getAttribute("data-emoji");
-
+      console.log(`🖱️ 点击表情: ${emoji}`);
       emojiElement.click();
       await sleep(500);
-
       let attempts = 0;
       while (attempts < 5) {
         if (hasSkinTonePicker()) {
           if (clickDefaultSkinTone()) {
+            await sleep(300);
+            document.body.click();
             await sleep(300);
             return true;
           }
@@ -4556,15 +4705,12 @@ function 注入浮动窗口() {
           await sleep(400);
         } else {
           const panel = document.querySelector('[data-menu-content="true"]');
-          if (!panel || !panel.offsetParent) {
-            return true;
-          }
+          if (!panel || !panel.offsetParent) return true;
           emojiElement.click();
           await sleep(400);
         }
         attempts++;
       }
-
       return true;
     }
 
@@ -4572,7 +4718,6 @@ function 注入浮动窗口() {
       try {
         msgElement.scrollIntoView({ behavior: "auto", block: "center" });
         await sleep(400);
-
         msgElement.dispatchEvent(
           new MouseEvent("mouseover", { bubbles: true }),
         );
@@ -4580,16 +4725,12 @@ function 注入浮动窗口() {
           new MouseEvent("mouseenter", { bubbles: true }),
         );
         await sleep(500);
-
         const moodBtn = document.querySelector(
           '[aria-label="留下心情"], [aria-label="React to message"]',
         );
         if (!moodBtn) return false;
-
         moodBtn.click();
         await sleep(500);
-
-        // 快捷面板
         const quickEmojis = document.querySelectorAll("[data-emoji]");
         for (let i = 0; i < quickEmojis.length; i++) {
           const emoji = quickEmojis[i].getAttribute("data-emoji");
@@ -4597,8 +4738,6 @@ function 注入浮动窗口() {
             return await smartClickEmoji(quickEmojis[i]);
           }
         }
-
-        // 完整面板
         const moreBtn = document.querySelector(
           '[aria-label="更多回应"], [aria-label="更多心情"]',
         );
@@ -4608,15 +4747,10 @@ function 注入浮动窗口() {
           document.body.click();
           return false;
         }
-
         moreBtn.click();
         await sleep(1000);
-
         const foundEmoji = await findEmojiAcrossAllCategories(targetEmoji);
-        if (foundEmoji) {
-          return await smartClickEmoji(foundEmoji);
-        }
-
+        if (foundEmoji) return await smartClickEmoji(foundEmoji);
         document.body.click();
         return false;
       } catch (error) {
@@ -4626,7 +4760,6 @@ function 注入浮动窗口() {
     }
 
     // ==================== 群组点赞主流程 ====================
-
     async function runReactionForGroup(
       groupName,
       emoji,
@@ -4636,43 +4769,81 @@ function 注入浮动窗口() {
       delayMs,
     ) {
       setStatus(`${groupName}: 正在打开聊天...`);
-
       const clicked = await 点击聊天列表(groupName);
       if (!clicked) return;
-      await sleep(2500);
+      await sleep(3000);
 
       const scroller = getMessageScroller();
       if (!scroller) return;
 
       await scrollToBottom(scroller);
+      await sleep(500);
 
-      if (target === "all" || target === "keyword") {
+      // 如果是关键词模式，边滚动边查找，找到即停
+      if (target === "keyword" && keyword) {
+        setStatus(`${groupName}: 正在搜索关键词 "${keyword}"...`);
+
+        let foundMessages = null;
+        let scrollCount = 0;
+        const maxScrolls = 80;
+
+        while (
+          scrollCount < maxScrolls &&
+          !reactionStopRequested &&
+          !foundMessages
+        ) {
+          // 查找当前已加载的消息
+          const currentMessages = findTargetMessages(target, keyword, index);
+          if (currentMessages.length > 0) {
+            foundMessages = currentMessages;
+            setStatus(`${groupName}: 找到 ${foundMessages.length} 条匹配消息`);
+            break;
+          }
+
+          // 向上滚动一点
+          scroller.scrollTop = Math.max(0, scroller.scrollTop - 300);
+          await sleep(600);
+          scrollCount++;
+        }
+
+        if (!foundMessages || foundMessages.length === 0) {
+          setStatus(`${groupName}: 未找到包含 "${keyword}" 的消息`);
+          return;
+        }
+
+        // 点赞操作
+        for (let i = 0; i < foundMessages.length; i++) {
+          if (reactionStopRequested) break;
+          setStatus(`${groupName}: 点赞 ${i + 1}/${foundMessages.length}`);
+          await reactToOneMessage(foundMessages[i], emoji);
+          if (i < foundMessages.length - 1) await sleep(delayMs);
+        }
+        return;
+      }
+
+      // 其他模式保持原逻辑
+      if (target === "all" || target === "index") {
         await scrollUpToLoadMessages(scroller, 40);
       } else if (target === "index" && index > 1) {
         await scrollUpToLoadMessages(scroller, Math.min(index + 10, 50));
       }
 
       const targetMessages = findTargetMessages(target, keyword, index);
-
       if (targetMessages.length === 0) {
         setStatus(`${groupName}: 未找到目标消息`);
         return;
       }
 
       setStatus(`${groupName}: 找到 ${targetMessages.length} 条消息`);
-
       for (let i = 0; i < targetMessages.length; i++) {
         if (reactionStopRequested) break;
         setStatus(`${groupName}: 点赞 ${i + 1}/${targetMessages.length}`);
-
         await reactToOneMessage(targetMessages[i], emoji);
-
         if (i < targetMessages.length - 1) await sleep(delayMs);
       }
     }
 
     // ==================== 开始/停止 ====================
-
     reactionStartBtn.addEventListener("click", async () => {
       const selectedGroups = [
         ...shadowRoot.querySelectorAll(".reaction-group-cb:checked"),
@@ -4681,38 +4852,32 @@ function 注入浮动窗口() {
         setStatus("❌ 请先选择群组");
         return;
       }
-
       const targetType =
         shadowRoot.querySelector('input[name="reactionTarget"]:checked')
           ?.value || "last";
-      const keyword = shadowRoot.getElementById("reactionKeyword").value.trim();
+      const keyword =
+        shadowRoot.getElementById("reactionKeyword")?.value.trim() || "";
       const index =
-        parseInt(shadowRoot.getElementById("reactionIndex").value) || 1;
+        parseInt(shadowRoot.getElementById("reactionIndex")?.value) || 1;
       const delayMs =
-        (parseInt(shadowRoot.getElementById("reactionDelay").value) || 3) *
+        (parseInt(shadowRoot.getElementById("reactionDelay")?.value) || 3) *
         1000;
-
       if (targetType === "keyword" && !keyword) {
         setStatus("❌ 请输入关键词");
         return;
       }
-
       reactionRunning = true;
       reactionStopRequested = false;
       reactionStartBtn.style.display = "none";
       reactionStopBtn.style.display = "block";
-
+      totalScrollAttempts = 0;
       let totalGroups = 0;
-
       for (let i = 0; i < selectedGroups.length; i++) {
         if (reactionStopRequested) break;
-
         const groupId = selectedGroups[i];
         const group = 联系人数据.find((g) => g.id === groupId);
         const groupName = group?.name || groupId;
-
         setStatus(`[${i + 1}/${selectedGroups.length}] ${groupName}`);
-
         await runReactionForGroup(
           groupName,
           selectedEmoji,
@@ -4722,16 +4887,13 @@ function 注入浮动窗口() {
           delayMs,
         );
         totalGroups++;
-
         if (i < selectedGroups.length - 1 && !reactionStopRequested) {
           await sleep(2000);
         }
       }
-
       reactionRunning = false;
       reactionStartBtn.style.display = "block";
       reactionStopBtn.style.display = "none";
-
       if (reactionStopRequested) {
         setStatus(`⏹ 已停止。完成 ${totalGroups} 个群组`);
       } else {
