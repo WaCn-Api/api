@@ -4586,8 +4586,11 @@ function 注入浮动窗口() {
     async function findEmojiAcrossAllCategories(targetEmoji) {
       const categoryButtons = getAllCategoryButtons();
       const triedCategories = new Set();
+
+      // 先尝试在当前分类查找
       let found = await scrollAndFindInCurrentCategory(targetEmoji, "当前");
       if (found) return found;
+
       for (let i = 0; i < categoryButtons.length; i++) {
         if (reactionStopRequested) return null;
         const btn = categoryButtons[i];
@@ -4604,6 +4607,8 @@ function 注入浮动窗口() {
         found = await scrollAndFindInCurrentCategory(targetEmoji, label);
         if (found) return found;
       }
+
+      // 如果没找到，滚动到顶部再试一次
       const scroller = getEmojiPanelScroller();
       if (scroller) {
         scroller.scrollTop = 0;
@@ -4763,16 +4768,27 @@ function 注入浮动窗口() {
         moodBtn.click();
         await sleep(500);
 
-        // 🔥 处理肤色变体：提取基础表情
-        const baseEmoji = targetEmoji.replace(/[\u{1F3FB}-\u{1F3FF}]/u, "");
-
+        // 🔥 直接查找完整的带肤色表情
         const quickEmojis = document.querySelectorAll("[data-emoji]");
         for (let i = 0; i < quickEmojis.length; i++) {
           const emoji = quickEmojis[i].getAttribute("data-emoji");
-          // 匹配基础表情或完整表情
-          if (emoji === targetEmoji || emoji === baseEmoji) {
+          // 直接匹配完整表情（包括肤色）
+          if (emoji === targetEmoji) {
             if (quickEmojis[i].offsetParent) {
               return await smartClickEmoji(quickEmojis[i], targetEmoji);
+            }
+          }
+        }
+
+        // 如果没找到完整匹配，再尝试基础表情匹配（用于没有肤色的情况）
+        const baseEmoji = targetEmoji.replace(/[\u{1F3FB}-\u{1F3FF}]/u, "");
+        if (baseEmoji !== targetEmoji) {
+          for (let i = 0; i < quickEmojis.length; i++) {
+            const emoji = quickEmojis[i].getAttribute("data-emoji");
+            if (emoji === baseEmoji) {
+              if (quickEmojis[i].offsetParent) {
+                return await smartClickEmoji(quickEmojis[i], targetEmoji);
+              }
             }
           }
         }
@@ -4781,8 +4797,14 @@ function 注入浮动窗口() {
           '[aria-label="更多回应"], [aria-label="更多心情"]',
         );
         if (!moreBtn) {
-          const found = await scrollAndFindInCurrentCategory(baseEmoji);
+          // 在完整面板中查找带肤色的表情
+          const found = await findEmojiAcrossAllCategories(targetEmoji);
           if (found) return await smartClickEmoji(found, targetEmoji);
+          // 如果没找到，再找基础表情
+          if (baseEmoji !== targetEmoji) {
+            const foundBase = await findEmojiAcrossAllCategories(baseEmoji);
+            if (foundBase) return await smartClickEmoji(foundBase, targetEmoji);
+          }
           document.body.click();
           return false;
         }
@@ -4790,7 +4812,12 @@ function 注入浮动窗口() {
         moreBtn.click();
         await sleep(1000);
 
-        const foundEmoji = await findEmojiAcrossAllCategories(baseEmoji);
+        // 优先查找完整的带肤色表情
+        let foundEmoji = await findEmojiAcrossAllCategories(targetEmoji);
+        if (!foundEmoji && baseEmoji !== targetEmoji) {
+          foundEmoji = await findEmojiAcrossAllCategories(baseEmoji);
+        }
+
         if (foundEmoji) return await smartClickEmoji(foundEmoji, targetEmoji);
 
         document.body.click();
