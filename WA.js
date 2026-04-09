@@ -4429,7 +4429,7 @@ function 注入浮动窗口() {
           messagesArray.push(msg);
 
           // 每找到一条消息就立即输出完整内容
-          console.log(`[消息 ${messagesArray.length}] ${text}`);
+          // console.log(`[消息 ${messagesArray.length}] ${text}`);
           //console.log(`  └─ 是否包含 "${keyword}": ${text.includes(keyword) ? "✅ 是" : "❌ 否"}`,);
         }
       }
@@ -4687,14 +4687,42 @@ function 注入浮动窗口() {
       return false;
     }
 
-    async function smartClickEmoji(emojiElement) {
+    async function smartClickEmoji(emojiElement, targetEmoji) {
       const emoji = emojiElement.getAttribute("data-emoji");
       console.log(`🖱️ 点击表情: ${emoji}`);
+
       emojiElement.click();
       await sleep(500);
+
+      // 🔥 提取肤色（如果有）
+      const skinToneMatch = targetEmoji.match(/[\u{1F3FB}-\u{1F3FF}]/u);
+      const skinToneMap = {
+        "🏻": 1, // 浅肤色
+        "🏼": 2, // 中浅肤色
+        "🏽": 3, // 中等肤色
+        "🏾": 4, // 中深肤色
+        "🏿": 5, // 深肤色
+      };
+      const targetSkinIndex = skinToneMatch
+        ? skinToneMap[skinToneMatch[0]]
+        : null;
+
       let attempts = 0;
       while (attempts < 5) {
         if (hasSkinTonePicker()) {
+          // 🔥 如果有目标肤色，点击对应的肤色选项
+          if (targetSkinIndex) {
+            const skinButtons = document.querySelectorAll(
+              '[role="radio"], [aria-label*="肤色"], [aria-label*="skin tone"]',
+            );
+            if (skinButtons[targetSkinIndex - 1]) {
+              skinButtons[targetSkinIndex - 1].click();
+              await sleep(300);
+              document.body.click();
+              await sleep(300);
+              return true;
+            }
+          }
           if (clickDefaultSkinTone()) {
             await sleep(300);
             document.body.click();
@@ -4718,6 +4746,7 @@ function 注入浮动窗口() {
       try {
         msgElement.scrollIntoView({ behavior: "auto", block: "center" });
         await sleep(400);
+
         msgElement.dispatchEvent(
           new MouseEvent("mouseover", { bubbles: true }),
         );
@@ -4725,32 +4754,45 @@ function 注入浮动窗口() {
           new MouseEvent("mouseenter", { bubbles: true }),
         );
         await sleep(500);
+
         const moodBtn = document.querySelector(
           '[aria-label="留下心情"], [aria-label="React to message"]',
         );
         if (!moodBtn) return false;
+
         moodBtn.click();
         await sleep(500);
+
+        // 🔥 处理肤色变体：提取基础表情
+        const baseEmoji = targetEmoji.replace(/[\u{1F3FB}-\u{1F3FF}]/u, "");
+
         const quickEmojis = document.querySelectorAll("[data-emoji]");
         for (let i = 0; i < quickEmojis.length; i++) {
           const emoji = quickEmojis[i].getAttribute("data-emoji");
-          if (emoji === targetEmoji && quickEmojis[i].offsetParent) {
-            return await smartClickEmoji(quickEmojis[i]);
+          // 匹配基础表情或完整表情
+          if (emoji === targetEmoji || emoji === baseEmoji) {
+            if (quickEmojis[i].offsetParent) {
+              return await smartClickEmoji(quickEmojis[i], targetEmoji);
+            }
           }
         }
+
         const moreBtn = document.querySelector(
           '[aria-label="更多回应"], [aria-label="更多心情"]',
         );
         if (!moreBtn) {
-          const found = await scrollAndFindInCurrentCategory(targetEmoji);
-          if (found) return await smartClickEmoji(found);
+          const found = await scrollAndFindInCurrentCategory(baseEmoji);
+          if (found) return await smartClickEmoji(found, targetEmoji);
           document.body.click();
           return false;
         }
+
         moreBtn.click();
         await sleep(1000);
-        const foundEmoji = await findEmojiAcrossAllCategories(targetEmoji);
-        if (foundEmoji) return await smartClickEmoji(foundEmoji);
+
+        const foundEmoji = await findEmojiAcrossAllCategories(baseEmoji);
+        if (foundEmoji) return await smartClickEmoji(foundEmoji, targetEmoji);
+
         document.body.click();
         return false;
       } catch (error) {
