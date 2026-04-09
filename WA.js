@@ -2779,7 +2779,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.4.1 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.4.2 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -2920,32 +2920,31 @@ function 注入浮动窗口() {
         </div>
 
         <!-- 🎨 自定义表情输入区域（输入即自动选择） -->
-        <!-- 🎨 自定义表情输入区域（输入即自动选择） -->
-<div id="customEmojiArea" style="padding:10px;border-bottom:1px solid #eee;flex-shrink:0;background:#fafafa;">
-    <div style="font-size:11px;color:#aaa;margin-bottom:6px;">🎨 自定义表情（输入即自动选择）</div>
-    <div style="display:flex;gap:6px;align-items:center;">
-        <div id="customEmojiPreview" style="font-size:28px;background:#f0f0f0;padding:6px 12px;border-radius:8px;min-width:50px;text-align:center;">👍</div>
-        <div style="flex:1;">
-            <input id="customEmojiInput" type="text" placeholder="输入任意表情，如: ✈️ 🎉 🎂 💯" 
-                   style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;box-sizing:border-box;">
+        <div id="customEmojiArea" style="padding:10px;border-bottom:1px solid #eee;flex-shrink:0;background:#fafafa;">
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;">🎨 自定义表情（输入即自动选择）</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+                <div id="customEmojiPreview" style="font-size:28px;background:#f0f0f0;padding:6px 12px;border-radius:8px;min-width:50px;text-align:center;">👍</div>
+                <div style="flex:1;">
+                    <input id="customEmojiInput" type="text" placeholder="输入任意表情，如: ✈️ 🎉 🎂 💯" 
+                          style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;box-sizing:border-box;">
+                </div>
+                <button id="clearCustomEmojiBtn" style="padding:6px 12px;background:#e0e0e0;color:#666;border:none;border-radius:4px;cursor:pointer;">清空</button>
+            </div>
+            <div style="margin-top:6px;font-size:10px;color:#999;display:flex;flex-wrap:wrap;gap:4px;">
+                <span>💡 常用:</span>
+                <span class="quick-custom-emoji" data-emoji="👍" style="cursor:pointer;font-size:16px;padding:2px;">👍</span>
+                <span class="quick-custom-emoji" data-emoji="❤️" style="cursor:pointer;font-size:16px;padding:2px;">❤️</span>
+                <span class="quick-custom-emoji" data-emoji="🎉" style="cursor:pointer;font-size:16px;padding:2px;">🎉</span>
+                <span class="quick-custom-emoji" data-emoji="🎂" style="cursor:pointer;font-size:16px;padding:2px;">🎂</span>
+                <span class="quick-custom-emoji" data-emoji="💯" style="cursor:pointer;font-size:16px;padding:2px;">💯</span>
+                <span class="quick-custom-emoji" data-emoji="🤣" style="cursor:pointer;font-size:16px;padding:2px;">🤣</span>
+                <span class="quick-custom-emoji" data-emoji="🥳" style="cursor:pointer;font-size:16px;padding:2px;">🥳</span>
+                <span class="quick-custom-emoji" data-emoji="🔥" style="cursor:pointer;font-size:16px;padding:2px;">🔥</span>
+                <span class="quick-custom-emoji" data-emoji="⭐" style="cursor:pointer;font-size:16px;padding:2px;">⭐</span>
+                <span class="quick-custom-emoji" data-emoji="💪" style="cursor:pointer;font-size:16px;padding:2px;">💪</span>
+                <span class="quick-custom-emoji" data-emoji="✈️" style="cursor:pointer;font-size:16px;padding:2px;">✈️</span>
+            </div>
         </div>
-        <button id="clearCustomEmojiBtn" style="padding:6px 12px;background:#e0e0e0;color:#666;border:none;border-radius:4px;cursor:pointer;">清空</button>
-    </div>
-    <div style="margin-top:6px;font-size:10px;color:#999;display:flex;flex-wrap:wrap;gap:4px;">
-        <span>💡 常用:</span>
-        <span class="quick-custom-emoji" data-emoji="👍" style="cursor:pointer;font-size:16px;padding:2px;">👍</span>
-        <span class="quick-custom-emoji" data-emoji="❤️" style="cursor:pointer;font-size:16px;padding:2px;">❤️</span>
-        <span class="quick-custom-emoji" data-emoji="🎉" style="cursor:pointer;font-size:16px;padding:2px;">🎉</span>
-        <span class="quick-custom-emoji" data-emoji="🎂" style="cursor:pointer;font-size:16px;padding:2px;">🎂</span>
-        <span class="quick-custom-emoji" data-emoji="💯" style="cursor:pointer;font-size:16px;padding:2px;">💯</span>
-        <span class="quick-custom-emoji" data-emoji="🤣" style="cursor:pointer;font-size:16px;padding:2px;">🤣</span>
-        <span class="quick-custom-emoji" data-emoji="🥳" style="cursor:pointer;font-size:16px;padding:2px;">🥳</span>
-        <span class="quick-custom-emoji" data-emoji="🔥" style="cursor:pointer;font-size:16px;padding:2px;">🔥</span>
-        <span class="quick-custom-emoji" data-emoji="⭐" style="cursor:pointer;font-size:16px;padding:2px;">⭐</span>
-        <span class="quick-custom-emoji" data-emoji="💪" style="cursor:pointer;font-size:16px;padding:2px;">💪</span>
-        <span class="quick-custom-emoji" data-emoji="✈️" style="cursor:pointer;font-size:16px;padding:2px;">✈️</span>
-    </div>
-</div>
 
         <!-- Emoji 选择 -->
         <div style="padding:10px;border-bottom:1px solid #eee;flex-shrink:0;">
@@ -2953,7 +2952,19 @@ function 注入浮动窗口() {
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="reaction-emoji-btn" data-emoji="👍" style="font-size:20px;padding:4px 8px;border:2px solid #9c27b0;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">👍</button>
             <button class="reaction-emoji-btn" data-emoji="❤️" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">❤️</button>
+            <button class="reaction-emoji-btn" data-emoji="👌" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">👌</button>
+            <button class="reaction-emoji-btn" data-emoji="☕" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">☕</button>
+            <button class="reaction-emoji-btn" data-emoji="✍️" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">✍️</button>
+            <button class="reaction-emoji-btn" data-emoji="👀" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">👀</button>
+            <button class="reaction-emoji-btn" data-emoji="🤷‍♂️" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">🤷‍♂️</button>
+            <button class="reaction-emoji-btn" data-emoji="📝" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">📝</button>
+            <button class="reaction-emoji-btn" data-emoji="🍻" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">🍻</button>
             <button class="reaction-emoji-btn" data-emoji="😂" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">😂</button>
+            <button class="reaction-emoji-btn" data-emoji="🥳" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">🥳</button>
+            <button class="reaction-emoji-btn" data-emoji="🤩" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">🤩</button>
+            <button class="reaction-emoji-btn" data-emoji="🥰" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">🥰</button>
+            <button class="reaction-emoji-btn" data-emoji="😵" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">😵</button>
+            <button class="reaction-emoji-btn" data-emoji="✊" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">✊</button>
             <button class="reaction-emoji-btn" data-emoji="😮" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">😮</button>
             <button class="reaction-emoji-btn" data-emoji="😢" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">😢</button>
             <button class="reaction-emoji-btn" data-emoji="🙏" style="font-size:20px;padding:4px 8px;border:2px solid #eee;border-radius:8px;background:#fff;cursor:pointer;transition:all 0.2s;">🙏</button>
@@ -4101,12 +4112,6 @@ function 注入浮动窗口() {
   // ==================== 定时发送模块结束 ====================
 
   // ==================== 点赞模块（完整版） ====================
-  // ==================== 点赞模块（完整修复版） ====================
-  // ==================== 点赞模块（基于测试代码逻辑） ====================
-  // ==================== 点赞模块（完整修复版 - 支持自定义表情） ====================
-  // ==================== 点赞模块（完整版 - 已整合自定义表情） ====================
-  // ==================== 点赞模块（完整版 - 自动选择自定义表情） ====================
-  // ==================== 点赞模块（完整版 - 直接使用输入框原始值） ====================
   (() => {
     let reactionRunning = false;
     let reactionStopRequested = false;
@@ -4470,14 +4475,18 @@ function 注入浮动窗口() {
           console.log(`[调试] 匹配到 ${matched.length} 条消息`);
           return matched;
         case "index":
-          let idx = index;
-          if (idx < 0) idx = messagesArray.length + idx;
-          else idx = idx - 1;
+          // 支持两种输入：
+          // 正数 N → 从最新消息倒数第 N 条（N=1 等同 last）
+          // 负数 -N → 同上，兼容用户直接输入负号的习惯
+          let absN = Math.abs(index); // -2 和 2 都视为"倒数第2条"
+          let idx = messagesArray.length - absN;
           if (idx >= 0 && idx < messagesArray.length) {
-            console.log(`[调试] 返回第 ${index} 条消息 (实际索引: ${idx})`);
+            console.log(`[调试] 返回倒数第 ${absN} 条消息 (实际索引: ${idx})`);
             return [messagesArray[idx]];
           }
-          console.log(`[调试] 索引 ${index} 超出范围`);
+          console.log(
+            `[调试] 索引 ${index} 超出范围（共 ${messagesArray.length} 条）`,
+          );
           return [];
         default:
           return [];
@@ -4891,10 +4900,9 @@ function 注入浮动窗口() {
       }
 
       // 其他模式保持原逻辑
-      if (target === "all" || target === "index") {
+      // all 模式需要加载所有历史消息；last/index 模式只需最新消息，scrollToBottom 已够
+      if (target === "all") {
         await scrollUpToLoadMessages(scroller, 40);
-      } else if (target === "index" && index > 1) {
-        await scrollUpToLoadMessages(scroller, Math.min(index + 10, 50));
       }
 
       const targetMessages = findTargetMessages(target, keyword, index);
