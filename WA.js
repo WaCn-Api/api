@@ -2779,7 +2779,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.4.2 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.4.3 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -2840,7 +2840,8 @@ function 注入浮动窗口() {
 
       <!-- 👇 点赞功能按钮 -->
       <div style="margin: 0 0 10px 0; padding: 0 0 10px 0; border-bottom: 1px solid #eee;">
-        <button id="reactionPanelToggleBtn" style="width:100%;background:#9c27b0;font-size:13px;">👍 点赞面板</button>
+        <button id="reactionPanelToggleBtn" style="width:100%;background:#9c27b0;font-size:13px;margin-bottom:6px;">👍 点赞面板</button>
+        <button id="translateToggleBtn" style="width:100%;background:#1a73e8;font-size:13px;">🌐 开启自动翻译</button>
       </div>
       <!-- 👆 点赞功能按钮结束 -->
 
@@ -4983,6 +4984,260 @@ function 注入浮动窗口() {
       setStatus("⏹ 正在停止...");
     });
   })();
+
+  // ==================== 自动翻译模块 ====================
+  (() => {
+    const TRANSLATE_CLASS = "wa-translate-result";
+    const TARGET_LANG = "zh-CN";
+    const CONCURRENCY = 3;
+    const DELAY = 100;
+
+    const translateCache = new Map(); // msgId → 译文
+    const translatePending = new Set();
+    let translateQueue = [];
+    let translateWorkers = 0;
+    let translateEnabled = false;
+    let translateChatSwitchDebounce = null;
+    let translateLastChatId = null;
+
+    const translateBtn = shadowRoot.getElementById("translateToggleBtn");
+
+    // ─── 翻译 API ─────────────────────────────────────────────────────────
+    function buildTranslateUrl(text) {
+      return (
+        "https://translate.googleapis.com/translate_a/single" +
+        "?client=gtx&sl=auto&tl=" + TARGET_LANG +
+        "&dt=t&q=" + encodeURIComponent(text)
+      );
+    }
+
+    function parseTranslateResponse(data) {
+      try {
+        const p = typeof data === "string" ? JSON.parse(data) : data;
+        return p[0].map((i) => i[0]).filter(Boolean).join("");
+      } catch (e) { return null; }
+    }
+
+    async function fetchTranslation(text) {
+      const res = await httpGetJson(buildTranslateUrl(text));
+      if (!res.success) throw new Error("network");
+      const r = parseTranslateResponse(res.data);
+      if (!r) throw new Error("parse");
+      return r;
+    }
+
+    // ─── 并发队列 ─────────────────────────────────────────────────────────
+    async function runTranslateWorker() {
+      while (translateQueue.length > 0) {
+        const task = translateQueue.shift();
+        try { await task(); } catch (e) { /* 忽略单条失败 */ }
+        await new Promise(r => setTimeout(r, DELAY));
+      }
+      translateWorkers--;
+    }
+
+    function enqueueTranslate(task) {
+      translateQueue.push(task);
+      if (translateWorkers < CONCURRENCY) {
+        translateWorkers++;
+        runTranslateWorker();
+      }
+    }
+
+    // ─── DOM 工具 ─────────────────────────────────────────────────────────
+    function getMsgId(akbu) {
+      const row = akbu.closest("[data-id]");
+      return row ? row.getAttribute("data-id") : null;
+    }
+
+    function extractText(akbu) {
+      const textSpan = akbu.children[0];
+      if (!textSpan) return "";
+      const clone = textSpan.cloneNode(true);
+      clone.querySelectorAll('[aria-hidden="true"]').forEach(el => el.remove());
+      clone.querySelectorAll("img[data-plain-text]").forEach(img => {
+        img.replaceWith(document.createTextNode(img.getAttribute("data-plain-text")));
+      });
+      return (clone.innerText || clone.textContent || "").trim();
+    }
+
+    function insertTranslation(akbu, translated) {
+      if (akbu.querySelector("." + TRANSLATE_CLASS)) return;
+      const div = document.createElement("div");
+      div.className = TRANSLATE_CLASS;
+      div.style.cssText = `
+        margin: 4px 0 2px 0;
+        padding: 4px 8px;
+        border-left: 3px solid #1a73e8;
+        background: rgba(26,115,232,0.07);
+        border-radius: 0 4px 4px 0;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: #1a73e8;
+        white-space: pre-wrap;
+        word-break: break-word;
+      `;
+      div.textContent = translated;
+      const timeSpan = akbu.children[akbu.children.length - 1];
+      akbu.insertBefore(div, timeSpan);
+    }
+
+    // ─── 处理单条消息 ─────────────────────────────────────────────────────
+    function handleAkbu(akbu) {
+      if (!translateEnabled) return;
+      const msgId = getMsgId(akbu);
+      if (!msgId) return;
+
+      if (translateCache.has(msgId)) {
+        const cached = translateCache.get(msgId);
+        if (cached) insertTranslation(akbu, cached);
+        return;
+      }
+      if (translatePending.has(msgId)) return;
+
+      const text = extractText(akbu);
+      if (!text || text.length < 2) return;
+
+      translatePending.add(msgId);
+      enqueueTranslate(async () => {
+        try {
+          const translated = await fetchTranslation(text);
+          const result = translated && translated !== text ? translated : "";
+          translateCache.set(msgId, result);
+          if (result) {
+            const live = document.querySelector(
+              '[data-id="' + msgId.replace(/"/g, '\\"') + '"] ._akbu'
+            );
+            if (live) insertTranslation(live, result);
+          }
+        } catch (e) {
+          console.warn("[wa-translate] 失败:", msgId, e);
+        } finally {
+          translatePending.delete(msgId);
+        }
+      });
+    }
+
+    // ─── 扫描 & 清除 ──────────────────────────────────────────────────────
+    function scanExisting() {
+      document.querySelectorAll("._akbu").forEach(handleAkbu);
+    }
+
+    function clearAllTranslations() {
+      document.querySelectorAll("." + TRANSLATE_CLASS).forEach(el => el.remove());
+    }
+
+    // ─── MutationObserver：监听 _akbu 插入（虚拟滚动） ───────────────────
+    const translateMsgObserver = new MutationObserver((mutations) => {
+      if (!translateEnabled) return;
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          if (node.classList && node.classList.contains("_akbu")) {
+            handleAkbu(node);
+            continue;
+          }
+          if (node.querySelectorAll) {
+            node.querySelectorAll("._akbu").forEach(handleAkbu);
+          }
+        }
+      }
+    });
+
+    // ─── 聊天切换检测 ─────────────────────────────────────────────────────
+    function getCurrentChatTitle() {
+      const header = document.querySelector('#main header span[dir="auto"]');
+      return header ? header.textContent.trim() : null;
+    }
+
+    function onChatSwitched() {
+      if (!translateEnabled) return;
+      if (translateChatSwitchDebounce) clearTimeout(translateChatSwitchDebounce);
+      translateChatSwitchDebounce = setTimeout(() => {
+        console.log("[wa-translate] 切换聊天，重新扫描...");
+        scanExisting();
+        translateChatSwitchDebounce = null;
+      }, 900);
+    }
+
+    // body 级监听：检测消息容器整体替换
+    const translateChatObserver = new MutationObserver((mutations) => {
+      if (!translateEnabled) return;
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          if (
+            node.getAttribute?.("data-scrolltracepolicy") === "wa.web.conversation.messages" ||
+            node.querySelector?.('[data-scrolltracepolicy="wa.web.conversation.messages"]')
+          ) {
+            onChatSwitched();
+            return;
+          }
+          if (node.querySelectorAll) {
+            const msgs = node.querySelectorAll('div[class*="_amjv"]');
+            if (msgs.length >= 3) { onChatSwitched(); return; }
+          }
+        }
+      }
+    });
+
+    // 聊天列表点击监听（双保险）
+    document.addEventListener("click", (e) => {
+      if (!translateEnabled) return;
+      const chatItem = e.target.closest(
+        '[role="row"], [role="listitem"], ._ak8q, [data-testid="chat-list-item"]'
+      );
+      if (!chatItem) return;
+      setTimeout(() => {
+        const currentTitle = getCurrentChatTitle();
+        if (currentTitle !== translateLastChatId) {
+          translateLastChatId = currentTitle;
+          console.log("[wa-translate] 点击切换聊天:", currentTitle);
+          scanExisting();
+        }
+      }, 1000);
+    }, true);
+
+    // ─── 开启 / 暂停 ──────────────────────────────────────────────────────
+    function startTranslate() {
+      translateEnabled = true;
+      translateBtn.style.background = "#d93025";
+      translateBtn.textContent = "⏸ 暂停自动翻译";
+
+      // 启动 Observer
+      const root = document.querySelector("#main") || document.body;
+      translateMsgObserver.observe(root, { childList: true, subtree: true });
+      translateChatObserver.observe(document.body, { childList: true, subtree: true });
+
+      translateLastChatId = getCurrentChatTitle();
+      scanExisting();
+      console.log("[wa-translate] 已开启");
+    }
+
+    function pauseTranslate() {
+      translateEnabled = false;
+      translateBtn.style.background = "#1a73e8";
+      translateBtn.textContent = "🌐 开启自动翻译";
+
+      translateMsgObserver.disconnect();
+      translateChatObserver.disconnect();
+      clearAllTranslations();
+      translateCache.clear();
+      translateQueue = [];
+      console.log("[wa-translate] 已暂停");
+    }
+
+    // ─── 按钮事件 ─────────────────────────────────────────────────────────
+    translateBtn.addEventListener("click", () => {
+      if (translateEnabled) {
+        pauseTranslate();
+      } else {
+        startTranslate();
+      }
+    });
+
+  })();
+  // ==================== 自动翻译模块结束 ====================
 }
 
 if (window.location.hostname.includes("web.whatsapp.com")) {
