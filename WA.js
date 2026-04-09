@@ -5071,9 +5071,9 @@ function 注入浮动窗口() {
         border-left: 3px solid #1a73e8;
         background: rgba(26,115,232,0.07);
         border-radius: 0 4px 4px 0;
-        font-size: 12.5px;
+        font-size: 14px;
         line-height: 1.5;
-        color: #1a73e8;
+        color: #ff00a5;
         white-space: pre-wrap;
         word-break: break-word;
       `;
