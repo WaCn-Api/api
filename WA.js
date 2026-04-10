@@ -2779,7 +2779,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.4.3 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.4.4 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -2829,22 +2829,6 @@ function 注入浮动窗口() {
             </div>
           </div>
 
-          <!-- 👇 在这里添加客户标记控制按钮 -->
-      <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px;">
-        <div style="display: flex; gap: 10px; justify-content: center;">
-          <button id="customerMarkToggleBtn" class="is-off">⭐ 开启客户标记</button>
-          <button id="clearDataBtn">清除数据</button>
-        </div>
-      </div>
-      <!-- 👆 客户标记控制按钮结束 -->
-
-      <!-- 👇 点赞功能按钮 -->
-      <div style="margin: 0 0 10px 0; padding: 0 0 10px 0; border-bottom: 1px solid #eee;">
-        <button id="reactionPanelToggleBtn" style="width:100%;background:#9c27b0;font-size:13px;margin-bottom:6px;">👍 点赞面板</button>
-        <button id="translateToggleBtn" style="width:100%;background:#1a73e8;font-size:13px;">🌐 开启自动翻译</button>
-      </div>
-      <!-- 👆 点赞功能按钮结束 -->
-
           <div id="dbzt">
             <div id="dbzt-s" style="margin: 10px;">
               <div class="Select Send">
@@ -2876,10 +2860,29 @@ function 注入浮动窗口() {
                 </div>
               </div>
 
+              
+
               <div class="send-controls">
                 <button id="sendBatchBtn" style="background-color: #28a745;margin: 10px 0;width: 100%;">开始群发</button>
                 <button id="scheduleOpenBtn" style="background-color:#ff9800;margin: 10px 0 10px 5px;width:100%;">⏰ 定时发送管理</button>
               </div>
+
+              <!-- 👇 点赞功能按钮 -->
+              <div style="margin: 0 0 10px 0; padding: 0 0 10px 0; border-bottom: 1px solid #eee;">
+                <button id="reactionPanelToggleBtn" style="width:100%;background:#9c27b0;font-size:13px;margin-bottom:6px;">👍 点赞面板</button>
+                <button id="translateToggleBtn" style="width:100%;background:#1a73e8;font-size:13px;">🌐 开启自动翻译</button>
+              </div>
+              <!-- 👆 点赞功能按钮结束 -->
+
+              <!-- 👇 在这里添加客户标记控制按钮 -->
+              <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                  <button id="customerMarkToggleBtn" class="is-off">⭐ 开启客户标记</button>
+                  <button id="clearDataBtn">清除数据</button>
+                </div>
+              </div>
+              <!-- 👆 客户标记控制按钮结束 -->
+
 
               <div id="progressContainer">
                 <div class="progress-info">
@@ -5006,16 +5009,23 @@ function 注入浮动窗口() {
     function buildTranslateUrl(text) {
       return (
         "https://translate.googleapis.com/translate_a/single" +
-        "?client=gtx&sl=auto&tl=" + TARGET_LANG +
-        "&dt=t&q=" + encodeURIComponent(text)
+        "?client=gtx&sl=auto&tl=" +
+        TARGET_LANG +
+        "&dt=t&q=" +
+        encodeURIComponent(text)
       );
     }
 
     function parseTranslateResponse(data) {
       try {
         const p = typeof data === "string" ? JSON.parse(data) : data;
-        return p[0].map((i) => i[0]).filter(Boolean).join("");
-      } catch (e) { return null; }
+        return p[0]
+          .map((i) => i[0])
+          .filter(Boolean)
+          .join("");
+      } catch (e) {
+        return null;
+      }
     }
 
     async function fetchTranslation(text) {
@@ -5030,8 +5040,12 @@ function 注入浮动窗口() {
     async function runTranslateWorker() {
       while (translateQueue.length > 0) {
         const task = translateQueue.shift();
-        try { await task(); } catch (e) { /* 忽略单条失败 */ }
-        await new Promise(r => setTimeout(r, DELAY));
+        try {
+          await task();
+        } catch (e) {
+          /* 忽略单条失败 */
+        }
+        await new Promise((r) => setTimeout(r, DELAY));
       }
       translateWorkers--;
     }
@@ -5054,9 +5068,13 @@ function 注入浮动窗口() {
       const textSpan = akbu.children[0];
       if (!textSpan) return "";
       const clone = textSpan.cloneNode(true);
-      clone.querySelectorAll('[aria-hidden="true"]').forEach(el => el.remove());
-      clone.querySelectorAll("img[data-plain-text]").forEach(img => {
-        img.replaceWith(document.createTextNode(img.getAttribute("data-plain-text")));
+      clone
+        .querySelectorAll('[aria-hidden="true"]')
+        .forEach((el) => el.remove());
+      clone.querySelectorAll("img[data-plain-text]").forEach((img) => {
+        img.replaceWith(
+          document.createTextNode(img.getAttribute("data-plain-text")),
+        );
       });
       return (clone.innerText || clone.textContent || "").trim();
     }
@@ -5106,7 +5124,7 @@ function 注入浮动窗口() {
           translateCache.set(msgId, result);
           if (result) {
             const live = document.querySelector(
-              '[data-id="' + msgId.replace(/"/g, '\\"') + '"] ._akbu'
+              '[data-id="' + msgId.replace(/"/g, '\\"') + '"] ._akbu',
             );
             if (live) insertTranslation(live, result);
           }
@@ -5124,7 +5142,9 @@ function 注入浮动窗口() {
     }
 
     function clearAllTranslations() {
-      document.querySelectorAll("." + TRANSLATE_CLASS).forEach(el => el.remove());
+      document
+        .querySelectorAll("." + TRANSLATE_CLASS)
+        .forEach((el) => el.remove());
     }
 
     // ─── MutationObserver：监听 _akbu 插入（虚拟滚动） ───────────────────
@@ -5152,7 +5172,8 @@ function 注入浮动窗口() {
 
     function onChatSwitched() {
       if (!translateEnabled) return;
-      if (translateChatSwitchDebounce) clearTimeout(translateChatSwitchDebounce);
+      if (translateChatSwitchDebounce)
+        clearTimeout(translateChatSwitchDebounce);
       translateChatSwitchDebounce = setTimeout(() => {
         console.log("[wa-translate] 切换聊天，重新扫描...");
         scanExisting();
@@ -5167,36 +5188,46 @@ function 注入浮动窗口() {
         for (const node of mutation.addedNodes) {
           if (node.nodeType !== Node.ELEMENT_NODE) continue;
           if (
-            node.getAttribute?.("data-scrolltracepolicy") === "wa.web.conversation.messages" ||
-            node.querySelector?.('[data-scrolltracepolicy="wa.web.conversation.messages"]')
+            node.getAttribute?.("data-scrolltracepolicy") ===
+              "wa.web.conversation.messages" ||
+            node.querySelector?.(
+              '[data-scrolltracepolicy="wa.web.conversation.messages"]',
+            )
           ) {
             onChatSwitched();
             return;
           }
           if (node.querySelectorAll) {
             const msgs = node.querySelectorAll('div[class*="_amjv"]');
-            if (msgs.length >= 3) { onChatSwitched(); return; }
+            if (msgs.length >= 3) {
+              onChatSwitched();
+              return;
+            }
           }
         }
       }
     });
 
     // 聊天列表点击监听（双保险）
-    document.addEventListener("click", (e) => {
-      if (!translateEnabled) return;
-      const chatItem = e.target.closest(
-        '[role="row"], [role="listitem"], ._ak8q, [data-testid="chat-list-item"]'
-      );
-      if (!chatItem) return;
-      setTimeout(() => {
-        const currentTitle = getCurrentChatTitle();
-        if (currentTitle !== translateLastChatId) {
-          translateLastChatId = currentTitle;
-          console.log("[wa-translate] 点击切换聊天:", currentTitle);
-          scanExisting();
-        }
-      }, 1000);
-    }, true);
+    document.addEventListener(
+      "click",
+      (e) => {
+        if (!translateEnabled) return;
+        const chatItem = e.target.closest(
+          '[role="row"], [role="listitem"], ._ak8q, [data-testid="chat-list-item"]',
+        );
+        if (!chatItem) return;
+        setTimeout(() => {
+          const currentTitle = getCurrentChatTitle();
+          if (currentTitle !== translateLastChatId) {
+            translateLastChatId = currentTitle;
+            console.log("[wa-translate] 点击切换聊天:", currentTitle);
+            scanExisting();
+          }
+        }, 1000);
+      },
+      true,
+    );
 
     // ─── 开启 / 暂停 ──────────────────────────────────────────────────────
     function startTranslate() {
@@ -5207,7 +5238,10 @@ function 注入浮动窗口() {
       // 启动 Observer
       const root = document.querySelector("#main") || document.body;
       translateMsgObserver.observe(root, { childList: true, subtree: true });
-      translateChatObserver.observe(document.body, { childList: true, subtree: true });
+      translateChatObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
 
       translateLastChatId = getCurrentChatTitle();
       scanExisting();
@@ -5235,7 +5269,6 @@ function 注入浮动窗口() {
         startTranslate();
       }
     });
-
   })();
   // ==================== 自动翻译模块结束 ====================
 }
