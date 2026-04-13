@@ -2779,7 +2779,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.4.6 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.4.7 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -4309,24 +4309,25 @@ function 注入浮动窗口() {
 
     // ==================== 消息滚动和查找 ====================
     function getMessageScroller() {
-      const selectors = [
+      // 结构特征：包含消息元素 data-pre-plain-text 的可滚动容器
+      // 优先用 data-testid（稳定语义属性）
+      const byTestId = document.querySelector(
         '[data-testid="conversation-panel-messages"]',
-        ".x1n2onr6.x1ye3gou",
-        '#main [role="region"]',
-      ];
-      for (const sel of selectors) {
-        const el = document.querySelector(sel);
-        if (el && el.scrollHeight > el.clientHeight) {
-          return el;
-        }
-      }
-      const allDivs = document.querySelectorAll("div");
-      for (const div of allDivs) {
-        if (
-          div.scrollHeight > div.clientHeight &&
-          div.querySelector("[data-pre-plain-text]")
-        ) {
-          return div;
+      );
+      if (byTestId && byTestId.scrollHeight > byTestId.clientHeight)
+        return byTestId;
+
+      // 次选：#main 下 role="region" 的可滚动区
+      const byRole = document.querySelector('#main [role="region"]');
+      if (byRole && byRole.scrollHeight > byRole.clientHeight) return byRole;
+
+      // 兜底：找包含消息的最近可滚动祖先
+      const firstMsg = document.querySelector("[data-pre-plain-text]");
+      if (firstMsg) {
+        let el = firstMsg.parentElement;
+        while (el && el !== document.body) {
+          if (el.scrollHeight > el.clientHeight + 10) return el;
+          el = el.parentElement;
         }
       }
       return null;
@@ -4436,17 +4437,18 @@ function 注入浮动窗口() {
           '[data-testid="selectable-text"]',
         );
         if (selectableText) {
-          // 克隆后移除引用块，避免引用内容污染匹配
+          // 克隆后移除引用块（结构特征：引用块含 role="link" 或 data-testid="quoted-message"）
           const clone = selectableText.cloneNode(true);
           clone
-            .querySelectorAll("._aju3, ._aju8, ._aju9")
+            .querySelectorAll(
+              '[data-testid="quoted-message"], [role="link"], [aria-label][tabindex="-1"]:not(span)',
+            )
             .forEach((el) => el.remove());
           text = clone.textContent || "";
         } else {
-          // 同样在整条消息上移除引用块
           const clone = msg.cloneNode(true);
           clone
-            .querySelectorAll("._aju3, ._aju8, ._aju9")
+            .querySelectorAll('[data-testid="quoted-message"], [role="link"]')
             .forEach((el) => el.remove());
           text = clone.textContent || "";
         }
@@ -4481,31 +4483,32 @@ function 注入浮动窗口() {
           for (let i = 0; i < messagesArray.length; i++) {
             const msg = messagesArray[i];
 
-            // 方案A：优先用 _akbu 下的文本 span（最干净）
-            // _akbu 是消息气泡内容容器，包含文字+时间戳
-            // 时间戳在 aria-hidden 的 span 里，需排除
+            // 方案A：优先用消息气泡内容区（包含文字+时间戳）
+            // 结构特征：data-pre-plain-text 下的 copyable-text，或含 data-testid="selectable-text" 的区域
             let text = "";
-            const akbu = msg.querySelector("._akbu") || msg.closest("._akbu");
-            if (akbu) {
-              const clone = akbu.cloneNode(true);
-              // 移除引用块、时间戳(aria-hidden)、reaction等
+            const bubbleContent =
+              msg.querySelector('[data-testid="selectable-text"]') ||
+              msg.querySelector(
+                '[data-testid="conversation-compose-box-input"]',
+              );
+            if (bubbleContent) {
+              const clone = bubbleContent.cloneNode(true);
+              // 移除引用块（结构特征）、时间戳(aria-hidden)、reaction
               clone
                 .querySelectorAll(
-                  "._aju3, ._aju8, ._aju9, [aria-hidden='true'], ._amk7",
+                  '[data-testid="quoted-message"], [role="link"], [aria-hidden="true"], [data-testid="msg-reaction"]',
                 )
                 .forEach((el) => el.remove());
               text = clone.textContent || "";
             } else {
-              // 降级：用 selectable-text，移除引用块
-              const selectableEl =
-                msg.querySelector('[data-testid="selectable-text"]') || msg;
-              const cloneEl = selectableEl.cloneNode(true);
-              cloneEl
+              // 降级：直接用整条消息，移除引用和时间戳
+              const clone = msg.cloneNode(true);
+              clone
                 .querySelectorAll(
-                  "._aju3, ._aju8, ._aju9, [aria-hidden='true']",
+                  '[data-testid="quoted-message"], [role="link"], [aria-hidden="true"]',
                 )
                 .forEach((el) => el.remove());
-              text = cloneEl.textContent || "";
+              text = clone.textContent || "";
             }
 
             // 📢 打印每条消息实际读到的文字（调试用，匹配到后可注释掉）
@@ -4581,22 +4584,21 @@ function 注入浮动窗口() {
     }
 
     function getAllCategoryButtons() {
-      const selectors = [
-        '[role="tab"]',
-        "._ajxx button",
-        'button[aria-label*="表情"]',
-        'button[aria-label*="人物"]',
-        'button[aria-label*="动物"]',
-        'button[aria-label*="食物"]',
-        'button[aria-label*="活动"]',
-        'button[aria-label*="旅行"]',
-        'button[aria-label*="物件"]',
-        'button[aria-label*="符号"]',
-        'button[aria-label*="旗帜"]',
-        'button[title*="表情"]',
-        'button[title*="人物"]',
-      ];
-      return document.querySelectorAll(selectors.join(","));
+      // 结构特征：表情面板的分类按钮都是 role="tab" 或带已知分类名的 button
+      // role="tab" 是最稳定的，其次是 aria-label/title 含分类关键词
+      const byTab = document.querySelectorAll(
+        '[role="tablist"] [role="tab"], [role="tab"][aria-label], [role="tab"][title]',
+      );
+      if (byTab.length > 0) return byTab;
+
+      // 次选：button 带 aria-label 含已知分类名（多语言）
+      return document.querySelectorAll(
+        'button[aria-label*="表情"], button[aria-label*="人物"], button[aria-label*="动物"],' +
+          'button[aria-label*="食物"], button[aria-label*="活动"], button[aria-label*="旅行"],' +
+          'button[aria-label*="物件"], button[aria-label*="符号"], button[aria-label*="旗帜"],' +
+          'button[aria-label*="Smileys"], button[aria-label*="People"], button[aria-label*="Animals"],' +
+          'button[title*="表情"], button[title*="人物"], button[title*="动物"]',
+      );
     }
 
     function findEmojiInCurrentView(targetEmoji) {
@@ -4694,65 +4696,51 @@ function 注入浮动窗口() {
     }
 
     // ==================== 肤色选择器处理 ====================
-    function hasSkinTonePicker() {
-      const pickers = document.querySelectorAll(
-        '[aria-label*="肤色"], [aria-label*="skin tone"]',
-      );
-      for (const p of pickers) {
-        if (p.offsetParent) return true;
-      }
-      const radioGroups = document.querySelectorAll('[role="radiogroup"]');
-      for (const rg of radioGroups) {
-        if (
-          rg.offsetParent &&
-          rg.querySelectorAll('[role="radio"]').length >= 5
-        )
-          return true;
-      }
-      const emojiLis = document.querySelectorAll('li[role="button"]');
-      let skinCount = 0;
-      for (const li of emojiLis) {
-        const img = li.querySelector(
-          'img[alt*="🏻"], img[alt*="🏼"], img[alt*="🏽"], img[alt*="🏾"], img[alt*="🏿"]',
-        );
-        if (img && img.offsetParent) {
-          skinCount++;
-          if (skinCount >= 3) return true;
+
+    // 找到当前可见的肤色弹出面板
+    // 结构特征：role="application" 的浮层，直接包含 li[role="button"] + img[alt]，
+    // 且第一项 img alt 就是基础表情（无肤色），后5项含肤色修饰符
+    function getSkinTonePopup() {
+      for (const el of document.querySelectorAll('[role="application"]')) {
+        if (!el.offsetParent) continue;
+        const items = el.querySelectorAll('li[role="button"]');
+        if (items.length >= 2) {
+          // 确认是肤色面板：至少有一项 img alt 含肤色修饰符
+          for (const li of items) {
+            const alt = li.querySelector("img")?.getAttribute("alt") || "";
+            if (/[\u{1F3FB}-\u{1F3FF}]/u.test(alt)) return el;
+          }
         }
       }
-      return false;
+      return null;
     }
 
-    function clickDefaultSkinTone() {
-      let radioButtons = document.querySelectorAll(
-        '[role="radiogroup"] [role="radio"]',
-      );
-      if (radioButtons.length > 0) {
-        radioButtons[0].click();
+    function hasSkinTonePicker() {
+      return !!getSkinTonePopup();
+    }
+
+    // 肤色修饰符 → 列表索引（第0项是无肤色原版，第1-5是带肤色）
+    const SKIN_TONE_MAP = { "🏻": 1, "🏼": 2, "🏽": 3, "🏾": 4, "🏿": 5 };
+
+    function clickSkinToneInPopup(popup, targetEmoji) {
+      const items = popup.querySelectorAll('li[role="button"]');
+      if (!items.length) return false;
+
+      // 解析目标肤色修饰符
+      const skinMatch = targetEmoji.match(/[\u{1F3FB}-\u{1F3FF}]/u);
+      const skinToneIndex = skinMatch ? (SKIN_TONE_MAP[skinMatch[0]] ?? 0) : 0;
+
+      if (skinToneIndex > 0 && items[skinToneIndex]) {
+        // 点击对应肤色
+        console.log(`🎨 选择肤色 index=${skinToneIndex}`);
+        items[skinToneIndex].click();
         return true;
       }
-      radioButtons = document.querySelectorAll('[role="radio"]');
-      if (radioButtons.length >= 5) {
-        radioButtons[0].click();
-        return true;
-      }
-      const emojiLis = document.querySelectorAll('li[role="button"]');
-      if (emojiLis.length > 0) {
-        const firstLi = emojiLis[0];
-        const img = firstLi.querySelector("img");
-        const alt = img?.getAttribute("alt") || "";
-        if (
-          !alt.includes("🏻") &&
-          !alt.includes("🏼") &&
-          !alt.includes("🏽") &&
-          !alt.includes("🏾") &&
-          !alt.includes("🏿")
-        ) {
-          firstLi.click();
-          return true;
-        }
-      }
-      return false;
+
+      // 无肤色需求 → 点第一项（原版，alt 不含肤色修饰）
+      items[0].click();
+      console.log(`🎨 选择默认肤色（无）`);
+      return true;
     }
 
     async function smartClickEmoji(emojiElement, targetEmoji) {
@@ -4760,60 +4748,31 @@ function 注入浮动窗口() {
       console.log(`🖱️ 点击表情: ${emoji}`);
 
       emojiElement.click();
-      // 智能等待：肤色选择器出现 或 面板消失（说明直接成功了）
-      await waitFor(
-        () =>
-          hasSkinTonePicker() ||
-          !document.querySelector('[data-menu-content="true"]'),
-        800,
-        60,
+
+      // 智能等待：肤色面板出现 或 面板消失（直接完成）
+      const result = await waitFor(
+        () => {
+          const popup = getSkinTonePopup();
+          if (popup) return { type: "skin", popup };
+          // 面板消失 = 点赞成功
+          if (!document.querySelector('[data-menu-content="true"]'))
+            return { type: "done" };
+          return null;
+        },
+        1000,
+        40,
       );
 
-      // 🔥 提取肤色（如果有）
-      const skinToneMatch = targetEmoji.match(/[\u{1F3FB}-\u{1F3FF}]/u);
-      const skinToneMap = {
-        "🏻": 1, // 浅肤色
-        "🏼": 2, // 中浅肤色
-        "🏽": 3, // 中等肤色
-        "🏾": 4, // 中深肤色
-        "🏿": 5, // 深肤色
-      };
-      const targetSkinIndex = skinToneMatch
-        ? skinToneMap[skinToneMatch[0]]
-        : null;
+      if (!result || result.type === "done") return true;
 
-      let attempts = 0;
-      while (attempts < 5) {
-        if (hasSkinTonePicker()) {
-          // 🔥 如果有目标肤色，点击对应的肤色选项
-          if (targetSkinIndex) {
-            const skinButtons = document.querySelectorAll(
-              '[role="radio"], [aria-label*="肤色"], [aria-label*="skin tone"]',
-            );
-            if (skinButtons[targetSkinIndex - 1]) {
-              skinButtons[targetSkinIndex - 1].click();
-              await sleep(200);
-              document.body.click();
-              await sleep(150);
-              return true;
-            }
-          }
-          if (clickDefaultSkinTone()) {
-            await sleep(200);
-            document.body.click();
-            await sleep(150);
-            return true;
-          }
-          emojiElement.click();
-          await sleep(300);
-        } else {
-          const panel = document.querySelector('[data-menu-content="true"]');
-          if (!panel || !panel.offsetParent) return true;
-          emojiElement.click();
-          await sleep(300);
-        }
-        attempts++;
+      // 出现了肤色面板，选择对应肤色
+      if (result.type === "skin") {
+        clickSkinToneInPopup(result.popup, targetEmoji);
+        // 等面板消失（肤色选中后面板应自动关闭）
+        await waitFor(() => !getSkinTonePopup(), 800, 40);
+        return true;
       }
+
       return true;
     }
 
@@ -4836,7 +4795,8 @@ function 注入浮动窗口() {
           // 等元素稳定出现在 DOM 里（最多等 800ms，出现即停）
           const fresh = await waitFor(
             () => document.querySelector(`[data-id="${CSS.escape(dataId)}"]`),
-            800, 30,
+            800,
+            30,
           );
           if (fresh) {
             liveTarget = fresh;
@@ -4844,28 +4804,49 @@ function 注入浮动窗口() {
             const rect = fresh.getBoundingClientRect();
             if (rect.top < 0 || rect.bottom > window.innerHeight) {
               fresh.scrollIntoView({ behavior: "auto", block: "center" });
-              await waitFor(() => {
-                const r = fresh.getBoundingClientRect();
-                return r.top >= 0 && r.bottom <= window.innerHeight ? true : null;
-              }, 600, 30);
+              await waitFor(
+                () => {
+                  const r = fresh.getBoundingClientRect();
+                  return r.top >= 0 && r.bottom <= window.innerHeight
+                    ? true
+                    : null;
+                },
+                600,
+                30,
+              );
             }
           }
         }
 
         // 触发 hover，让 WhatsApp 显示操作按钮
         const triggerHover = () => {
-          liveTarget.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-          liveTarget.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
-          liveTarget.dispatchEvent(new MouseEvent("mousemove",  { bubbles: true }));
+          liveTarget.dispatchEvent(
+            new MouseEvent("mouseover", { bubbles: true }),
+          );
+          liveTarget.dispatchEvent(
+            new MouseEvent("mouseenter", { bubbles: true }),
+          );
+          liveTarget.dispatchEvent(
+            new MouseEvent("mousemove", { bubbles: true }),
+          );
         };
         triggerHover();
 
         // ✅ 智能等待心情按钮，出现即操作；等不到就再 hover 一次再等
-        const MOOD_SEL = '[aria-label="留下心情"], [aria-label="React to message"]';
-        let moodBtn = await waitFor(() => document.querySelector(MOOD_SEL), 1200, 40);
+        const MOOD_SEL =
+          '[aria-label="留下心情"], [aria-label="React to message"]';
+        let moodBtn = await waitFor(
+          () => document.querySelector(MOOD_SEL),
+          1200,
+          40,
+        );
         if (!moodBtn) {
           triggerHover();
-          moodBtn = await waitFor(() => document.querySelector(MOOD_SEL), 800, 40);
+          moodBtn = await waitFor(
+            () => document.querySelector(MOOD_SEL),
+            800,
+            40,
+          );
         }
         if (!moodBtn) return false;
 
@@ -4950,8 +4931,9 @@ function 注入浮动窗口() {
 
       // ✅ 智能等待聊天内容加载（等消息出现，而不是固定等 3 秒）
       await waitFor(
-        () => document.querySelector("div[data-pre-plain-text], ._akbu"),
-        4000, 80,
+        () => document.querySelector("div[data-pre-plain-text]"),
+        4000,
+        80,
       );
 
       const scroller = getMessageScroller();
@@ -4961,7 +4943,8 @@ function 注入浮动窗口() {
       // ✅ 等滚动完成后消息容器稳定（等底部最后一条出现）
       await waitFor(
         () => document.querySelector("div[data-pre-plain-text]"),
-        1000, 40,
+        1000,
+        40,
       );
 
       // 如果是关键词模式，边滚动边查找，找到即停
@@ -4979,8 +4962,8 @@ function 注入浮动窗口() {
         if (!foundMessages) {
           // 向上滚动加载历史消息，智能等待懒加载完成
           const SCROLL_STEP = 1200; // ✅ 加大每次滚动距离，更快加载历史
-          const MAX_SCROLLS = 400;  // ✅ 加大最大滚动次数，支持更长历史
-          const LOAD_WAIT = 1500;   // 懒加载最长等待时间（ms）
+          const MAX_SCROLLS = 400; // ✅ 加大最大滚动次数，支持更长历史
+          const LOAD_WAIT = 1500; // 懒加载最长等待时间（ms）
           const STABLE_THRESHOLD = 4; // 消息数连续N次不增加 → 到顶了
 
           let scrollCount = 0;
@@ -5148,14 +5131,14 @@ function 注入浮动窗口() {
 
     // ─── 持久化翻译缓存（文件存储 + 内存 LRU，跨标签页共享）─────────────
     const CACHE_FILE = "wa_translate_cache.json";
-    const CACHE_MAX_SIZE = 2000;       // 最多缓存 2000 条译文
-    const CACHE_TRIM_TO   = 1500;      // 超出后裁剪到此数量（LRU 淘汰最老的）
+    const CACHE_MAX_SIZE = 2000; // 最多缓存 2000 条译文
+    const CACHE_TRIM_TO = 1500; // 超出后裁剪到此数量（LRU 淘汰最老的）
     const CACHE_FLUSH_INTERVAL = 8000; // 每 8s 批量写入文件（避免频繁 IO）
 
     // 内存层：Map<文本hash, {translated, ts}>，key 用文本内容（便于跨消息复用）
-    const memCache = new Map();   // key=textHash → {translated, ts}
-    let cacheLoaded  = false;
-    let cacheDirty   = false;
+    const memCache = new Map(); // key=textHash → {translated, ts}
+    let cacheLoaded = false;
+    let cacheDirty = false;
     let cacheFlushTimer = null;
 
     // 简单 hash，把文本映射成短 key（碰撞概率极低，足够用）
@@ -5171,7 +5154,8 @@ function 注入浮动窗口() {
     async function loadCacheFromFile() {
       if (cacheLoaded) return;
       cacheLoaded = true;
-      if (!window.__csharpApiReady || typeof window.readFile !== "function") return;
+      if (!window.__csharpApiReady || typeof window.readFile !== "function")
+        return;
       try {
         const data = await window.readFile(CACHE_FILE);
         if (data && Array.isArray(data.entries)) {
@@ -5207,7 +5191,8 @@ function 注入浮动窗口() {
         cacheFlushTimer = null;
         if (!cacheDirty) return;
         cacheDirty = false;
-        if (!window.__csharpApiReady || typeof window.saveFile !== "function") return;
+        if (!window.__csharpApiReady || typeof window.saveFile !== "function")
+          return;
         try {
           const entries = Array.from(memCache.entries());
           await window.saveFile(CACHE_FILE, { entries });
@@ -5302,25 +5287,53 @@ function 注入浮动窗口() {
     }
 
     // ─── DOM 工具 ─────────────────────────────────────────────────────────
-    function getMsgId(akbu) {
-      const row = akbu.closest("[data-id]");
+    // 消息气泡容器的结构特征选择器：
+    // data-id 容器下，包含 selectable-text 的直接文本区（copyable-text）
+    // 用这个替代 _akbu 类名
+    const BUBBLE_SEL =
+      '[data-id] [data-testid="msg-container"], [data-id] .copyable-text';
+
+    // 找到消息气泡元素（传入任意子节点，向上找到文本容器）
+    function findBubble(node) {
+      // 如果自身就是气泡（包含 selectable-text）
+      if (
+        node.querySelector &&
+        node.querySelector('[data-testid="selectable-text"]')
+      ) {
+        // 确认在 data-id 容器内
+        if (node.closest("[data-id]")) return node;
+      }
+      // 向上找包含 selectable-text 的最近祖先（但不超出 data-id 边界）
+      const dataIdEl = node.closest?.("[data-id]");
+      if (!dataIdEl) return null;
+      // 找包含正文的直接容器
+      return (
+        dataIdEl.querySelector('[data-testid="selectable-text"]')
+          ?.parentElement || null
+      );
+    }
+
+    function getMsgId(bubble) {
+      const row = bubble.closest("[data-id]");
       return row ? row.getAttribute("data-id") : null;
     }
 
-    function extractText(akbu) {
-      // ✅ 优先用 selectable-text span（最干净，就是消息正文）
-      const selectableText = akbu.querySelector(
-        '[data-testid="selectable-text"]',
-      );
-      const source = selectableText || akbu.children[0];
+    function extractText(bubble) {
+      // 优先用 selectable-text span（最干净，就是消息正文）
+      const selectableText =
+        bubble.querySelector('[data-testid="selectable-text"]') ||
+        (bubble.getAttribute?.("data-testid") === "selectable-text"
+          ? bubble
+          : null);
+      const source = selectableText || bubble;
       if (!source) return "";
       const clone = source.cloneNode(true);
       clone
         .querySelectorAll('[aria-hidden="true"]')
         .forEach((el) => el.remove());
-      // ✅ 移除引用块，避免翻译引用内容
+      // 移除引用块（结构特征：含 data-testid="quoted-message" 或 role="link"）
       clone
-        .querySelectorAll("._aju3, ._aju8, ._aju9")
+        .querySelectorAll('[data-testid="quoted-message"], [role="link"]')
         .forEach((el) => el.remove());
       clone.querySelectorAll("img[data-plain-text]").forEach((img) => {
         img.replaceWith(
@@ -5330,8 +5343,8 @@ function 注入浮动窗口() {
       return (clone.innerText || clone.textContent || "").trim();
     }
 
-    function insertTranslation(akbu, translated) {
-      if (akbu.querySelector("." + TRANSLATE_CLASS)) return;
+    function insertTranslation(bubble, translated) {
+      if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
       const div = document.createElement("div");
       div.className = TRANSLATE_CLASS;
       div.style.cssText = `
@@ -5347,26 +5360,27 @@ function 注入浮动窗口() {
         word-break: break-word;
       `;
       div.textContent = translated;
-      const timeSpan = akbu.children[akbu.children.length - 1];
-      akbu.insertBefore(div, timeSpan);
+      // 插到最后一个子元素（时间戳）之前
+      const timeSpan = bubble.children[bubble.children.length - 1];
+      bubble.insertBefore(div, timeSpan);
     }
 
-    // ─── 处理单条消息 ─────────────────────────────────────────────────────
-    function handleAkbu(akbu) {
+    // ─── 处理单条消息气泡 ─────────────────────────────────────────────────
+    function handleBubble(bubble) {
       if (!translateEnabled) return;
-      const msgId = getMsgId(akbu);
+      const msgId = getMsgId(bubble);
       if (!msgId) return;
 
       // 已经插入了译文，跳过
-      if (akbu.querySelector("." + TRANSLATE_CLASS)) return;
+      if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
 
-      const text = extractText(akbu);
+      const text = extractText(bubble);
       if (!text || text.length < 2) return;
 
-      // ✅ 先查文本级缓存（跨消息、跨标签页复用相同内容的译文）
+      // 先查文本级缓存（跨消息、跨标签页复用相同内容的译文）
       const cached = getCached(text);
       if (cached) {
-        insertTranslation(akbu, cached);
+        insertTranslation(bubble, cached);
         return;
       }
 
@@ -5379,12 +5393,13 @@ function 注入浮动窗口() {
           const translated = await fetchTranslation(text);
           const result = translated && translated !== text ? translated : "";
           if (result) {
-            // ✅ 写入文本级缓存（后续相同内容不再请求网络）
             setCached(text, result);
-            const live = document.querySelector(
-              '[data-id="' + msgId.replace(/"/g, '\\"') + '"] ._akbu',
+            // 重新查找气泡（可能因虚拟滚动重建）
+            const liveBubble = findBubble(
+              document.querySelector(`[data-id="${CSS.escape(msgId)}"]`) ||
+                document.body,
             );
-            if (live) insertTranslation(live, result);
+            if (liveBubble) insertTranslation(liveBubble, result);
           }
         } catch (e) {
           console.warn("[wa-translate] 失败:", msgId, e);
@@ -5396,7 +5411,13 @@ function 注入浮动窗口() {
 
     // ─── 扫描 & 清除 ──────────────────────────────────────────────────────
     function scanExisting() {
-      document.querySelectorAll("._akbu").forEach(handleAkbu);
+      // 结构特征：找所有 data-id 下包含 selectable-text 的容器
+      document.querySelectorAll("[data-id]").forEach((row) => {
+        const st = row.querySelector('[data-testid="selectable-text"]');
+        if (!st) return;
+        const bubble = st.parentElement;
+        if (bubble) handleBubble(bubble);
+      });
     }
 
     function clearAllTranslations() {
@@ -5405,19 +5426,24 @@ function 注入浮动窗口() {
         .forEach((el) => el.remove());
     }
 
-    // ─── MutationObserver：监听 _akbu 插入（虚拟滚动） ───────────────────
+    // ─── MutationObserver：监听消息气泡插入（虚拟滚动）───────────────────
     const translateMsgObserver = new MutationObserver((mutations) => {
       if (!translateEnabled) return;
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (node.nodeType !== Node.ELEMENT_NODE) continue;
-          if (node.classList && node.classList.contains("_akbu")) {
-            handleAkbu(node);
-            continue;
-          }
-          if (node.querySelectorAll) {
-            node.querySelectorAll("._akbu").forEach(handleAkbu);
-          }
+          // 新节点本身或其后代含 selectable-text = 新消息气泡
+          const targets = node.querySelectorAll
+            ? [
+                ...(node.getAttribute?.("data-testid") === "selectable-text"
+                  ? [node.parentElement]
+                  : []),
+                ...Array.from(
+                  node.querySelectorAll('[data-testid="selectable-text"]'),
+                ).map((el) => el.parentElement),
+              ]
+            : [];
+          targets.forEach((b) => b && handleBubble(b));
         }
       }
     });
@@ -5439,7 +5465,7 @@ function 注入浮动窗口() {
       }, 900);
     }
 
-    // body 级监听：检测消息容器整体替换
+    // body 级监听：检测消息容器整体替换（结构特征：data-scrolltracepolicy）
     const translateChatObserver = new MutationObserver((mutations) => {
       if (!translateEnabled) return;
       for (const mutation of mutations) {
@@ -5455,8 +5481,9 @@ function 注入浮动窗口() {
             onChatSwitched();
             return;
           }
+          // 次选：新增大量 data-id 消息节点 = 切换了聊天
           if (node.querySelectorAll) {
-            const msgs = node.querySelectorAll('div[class*="_amjv"]');
+            const msgs = node.querySelectorAll("[data-id]");
             if (msgs.length >= 3) {
               onChatSwitched();
               return;
@@ -5466,13 +5493,13 @@ function 注入浮动窗口() {
       }
     });
 
-    // 聊天列表点击监听（双保险）
+    // 聊天列表点击监听（双保险，结构特征：role="row/listitem" 或 data-testid）
     document.addEventListener(
       "click",
       (e) => {
         if (!translateEnabled) return;
         const chatItem = e.target.closest(
-          '[role="row"], [role="listitem"], ._ak8q, [data-testid="chat-list-item"]',
+          '[role="row"], [role="listitem"], [data-testid="chat-list-item"]',
         );
         if (!chatItem) return;
         setTimeout(() => {
@@ -5558,8 +5585,15 @@ function 注入浮动窗口() {
       clearAllTranslations();
 
       // ✅ 暂停时立即把缓存写入文件（不等定时器）
-      if (cacheDirty && window.__csharpApiReady && typeof window.saveFile === "function") {
-        if (cacheFlushTimer) { clearTimeout(cacheFlushTimer); cacheFlushTimer = null; }
+      if (
+        cacheDirty &&
+        window.__csharpApiReady &&
+        typeof window.saveFile === "function"
+      ) {
+        if (cacheFlushTimer) {
+          clearTimeout(cacheFlushTimer);
+          cacheFlushTimer = null;
+        }
         const entries = Array.from(memCache.entries());
         window.saveFile(CACHE_FILE, { entries }).catch(() => {});
         cacheDirty = false;
