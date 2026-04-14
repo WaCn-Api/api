@@ -5305,8 +5305,15 @@ function 注入浮动窗口() {
       `;
       div.textContent = translated;
       // 插到时间戳之前（时间戳是最后一个 aria-hidden span）
+      // ✅ 修复：重新从当前 bubble 获取 timeSpan，避免 DOM 变化导致节点不属于同一父节点
       const timeSpan = bubble.querySelector('[aria-hidden="true"]');
-      bubble.insertBefore(div, timeSpan || null);
+      // ✅ 额外检查：确保 timeSpan 确实是 bubble 的子节点
+      if (timeSpan && timeSpan.parentNode === bubble) {
+        bubble.insertBefore(div, timeSpan);
+      } else {
+        // 如果找不到时间戳或时间戳不属于当前 bubble，直接追加到末尾
+        bubble.appendChild(div);
+      }
     }
 
     // ─── 处理单条消息气泡 ─────────────────────────────────────────────────
