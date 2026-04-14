@@ -2779,7 +2779,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.4.6 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) v3.4.5 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
