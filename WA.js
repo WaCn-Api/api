@@ -5289,6 +5289,14 @@ function 注入浮动窗口() {
     function insertTranslation(bubble, translated) {
       // ✅ 去重：在 bubble 内检查，同一气泡只插一次
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
+      
+      // ✅ 关键修复：检查 bubble 是否仍然连接在文档中
+      // WhatsApp 虚拟滚动会移除旧节点，如果 bubble 已不在 DOM 中，直接放弃
+      if (!bubble.isConnected) {
+        console.log("[wa-translate] 气泡已从 DOM 移除，跳过插入:", bubble.getAttribute?.("data-pre-plain-text")?.substring(0, 50));
+        return;
+      }
+      
       const div = document.createElement("div");
       div.className = TRANSLATE_CLASS;
       div.style.cssText = `
@@ -5309,7 +5317,13 @@ function 注入浮动窗口() {
       const timeSpan = bubble.querySelector('[aria-hidden="true"]');
       // ✅ 额外检查：确保 timeSpan 确实是 bubble 的子节点
       if (timeSpan && timeSpan.parentNode === bubble) {
-        bubble.insertBefore(div, timeSpan);
+        try {
+          bubble.insertBefore(div, timeSpan);
+        } catch (e) {
+          // 如果 insertBefore 失败（例如 timeSpan 在检查后被移除），降级为 appendChild
+          console.log("[wa-translate] insertBefore 失败，使用 appendChild:", e.message);
+          bubble.appendChild(div);
+        }
       } else {
         // 如果找不到时间戳或时间戳不属于当前 bubble，直接追加到末尾
         bubble.appendChild(div);
