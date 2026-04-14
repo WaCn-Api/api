@@ -5295,13 +5295,6 @@ function 注入浮动窗口() {
       // ✅ 去重：在 bubble 内检查，同一气泡只插一次
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
       
-      // ✅ 关键修复：检查 bubble 是否仍然连接在文档中
-      // WhatsApp 虚拟滚动会移除旧节点，如果 bubble 已不在 DOM 中，直接放弃
-      if (!bubble.isConnected) {
-        console.log("[wa-translate] 气泡已从 DOM 移除，跳过插入:", bubble.getAttribute?.("data-pre-plain-text")?.substring(0, 50));
-        return;
-      }
-      
       const div = document.createElement("div");
       div.className = TRANSLATE_CLASS;
       div.style.cssText = `
@@ -5321,24 +5314,28 @@ function 注入浮动窗口() {
       // ✅ 终极修复：使用 try-catch 包裹所有 DOM 操作
       // 因为 WhatsApp 的虚拟滚动可能在任何时刻改变 DOM 结构
       try {
-        // 重新从当前 bubble 获取 timeSpan（每次都要重新查询，确保节点是最新的）
-        const timeSpan = bubble.querySelector('[aria-hidden="true"]');
-        
-        // 双重验证：确保 bubble 仍然连接且 timeSpan 存在
+        // 关键修复：检查 bubble 是否仍然连接在文档中
         if (!bubble.isConnected) {
-          console.log("[wa-translate] 气泡在操作过程中被移除，放弃插入");
+          console.log("[wa-translate] 气泡已从 DOM 移除，跳过插入");
           return;
         }
         
+        // 重新从当前 bubble 获取 timeSpan（每次都要重新查询，确保节点是最新的）
+        const timeSpan = bubble.querySelector('[aria-hidden="true"]');
+        
         if (timeSpan && timeSpan.parentNode === bubble) {
+          // 再次确认 bubble 仍然连接，防止在检查和插入之间被移除
+          if (!bubble.isConnected) return;
           bubble.insertBefore(div, timeSpan);
         } else {
           // 如果找不到时间戳或时间戳不属于当前 bubble，直接追加到末尾
+          if (!bubble.isConnected) return;
           bubble.appendChild(div);
         }
       } catch (e) {
         // 任何 DOM 操作失败都静默处理，避免抛出异常影响其他功能
-        console.log("[wa-translate] DOM 操作失败，气泡可能已被移除:", e.message);
+        // 这通常是因为 WhatsApp 虚拟滚动在操作瞬间移除了节点
+        console.log("[wa-translate] DOM 操作失败（气泡可能已被移除）:", e.message);
       }
     }
 
