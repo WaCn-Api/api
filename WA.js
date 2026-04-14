@@ -2779,7 +2779,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.4.5 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-群组管理模块(群组报表) v3.5.1 <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -5252,20 +5252,19 @@ function 注入浮动窗口() {
     }
 
     // ─── DOM 工具 ─────────────────────────────────────────────────────────
-    // 从 DOM 结构确定消息气泡的稳定锚点：
-    //   [data-id]                ← 消息行（虚拟列表项）
-    //     └── [data-pre-plain-text]   ← copyable-text 容器（含发送者+时间元数据）
-    //           └── [data-testid="selectable-text"]  ← 纯文本节点
+    // DOM 结构（实际）：
+    //   [data-id]
+    //     └── [data-pre-plain-text]   ← copyable-text，含发送者/时间元数据
+    //           └── _akbu             ← selectable-text 的直接父节点，是真正的气泡文本容器
+    //                 └── [data-testid="selectable-text"]
+    //                 └── span > span[aria-hidden]  ← 时间戳（深层，非直接子节点）
     //
-    // 我们以 [data-pre-plain-text] 作为"气泡"：
-    //   - 它是 selectable-text 的直接父级或祖父级，层级固定
-    //   - 同一条消息只有一个，天然去重
-    //   - 不依赖任何混淆类名
+    // bubble = selectable-text 的直接父节点（_akbu 层）
+    //   - 结构固定，不依赖类名
+    //   - insertTranslation 直接 appendChild，不用找时间戳
 
     function getBubbleFromST(st) {
-      // selectable-text 的父级就是气泡文本容器（_akbu），
-      // 再往上一层是 data-pre-plain-text（copyable-text）
-      return st.closest("[data-pre-plain-text]") || st.parentElement;
+      return st.parentElement; // selectable-text 的直接父 = 气泡文本容器
     }
 
     function getMsgId(bubble) {
@@ -5287,7 +5286,7 @@ function 注入浮动窗口() {
     }
 
     function insertTranslation(bubble, translated) {
-      // ✅ 去重：在 bubble 内检查，同一气泡只插一次
+      // 去重：同一气泡只插一次
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
       const div = document.createElement("div");
       div.className = TRANSLATE_CLASS;
@@ -5304,9 +5303,8 @@ function 注入浮动窗口() {
         word-break: break-word;
       `;
       div.textContent = translated;
-      // 插到时间戳之前（时间戳是最后一个 aria-hidden span）
-      const timeSpan = bubble.querySelector('[aria-hidden="true"]');
-      bubble.insertBefore(div, timeSpan || null);
+      // ✅ 直接 appendChild，不用找时间戳位置，避免 insertBefore 父子关系报错
+      bubble.appendChild(div);
     }
 
     // ─── 处理单条消息气泡 ─────────────────────────────────────────────────
