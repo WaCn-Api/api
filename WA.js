@@ -4,6 +4,11 @@
 // await advancedApi.restorePoppedTab() 依次分离标签页
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
+// ==================== 脚本版本 ====================
+const SCRIPT_VERSION = "V3.0.2"; // 修改版本号请改这里
+console.log(`[WA.js] 脚本版本：${SCRIPT_VERSION}`);
+// ================================================
+
 // ==================== 本地数据库管理 ====================
 
 // 数据库名称和版本
@@ -5312,21 +5317,28 @@ function 注入浮动窗口() {
         word-break: break-word;
       `;
       div.textContent = translated;
-      // 插到时间戳之前（时间戳是最后一个 aria-hidden span）
-      // ✅ 修复：重新从当前 bubble 获取 timeSpan，避免 DOM 变化导致节点不属于同一父节点
-      const timeSpan = bubble.querySelector('[aria-hidden="true"]');
-      // ✅ 额外检查：确保 timeSpan 确实是 bubble 的子节点
-      if (timeSpan && timeSpan.parentNode === bubble) {
-        try {
+      
+      // ✅ 终极修复：使用 try-catch 包裹所有 DOM 操作
+      // 因为 WhatsApp 的虚拟滚动可能在任何时刻改变 DOM 结构
+      try {
+        // 重新从当前 bubble 获取 timeSpan（每次都要重新查询，确保节点是最新的）
+        const timeSpan = bubble.querySelector('[aria-hidden="true"]');
+        
+        // 双重验证：确保 bubble 仍然连接且 timeSpan 存在
+        if (!bubble.isConnected) {
+          console.log("[wa-translate] 气泡在操作过程中被移除，放弃插入");
+          return;
+        }
+        
+        if (timeSpan && timeSpan.parentNode === bubble) {
           bubble.insertBefore(div, timeSpan);
-        } catch (e) {
-          // 如果 insertBefore 失败（例如 timeSpan 在检查后被移除），降级为 appendChild
-          console.log("[wa-translate] insertBefore 失败，使用 appendChild:", e.message);
+        } else {
+          // 如果找不到时间戳或时间戳不属于当前 bubble，直接追加到末尾
           bubble.appendChild(div);
         }
-      } else {
-        // 如果找不到时间戳或时间戳不属于当前 bubble，直接追加到末尾
-        bubble.appendChild(div);
+      } catch (e) {
+        // 任何 DOM 操作失败都静默处理，避免抛出异常影响其他功能
+        console.log("[wa-translate] DOM 操作失败，气泡可能已被移除:", e.message);
       }
     }
 
