@@ -4,6 +4,11 @@
 // await advancedApi.restorePoppedTab() 依次分离标签页
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
+// ==================== 脚本版本 ====================
+const SCRIPT_VERSION = "v3.4.9"; // 修改版本号请改这里，全局统一使用此版本
+console.log(`[WA.js] 脚本版本：${SCRIPT_VERSION}`);
+// ================================================
+
 // ==================== 本地数据库管理 ====================
 
 // 数据库名称和版本
@@ -2779,7 +2784,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.4.6 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) ${SCRIPT_VERSION} <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
@@ -5289,6 +5294,7 @@ function 注入浮动窗口() {
     function insertTranslation(bubble, translated) {
       // ✅ 去重：在 bubble 内检查，同一气泡只插一次
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
+      
       const div = document.createElement("div");
       div.className = TRANSLATE_CLASS;
       div.style.cssText = `
@@ -5304,9 +5310,42 @@ function 注入浮动窗口() {
         word-break: break-word;
       `;
       div.textContent = translated;
-      // 插到时间戳之前（时间戳是最后一个 aria-hidden span）
-      const timeSpan = bubble.querySelector('[aria-hidden="true"]');
-      bubble.insertBefore(div, timeSpan || null);
+      
+      // ✅ 终极修复：使用 try-catch 包裹所有 DOM 操作
+      // 因为 WhatsApp 的虚拟滚动可能在任何时刻改变 DOM 结构
+      try {
+        // 关键修复：检查 bubble 是否仍然连接在文档中
+        if (!bubble || !bubble.isConnected) {
+          console.log("[wa-translate] 气泡已从 DOM 移除，跳过插入");
+          return;
+        }
+        
+        // 重新从当前 bubble 获取 timeSpan（每次都要重新查询，确保节点是最新的）
+        const timeSpan = bubble.querySelector('[aria-hidden="true"]');
+        
+        // 尝试插入，如果失败则追加到末尾
+        let inserted = false;
+        
+        // 方案 1：如果有 timeSpan 且仍属于 bubble，尝试 insertBefore
+        if (timeSpan && timeSpan.parentNode === bubble && bubble.isConnected) {
+          try {
+            bubble.insertBefore(div, timeSpan);
+            inserted = true;
+          } catch (e) {
+            // insertBefore 失败，降级到 appendChild
+            console.log("[wa-translate] insertBefore 失败，降级使用 appendChild");
+          }
+        }
+        
+        // 方案 2：如果还没插入，直接 appendChild
+        if (!inserted && bubble && bubble.isConnected) {
+          bubble.appendChild(div);
+        }
+      } catch (e) {
+        // 任何 DOM 操作失败都静默处理，避免抛出异常影响其他功能
+        // 这通常是因为 WhatsApp 虚拟滚动在操作瞬间移除了节点
+        console.log("[wa-translate] DOM 操作失败（气泡可能已被移除）:", e.message);
+      }
     }
 
     // ─── 处理单条消息气泡 ─────────────────────────────────────────────────
