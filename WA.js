@@ -5,7 +5,7 @@
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
 // ==================== 脚本版本 ====================
-const SCRIPT_VERSION = "V3.0.2"; // 修改版本号请改这里
+const SCRIPT_VERSION = "v3.4.6"; // 修改版本号请改这里，全局统一使用此版本
 console.log(`[WA.js] 脚本版本：${SCRIPT_VERSION}`);
 // ================================================
 
@@ -2784,7 +2784,7 @@ function 注入浮动窗口() {
 
   浮动窗口.innerHTML = `
       <div class="title-bar" style="background-color: #28a745; color: white;">
-        <span>WA-消息群发模块(群组报表) v3.4.5 <span id="userName" style="color: #007bff;"></span></span>
+        <span>WA-消息群发模块(群组报表) ${SCRIPT_VERSION} <span id="userName" style="color: #007bff;"></span></span>
       </div>
       <div class="content-area">
         <div class="control-panel">
