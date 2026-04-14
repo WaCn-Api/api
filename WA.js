@@ -5,7 +5,7 @@
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
 // ==================== 脚本版本 ====================
-const SCRIPT_VERSION = "v3.4.6"; // 修改版本号请改这里，全局统一使用此版本
+const SCRIPT_VERSION = "v3.4.7"; // 修改版本号请改这里，全局统一使用此版本
 console.log(`[WA.js] 脚本版本：${SCRIPT_VERSION}`);
 // ================================================
 
@@ -5315,7 +5315,7 @@ function 注入浮动窗口() {
       // 因为 WhatsApp 的虚拟滚动可能在任何时刻改变 DOM 结构
       try {
         // 关键修复：检查 bubble 是否仍然连接在文档中
-        if (!bubble.isConnected) {
+        if (!bubble || !bubble.isConnected) {
           console.log("[wa-translate] 气泡已从 DOM 移除，跳过插入");
           return;
         }
@@ -5323,13 +5323,22 @@ function 注入浮动窗口() {
         // 重新从当前 bubble 获取 timeSpan（每次都要重新查询，确保节点是最新的）
         const timeSpan = bubble.querySelector('[aria-hidden="true"]');
         
-        if (timeSpan && timeSpan.parentNode === bubble) {
-          // 再次确认 bubble 仍然连接，防止在检查和插入之间被移除
-          if (!bubble.isConnected) return;
-          bubble.insertBefore(div, timeSpan);
-        } else {
-          // 如果找不到时间戳或时间戳不属于当前 bubble，直接追加到末尾
-          if (!bubble.isConnected) return;
+        // 尝试插入，如果失败则追加到末尾
+        let inserted = false;
+        
+        // 方案 1：如果有 timeSpan 且仍属于 bubble，尝试 insertBefore
+        if (timeSpan && timeSpan.parentNode === bubble && bubble.isConnected) {
+          try {
+            bubble.insertBefore(div, timeSpan);
+            inserted = true;
+          } catch (e) {
+            // insertBefore 失败，降级到 appendChild
+            console.log("[wa-translate] insertBefore 失败，降级使用 appendChild");
+          }
+        }
+        
+        // 方案 2：如果还没插入，直接 appendChild
+        if (!inserted && bubble && bubble.isConnected) {
           bubble.appendChild(div);
         }
       } catch (e) {
