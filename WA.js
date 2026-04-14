@@ -7,7 +7,7 @@
 // ==================== 全局配置 ====================
 // 修改此变量即可更改界面显示的工具版本。
 // 支持外部提前定义覆盖：window.TOOL_VERSION = "4.0.0";
-const TOOL_VERSION = window.TOOL_VERSION || "3.5.2";
+const TOOL_VERSION = window.TOOL_VERSION || "3.5.4";
 // ================================================
 
 // ==================== 本地数据库管理 ====================
@@ -213,7 +213,7 @@ async function 获取未归档群数据报表(progressCallback) {
       {c:"1",n:"美国/加拿大"},{c:"44",n:"英国"},{c:"86",n:"中国"},{c:"91",n:"印度"},
       {c:"55",n:"巴西"},{c:"62",n:"印尼"},{c:"234",n:"尼日利亚"},{c:"7",n:"俄罗斯"},
       {c:"49",n:"德国"},{c:"52",n:"墨西哥"},{c:"33",n:"法国"},{c:"81",n:"日本"}
-    ]; // 简化展示，实际保留原长逻辑
+    ];
     for (const item of codes.sort((a,b)=>b.c.length-a.c.length)) { if (num.startsWith(item.c)) return item.n; }
     return "未知地区";
   }
@@ -241,7 +241,6 @@ async function 获取未归档群数据报表(progressCallback) {
   a.download = `群组报告_${new Date().toISOString().slice(0,10)}.html`;
   a.click();
   
-  // 尝试在 C# 环境中打开
   if (window.bridge) { try { bridge.openReport(html); } catch(e){} }
   return { results, analysis };
 }
@@ -255,7 +254,7 @@ let 滚动监听容器引用 = null;
 function 启动滚动监听() {
   const containerClass = 'div[data-scrolltracepolicy="wa.web.conversation.messages"]';
   if (滚动监听定时器) clearInterval(滚动监听定时器);
-  if (滚动监听容器引用) 滚动监听容器引用.removeEventListener("scroll", 处理滚动);
+  if (滚动监听容器引用) 滚动监听容器Reference.removeEventListener("scroll", 处理滚动);
   滚动监听定时器 = setInterval(() => {
     const container = document.querySelector(containerClass);
     if (container) {
@@ -381,7 +380,7 @@ async function 标记客户(开启 = true) {
     document.removeEventListener("click", 监听聊天点击, true);
     if (滚动监听定时器) { clearInterval(滚动监听定时器); 滚动监听定时器 = null; }
     if (标记防抖定时器) { clearTimeout(标记防抖定时器); 标记防抖定时器 = null; }
-    if (滚动监听容器引用) { 滚动监听容器引用.removeEventListener("scroll", 处理滚动); 滚动监听容器引用 = null; }
+    if (滚动监听容器引用) { 滚动监听容器Reference.removeEventListener("scroll", 处理滚动); 滚动监听容器引用 = null; }
     document.querySelectorAll(".customer-badge, .chat-customer-badge, .header-customer-badge").forEach(e => e.remove());
     已标记消息的ID集合.clear();
     客户标记监控开启 = false;
@@ -398,12 +397,8 @@ function 监听聊天点击(e) {
 }
 
 // ==================== 通用工具 & 发送函数 ====================
-function getInputDom() {
-  return document.querySelector("footer p._aupe.copyable-text, footer div[contenteditable='true'], footer .lexical-rich-text-input div[contenteditable='true']");
-}
-function getSendButton() {
-  return document.querySelector('div[role="button"][aria-label="发送"], span[data-icon="send"], .x1f6kntn[aria-label="发送"]');
-}
+function getInputDom() { return document.querySelector("footer p._aupe.copyable-text, footer div[contenteditable='true'], footer .lexical-rich-text-input div[contenteditable='true']"); }
+function getSendButton() { return document.querySelector('div[role="button"][aria-label="发送"], span[data-icon="send"], .x1f6kntn[aria-label="发送"]'); }
 async function 点击聊天列表(chatName) {
   const norm = s => s?.toLowerCase().replace(/\s+/g,'')||'';
   const findC = el => el.closest('[role="gridcell"], [role="row"], [role="listitem"], ._ak8q, [data-testid="chat-list-item"]');
@@ -416,11 +411,8 @@ async function 点击聊天列表(chatName) {
   return false;
 }
 async function 模拟点击(el) {
-  if (!el) return;
-  el.scrollIntoView({block:"center"}); await new Promise(r=>setTimeout(r,200));
-  const r = el.getBoundingClientRect();
-  const e = new MouseEvent("click", {bubbles:true,clientX:r.left+r.width/2,clientY:r.top+r.height/2});
-  el.dispatchEvent(e); el.click();
+  if (!el) return; el.scrollIntoView({block:"center"}); await new Promise(r=>setTimeout(r,200));
+  const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent("click", {bubbles:true,clientX:r.left+r.width/2,clientY:r.top+r.height/2})); el.click();
 }
 function 单文本发送模式获取DOM() {
   const f = document.querySelector("footer"); const i = f?.querySelector('[contenteditable="true"][role="textbox"]');
@@ -428,10 +420,8 @@ function 单文本发送模式获取DOM() {
   return {ok:!!(i&&b),input:i,sendBtn:b};
 }
 async function 发送文本内容(groupName, content) {
-  if (!await 点击聊天列表(groupName)) return false;
-  await new Promise(r=>setTimeout(r,600));
-  const d = 单文本发送模式获取DOM(); if (!d.ok) return false;
-  d.input.focus();
+  if (!await 点击聊天列表(groupName)) return false; await new Promise(r=>setTimeout(r,600));
+  const d = 单文本发送模式获取DOM(); if (!d.ok) return false; d.input.focus();
   document.execCommand("insertText", false, content.replace(/\n/g, "↵").replace("↵↵", "\n\n").replace("↵", "\n"));
   d.input.dispatchEvent(new Event("input",{bubbles:true})); await new Promise(r=>setTimeout(r,300));
   await 模拟点击(d.sendBtn); return true;
@@ -439,17 +429,14 @@ async function 发送文本内容(groupName, content) {
 function 获取MIME(d) { return d.split(";")[0].split(":")[1]; }
 function Base64ToBlob(d) { const b = atob(d.split(",")[1]); const a = new Uint8Array(b.length); for(let i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return new Blob([a],{type:获取MIME(d)}); }
 async function pasteImage(imgBase64) {
-  const inp = getInputDom(); if (!inp) throw "无输入框";
-  const f = new File([Base64ToBlob(imgBase64)], "img.jpg");
+  const inp = getInputDom(); if (!inp) throw "无输入框"; const f = new File([Base64ToBlob(imgBase64)], "img.jpg");
   inp.dispatchEvent(new ClipboardEvent("paste",{clipboardData:{items:{add:()=>{}}},bubbles:true}));
-  const dt = new DataTransfer(); dt.items.add(f);
-  inp.dispatchEvent(new ClipboardEvent("paste",{clipboardData:dt,bubbles:true}));
+  const dt = new DataTransfer(); dt.items.add(f); inp.dispatchEvent(new ClipboardEvent("paste",{clipboardData:dt,bubbles:true}));
   await new Promise(r=>setTimeout(r,1000));
 }
 async function 发送图片内容(groupName, imgBase64) {
   if (!await 点击聊天列表(groupName)) return false; await new Promise(r=>setTimeout(r,800));
-  const inp = getInputDom(); inp.focus();
-  await pasteImage(imgBase64);
+  const inp = getInputDom(); inp.focus(); await pasteImage(imgBase64);
   const btn = getSendButton(); if (btn) btn.click(); await new Promise(r=>setTimeout(r,800)); return true;
 }
 
@@ -461,15 +448,13 @@ function 注入浮动窗口() {
   style.textContent = `:host{all:initial}#fw{position:fixed;width:310px;height:100%;right:0;top:0;background:#fff;border-left:1px solid #28a745;z-index:99999;font-family:sans-serif;color:#333;display:flex;flex-direction:column}#fw .head{padding:10px;background:#f8f9fa;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;cursor:move}#fw .body{flex:1;overflow-y:auto;padding:15px}#fw button{padding:6px 10px;margin:3px;border:1px solid #ddd;background:#fff;cursor:pointer;border-radius:4px}#fw button:hover{background:#eee}#fw .sel{background:#e6f2ff}#fw textarea{width:100%;height:100px;resize:vertical;margin-top:10px}`;
   shadow.appendChild(style);
   const fw = document.createElement("div"); fw.id = "fw";
-  fw.innerHTML = `<div class="head"><span>WA-消息群发模块 v${TOOL_VERSION} <span id="userName" style="color:#007bff"></span></span><button id="fwClose">✕</button></div>
+  fw.innerHTML = `<div class="head"><span>WA-消息群发模块(群组报表) v${TOOL_VERSION} <span id="userName" style="color:#007bff"></span></span><button id="fwClose">✕</button></div>
   <div class="body">
     <button id="sepBtn" style="width:100%">📄 分离/还原页面</button>
     <button id="loadGroupsBtn" style="width:100%;margin-top:5px">📥 采集未归档群组报表</button>
     <button id="loadContactsBtn" style="width:100%;margin-top:5px">👥 加载群组列表</button>
     <div id="contactsContainer" style="max-height:200px;overflow:auto;border:1px solid #eee;margin:10px 0;display:none"></div>
-    <div style="display:flex;gap:5px;margin-bottom:10px">
-      <button id="selAll">全选</button><button id="invSel">反选</button><button id="clearSel">清空</button>
-    </div>
+    <div style="display:flex;gap:5px;margin-bottom:10px"><button id="selAll">全选</button><button id="invSel">反选</button><button id="clearSel">清空</button></div>
     <textarea id="msgInput" placeholder="输入消息内容..."></textarea>
     <input type="file" id="imgUpload" accept="image/*" style="display:none">
     <button id="uploadImgBtn" style="width:100%;margin-top:5px">📷 选择图片</button>
@@ -492,7 +477,6 @@ function 注入浮动窗口() {
   </div>`;
   shadow.appendChild(fw);
   
-  // 全局引用
   const $ = id => shadow.getElementById(id);
   let selSet = new Set(), groups = [], imgData = null, sending = false;
   
@@ -511,15 +495,10 @@ function 注入浮动窗口() {
   };
 
   $("uploadImgBtn").onclick = () => $("imgUpload").click();
-  $("imgUpload").onchange = e => {
-    const f = e.target.files[0]; if(!f)return;
-    const r = new FileReader(); r.onload = () => { imgData=r.result; $("preview").src=r.result; $("preview").style.display="block"; };
-    r.readAsDataURL(f);
-  };
+  $("imgUpload").onchange = e => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload = () => { imgData=r.result; $("preview").src=r.result; $("preview").style.display="block"; }; r.readAsDataURL(f); };
 
   let sep = false;
-  $("sepBtn").onclick = async () => { try{sep?advancedApi.restorePoppedTab(window.__VbrTabId):advancedApi.popOutCurrentTab(window.__VbrTabId);sep=!sep;$( "sepBtn").textContent=sep?"📄 还原页面":"📄 分离页面"}catch(e){}};
-  
+  $("sepBtn").onclick = async () => { try{sep?advancedApi.restorePoppedTab(window.__VbrTabId):advancedApi.popOutCurrentTab(window.__VbrTabId);sep=!sep;$("sepBtn").textContent=sep?"📄 还原页面":"📄 分离页面"}catch(e){}};
   $("markCustBtn").onclick = async () => { await 标记客户(!客户标记监控开启); 客户标记监控开启 ? $("markCustBtn").textContent = "⏹ 关闭客户标记" : $("markCustBtn").textContent = "⭐ 开启客户标记"; uStatus(客户标记监控开启?"已开启标记":"已关闭标记"); };
   $("clearDBBtn").onclick = async () => { try{indexedDB.deleteDatabase("WhatsAppCustomerDB").onsuccess=()=>{alert("已清除");location.reload()}}catch(e){} };
   
@@ -531,8 +510,7 @@ function 注入浮动窗口() {
     if(sending||selSet.size===0)return;
     const txt = $("msgInput").value; const mode = $$("input[name=mode]:checked")[0].value;
     if(mode!=='img'&&!txt&&!imgData){uStatus("请输入内容或选图");return}
-    sending=true; $("sendBtn").disabled=true;
-    $("progress").style.display="block";
+    sending=true; $("sendBtn").disabled=true; $("progress").style.display="block";
     let s=0,f=0,total=selSet.size;
     for(const gid of selSet){
       const g=groups.find(x=>x.id===gid); if(!g)continue;
@@ -549,7 +527,6 @@ function 注入浮动窗口() {
     uStatus(`完成: 成功${s} 失败${f}`); sending=false; $("sendBtn").disabled=false; $("progress").style.display="none";
   };
   
-  // 抽屉初始化占位
   window.openReactionDrawer = () => initReactionDrawer(shadow);
   window.openScheduleDrawer = () => initScheduleDrawer(shadow);
   window.startTranslateModule = () => initTranslateModule(shadow);
@@ -615,8 +592,7 @@ async function doReactGroup(name, emoji, type, val, delay) {
   for(const m of targetMsgs) {
     m.scrollIntoView({block:"center"}); await new Promise(r=>setTimeout(r,200));
     const mood = document.querySelector('[aria-label="留下心情"], [aria-label="React to message"]');
-    if(mood) mood.click();
-    await new Promise(r=>setTimeout(r,300));
+    if(mood) mood.click(); await new Promise(r=>setTimeout(r,300));
     const opts = document.querySelectorAll("[data-emoji]");
     for(const o of opts) if(o.getAttribute("data-emoji")===emoji){o.click();break}
     await new Promise(r=>setTimeout(r,delay));
@@ -634,17 +610,9 @@ function initScheduleDrawer(shadow) {
   document.body.appendChild(d);
   $("sClose").onclick=()=>d.remove();
   let tasks = [];
-  $("sAdd").onclick = () => {
-    const min=+$("sMin").value||0, sec=+$("sSec").value||0, txt=$("sTxt").value;
-    if(!txt)return; tasks.push({ms:(min*60+sec)*1000, txt}); render();
-  };
+  $("sAdd").onclick = () => { const min=+$("sMin").value||0, sec=+$("sSec").value||0, txt=$("sTxt").value; if(!txt)return; tasks.push({ms:(min*60+sec)*1000, txt}); render(); };
   const render = () => { $("sList").innerHTML = tasks.map((t,i)=>`<div style="padding:8px;border:1px solid #eee;margin-bottom:5px">${t.ms/1000}s后: ${t.txt.substring(0,20)} <button onclick="schedRun(${i})">执行</button></div>`).join(''); };
-  window.schedRun = async (idx) => {
-    const t = tasks[idx]; if(!t)return;
-    tasks.splice(idx,1); render();
-    await new Promise(r=>setTimeout(r,t.ms));
-    for(const gid of window.__selGroups||[]) { const g=window.__groups.find(x=>x.id===gid); if(g) await 发送文本内容(g.name, t.txt); await new Promise(r=>setTimeout(r,1000)); }
-  };
+  window.schedRun = async (idx) => { const t = tasks[idx]; if(!t)return; tasks.splice(idx,1); render(); await new Promise(r=>setTimeout(r,t.ms)); for(const gid of window.__selGroups||[]) { const g=window.__groups.find(x=>x.id===gid); if(g) await 发送文本内容(g.name, t.txt); await new Promise(r=>setTimeout(r,1000)); } };
 }
 
 // ==================== 自动翻译模块 ====================
@@ -705,9 +673,8 @@ function initTranslateModule(shadow) {
 
 // ==================== 初始化 ====================
 if (window.location.hostname.includes("web.whatsapp.com")) {
-  console.log("🚀 WA-Tool v${TOOL_VERSION} Loaded");
+  console.log(`🚀 WA-Tool v${TOOL_VERSION} Loaded`);
   注入浮动窗口();
-  // 暴露全局供外部调用或定时模块读取
   Object.defineProperty(window, '__groups', { get: ()=>window.__groupsData||[] });
   window.__groupsData = [];
 }
