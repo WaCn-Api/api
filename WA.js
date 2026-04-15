@@ -5,7 +5,7 @@
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
 // 在文件顶部添加版本号常量
-const WA_VERSION = "v111";
+const WA_VERSION = "v222";
 
 // ==================== 共享工具函数 ====================
 function isInsideQuotedBlock(element) {
@@ -5102,7 +5102,7 @@ function 注入浮动窗口() {
   })();
 
   // ==================== 自动翻译模块 ====================
-  // ==================== 自动翻译模块（最终稳定版） ====================
+  // ==================== 自动翻译模块（完整稳定版） ====================
   (() => {
     const translateBtn = shadowRoot.getElementById("translateToggleBtn");
     if (!translateBtn) {
@@ -5127,7 +5127,7 @@ function 注入浮动窗口() {
     let cacheDirty = false;
     let cacheFlushTimer = null;
 
-    const translatePending = new Set();
+    const translatePending = new Set(); // 正在翻译的文本hash
     let translateQueue = [];
     let translateWorkers = 0;
 
@@ -5220,6 +5220,7 @@ function 注入浮动窗口() {
       }
     }
 
+    // C# 代理请求，绕过CSP
     async function fetchTranslation(text) {
       const url = buildTranslateUrl(text);
       const maxWait = 2000;
@@ -5270,12 +5271,10 @@ function 注入浮动窗口() {
       }
     }
 
-    // 获取完整文本（仅当 DOM 完整时返回非空字符串）
+    // 获取完整文本（要求DOM完整）
     function getBubbleFullText(bubble) {
-      // 必须存在文本容器才提取，否则返回空，等待下次扫描
       const textContainer = bubble.querySelector("._ahy1, ._akbu");
       if (!textContainer) return "";
-
       const texts = [];
       bubble
         .querySelectorAll('[data-testid="selectable-text"]')
@@ -5291,7 +5290,7 @@ function 注入浮动窗口() {
       return texts.join("\n");
     }
 
-    // 插入译文（严格检查）
+    // 插入译文
     function insertTranslation(bubble, translated) {
       if (!bubble) return;
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
@@ -5312,40 +5311,76 @@ function 注入浮动窗口() {
     `;
       div.textContent = translated;
 
-      const target = bubble.querySelector("._ahy1");
-      if (target) {
-        target.appendChild(div);
+      const target =
+        bubble.querySelector("._ahy1") ||
+        bubble.querySelector("._akbu") ||
+        bubble;
+      target.appendChild(div);
+    }
+
+    // 滚动补偿：插入时保持视口锚点不动
+    function preserveScrollPosition(insertFn) {
+      const scroller =
+        document.querySelector(
+          '[data-scrolltracepolicy="wa.web.conversation.messages"]',
+        ) ||
+        document.querySelector('#main [role="region"]') ||
+        document
+          .querySelector("._amk4, ._amkz")
+          ?.closest('[style*="overflow"]');
+      if (!scroller) {
+        insertFn();
         return;
       }
-      const akbu = bubble.querySelector("._akbu");
-      if (akbu) {
-        akbu.appendChild(div);
+      const visibleBubbles = Array.from(
+        document.querySelectorAll("._amk4, ._amkz"),
+      ).filter((b) => {
+        const rect = b.getBoundingClientRect();
+        return rect.top < window.innerHeight && rect.bottom > 0;
+      });
+      const anchor = visibleBubbles[0];
+      if (!anchor) {
+        insertFn();
         return;
       }
-      bubble.appendChild(div);
+      const anchorTopBefore = anchor.getBoundingClientRect().top;
+      const oldScrollTop = scroller.scrollTop;
+      insertFn();
+      const anchorTopAfter = anchor.getBoundingClientRect().top;
+      const delta = anchorTopAfter - anchorTopBefore;
+      if (Math.abs(delta) > 0.5) {
+        scroller.scrollTop = oldScrollTop + delta;
+      }
+    }
+
+    // 判断是否在视口内（用于可见性优先）
+    function isBubbleInViewport(bubble) {
+      const rect = bubble.getBoundingClientRect();
+      return rect.top < window.innerHeight && rect.bottom > 0;
     }
 
     // 处理单个气泡
     function handleBubble(bubble) {
       if (!translateEnabled) return;
-      // 只处理真正的消息气泡
       if (
         !bubble.classList?.contains("_amk4") &&
         !bubble.classList?.contains("_amkz")
       )
         return;
-      // 排除系统消息
       if (bubble.querySelector('[data-icon="megaphone-refreshed"]')) return;
-      // 已有译文则跳过
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
 
       const text = getBubbleFullText(bubble);
-      if (!text || text.length < 2) return; // DOM 未完整，等待后续扫描
+      if (!text || text.length < 2) return; // DOM未完整，等待下次
 
-      // 查缓存
       const cached = getCached(text);
+      const inView = isBubbleInViewport(bubble);
+
       if (cached) {
-        insertTranslation(bubble, cached);
+        // 不在视口内才插入（避免当前阅读区域跳动）
+        if (!inView) {
+          preserveScrollPosition(() => insertTranslation(bubble, cached));
+        }
         return;
       }
 
@@ -5372,12 +5407,19 @@ function 注入浮动窗口() {
                   liveBubble &&
                   !liveBubble.querySelector("." + TRANSLATE_CLASS)
                 ) {
-                  insertTranslation(liveBubble, result);
+                  if (!isBubbleInViewport(liveBubble)) {
+                    preserveScrollPosition(() =>
+                      insertTranslation(liveBubble, result),
+                    );
+                  }
                 }
               }
             } else {
-              if (!bubble.querySelector("." + TRANSLATE_CLASS)) {
-                insertTranslation(bubble, result);
+              if (
+                !bubble.querySelector("." + TRANSLATE_CLASS) &&
+                !isBubbleInViewport(bubble)
+              ) {
+                preserveScrollPosition(() => insertTranslation(bubble, result));
               }
             }
           }
@@ -5389,21 +5431,43 @@ function 注入浮动窗口() {
       });
     }
 
-    // 扫描现有消息
+    // 扫描现有消息（优先可见）
     function scanExisting() {
-      const bubbles = document.querySelectorAll("._amk4, ._amkz");
+      const bubbles = Array.from(document.querySelectorAll("._amk4, ._amkz"));
       console.log(`[wa-translate] 扫描到 ${bubbles.length} 个气泡`);
 
+      const validBubbles = bubbles.filter(
+        (b) => !b.querySelector('[data-icon="megaphone-refreshed"]'),
+      );
+      const visibleBubbles = [];
+      const hiddenBubbles = [];
+
+      validBubbles.forEach((bubble) => {
+        if (isBubbleInViewport(bubble)) {
+          visibleBubbles.push(bubble);
+        } else {
+          hiddenBubbles.push(bubble);
+        }
+      });
+
+      console.log(
+        `[wa-translate] 可见气泡: ${visibleBubbles.length}, 隐藏气泡: ${hiddenBubbles.length}`,
+      );
+
       const seenInScan = new Set();
-      bubbles.forEach((bubble) => {
-        const msgRow = bubble.closest("[data-id]");
-        const msgId = msgRow?.getAttribute("data-id");
+      const processBubble = (bubble) => {
+        const msgId = bubble.closest("[data-id]")?.getAttribute("data-id");
         if (msgId) {
           if (seenInScan.has(msgId)) return;
           seenInScan.add(msgId);
         }
         handleBubble(bubble);
-      });
+      };
+
+      // 先处理可见气泡（用于发起翻译请求，但不插入）
+      visibleBubbles.forEach(processBubble);
+      // 后处理隐藏气泡（可插入译文）
+      hiddenBubbles.forEach(processBubble);
     }
 
     function clearAllTranslations() {
@@ -5412,7 +5476,7 @@ function 注入浮动窗口() {
         .forEach((el) => el.remove());
     }
 
-    // MutationObserver：监听新增气泡
+    // MutationObserver 监听新增气泡
     const msgObserver = new MutationObserver((mutations) => {
       if (!translateEnabled) return;
       for (const mut of mutations) {
@@ -5437,7 +5501,7 @@ function 注入浮动窗口() {
       }
     });
 
-    // 聊天切换
+    // 聊天切换监听
     let switchTimer = null;
     const chatObserver = new MutationObserver((mutations) => {
       if (!translateEnabled) return;
@@ -5474,6 +5538,20 @@ function 注入浮动窗口() {
         setTimeout(() => scanExisting(), 1000);
       },
       true,
+    );
+
+    // 滚动停止后重新扫描，让离开视口的消息补上译文
+    let scrollDebounceTimer = null;
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (!translateEnabled) return;
+        if (scrollDebounceTimer) clearTimeout(scrollDebounceTimer);
+        scrollDebounceTimer = setTimeout(() => {
+          scanExisting();
+        }, 300);
+      },
+      { passive: true },
     );
 
     // 开启/暂停
