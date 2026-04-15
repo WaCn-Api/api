@@ -2348,7 +2348,7 @@ async function 发送图文同条(groupName, imgBase64, caption) {
 
 // ==================== 浮动窗口代码 ====================
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v3.4.5";
+const WA_VERSION = "v3.4.999";
 
 function 注入浮动窗口() {
   // 创建宿主元素并添加到body
@@ -4129,9 +4129,8 @@ function 注入浮动窗口() {
       if (
         node.getAttribute("role") === "button" &&
         (node.getAttribute("aria-label")?.includes("引用") ||
-          node.getAttribute("aria-label")?.includes("quoted"))
-      )
-        return true;
+         node.getAttribute("aria-label")?.includes("quoted"))
+      ) return true;
       node = node.parentElement;
     }
     return false;
@@ -4333,11 +4332,8 @@ function 注入浮动窗口() {
     function getMessageScroller() {
       // 结构特征：包含消息元素 data-pre-plain-text 的可滚动容器
       // 优先用 data-testid（稳定语义属性）
-      const byTestId = document.querySelector(
-        '[data-testid="conversation-panel-messages"]',
-      );
-      if (byTestId && byTestId.scrollHeight > byTestId.clientHeight)
-        return byTestId;
+      const byTestId = document.querySelector('[data-testid="conversation-panel-messages"]');
+      if (byTestId && byTestId.scrollHeight > byTestId.clientHeight) return byTestId;
 
       // 次选：#main 下 role="region" 的可滚动区
       const byRole = document.querySelector('#main [role="region"]');
@@ -4462,9 +4458,7 @@ function 注入浮动窗口() {
           // 克隆后移除引用块（结构特征：引用块含 role="link" 或 data-testid="quoted-message"）
           const clone = selectableText.cloneNode(true);
           clone
-            .querySelectorAll(
-              '[data-testid="quoted-message"], [role="link"], [aria-label][tabindex="-1"]:not(span)',
-            )
+            .querySelectorAll('[data-testid="quoted-message"], [role="link"], [aria-label][tabindex="-1"]:not(span)')
             .forEach((el) => el.remove());
           text = clone.textContent || "";
         } else {
@@ -4509,31 +4503,21 @@ function 注入浮动窗口() {
             // 结构特征：data-pre-plain-text 下的 copyable-text，或含 data-testid="selectable-text" 的区域
             let text = "";
             // ✅ 只取主体 selectable-text，排除引用块内的
-            const allSTs = msg.querySelectorAll(
-              '[data-testid="selectable-text"]',
-            );
+            const allSTs = msg.querySelectorAll('[data-testid="selectable-text"]');
             let mainST = null;
             for (const st of allSTs) {
-              if (
-                !st.classList.contains("quoted-mention") &&
-                !isInsideQuotedBlock(st)
-              ) {
+              if (!st.classList.contains("quoted-mention") && !isInsideQuotedBlock(st)) {
                 mainST = st;
                 break;
               }
             }
-            const bubbleContent =
-              mainST ||
-              msg.querySelector(
-                '[data-testid="conversation-compose-box-input"]',
-              );
+            const bubbleContent = mainST ||
+              msg.querySelector('[data-testid="conversation-compose-box-input"]');
             if (bubbleContent) {
               const clone = bubbleContent.cloneNode(true);
               // 移除时间戳(aria-hidden)、reaction
               clone
-                .querySelectorAll(
-                  '[aria-hidden="true"], [data-testid="msg-reaction"]',
-                )
+                .querySelectorAll('[aria-hidden="true"], [data-testid="msg-reaction"]')
                 .forEach((el) => el.remove());
               text = clone.textContent || "";
             } else {
@@ -4630,10 +4614,10 @@ function 注入浮动窗口() {
       // 次选：button 带 aria-label 含已知分类名（多语言）
       return document.querySelectorAll(
         'button[aria-label*="表情"], button[aria-label*="人物"], button[aria-label*="动物"],' +
-          'button[aria-label*="食物"], button[aria-label*="活动"], button[aria-label*="旅行"],' +
-          'button[aria-label*="物件"], button[aria-label*="符号"], button[aria-label*="旗帜"],' +
-          'button[aria-label*="Smileys"], button[aria-label*="People"], button[aria-label*="Animals"],' +
-          'button[title*="表情"], button[title*="人物"], button[title*="动物"]',
+        'button[aria-label*="食物"], button[aria-label*="活动"], button[aria-label*="旅行"],' +
+        'button[aria-label*="物件"], button[aria-label*="符号"], button[aria-label*="旗帜"],' +
+        'button[aria-label*="Smileys"], button[aria-label*="People"], button[aria-label*="Animals"],' +
+        'button[title*="表情"], button[title*="人物"], button[title*="动物"]',
       );
     }
 
@@ -4791,12 +4775,10 @@ function 注入浮动窗口() {
           const popup = getSkinTonePopup();
           if (popup) return { type: "skin", popup };
           // 面板消失 = 点赞成功
-          if (!document.querySelector('[data-menu-content="true"]'))
-            return { type: "done" };
+          if (!document.querySelector('[data-menu-content="true"]')) return { type: "done" };
           return null;
         },
-        1000,
-        40,
+        1000, 40,
       );
 
       if (!result || result.type === "done") return true;
@@ -4831,8 +4813,7 @@ function 注入浮动窗口() {
           // 等元素稳定出现在 DOM 里（最多等 800ms，出现即停）
           const fresh = await waitFor(
             () => document.querySelector(`[data-id="${CSS.escape(dataId)}"]`),
-            800,
-            30,
+            800, 30,
           );
           if (fresh) {
             liveTarget = fresh;
@@ -4840,49 +4821,28 @@ function 注入浮动窗口() {
             const rect = fresh.getBoundingClientRect();
             if (rect.top < 0 || rect.bottom > window.innerHeight) {
               fresh.scrollIntoView({ behavior: "auto", block: "center" });
-              await waitFor(
-                () => {
-                  const r = fresh.getBoundingClientRect();
-                  return r.top >= 0 && r.bottom <= window.innerHeight
-                    ? true
-                    : null;
-                },
-                600,
-                30,
-              );
+              await waitFor(() => {
+                const r = fresh.getBoundingClientRect();
+                return r.top >= 0 && r.bottom <= window.innerHeight ? true : null;
+              }, 600, 30);
             }
           }
         }
 
         // 触发 hover，让 WhatsApp 显示操作按钮
         const triggerHover = () => {
-          liveTarget.dispatchEvent(
-            new MouseEvent("mouseover", { bubbles: true }),
-          );
-          liveTarget.dispatchEvent(
-            new MouseEvent("mouseenter", { bubbles: true }),
-          );
-          liveTarget.dispatchEvent(
-            new MouseEvent("mousemove", { bubbles: true }),
-          );
+          liveTarget.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+          liveTarget.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+          liveTarget.dispatchEvent(new MouseEvent("mousemove",  { bubbles: true }));
         };
         triggerHover();
 
         // ✅ 智能等待心情按钮，出现即操作；等不到就再 hover 一次再等
-        const MOOD_SEL =
-          '[aria-label="留下心情"], [aria-label="React to message"]';
-        let moodBtn = await waitFor(
-          () => document.querySelector(MOOD_SEL),
-          1200,
-          40,
-        );
+        const MOOD_SEL = '[aria-label="留下心情"], [aria-label="React to message"]';
+        let moodBtn = await waitFor(() => document.querySelector(MOOD_SEL), 1200, 40);
         if (!moodBtn) {
           triggerHover();
-          moodBtn = await waitFor(
-            () => document.querySelector(MOOD_SEL),
-            800,
-            40,
-          );
+          moodBtn = await waitFor(() => document.querySelector(MOOD_SEL), 800, 40);
         }
         if (!moodBtn) return false;
 
@@ -4968,8 +4928,7 @@ function 注入浮动窗口() {
       // ✅ 智能等待聊天内容加载（等消息出现，而不是固定等 3 秒）
       await waitFor(
         () => document.querySelector("div[data-pre-plain-text]"),
-        4000,
-        80,
+        4000, 80,
       );
 
       const scroller = getMessageScroller();
@@ -4979,8 +4938,7 @@ function 注入浮动窗口() {
       // ✅ 等滚动完成后消息容器稳定（等底部最后一条出现）
       await waitFor(
         () => document.querySelector("div[data-pre-plain-text]"),
-        1000,
-        40,
+        1000, 40,
       );
 
       // 如果是关键词模式，边滚动边查找，找到即停
@@ -4998,8 +4956,8 @@ function 注入浮动窗口() {
         if (!foundMessages) {
           // 向上滚动加载历史消息，智能等待懒加载完成
           const SCROLL_STEP = 1200; // ✅ 加大每次滚动距离，更快加载历史
-          const MAX_SCROLLS = 400; // ✅ 加大最大滚动次数，支持更长历史
-          const LOAD_WAIT = 1500; // 懒加载最长等待时间（ms）
+          const MAX_SCROLLS = 400;  // ✅ 加大最大滚动次数，支持更长历史
+          const LOAD_WAIT = 1500;   // 懒加载最长等待时间（ms）
           const STABLE_THRESHOLD = 4; // 消息数连续N次不增加 → 到顶了
 
           let scrollCount = 0;
@@ -5160,24 +5118,24 @@ function 注入浮动窗口() {
 
   // ==================== 自动翻译模块 ====================
   (() => {
-    // ==================== 翻译模块 ====================
-    let translateEnabled = false;
     const TRANSLATE_CLASS = "wa-translate-result";
     const TARGET_LANG = "zh-CN";
     const CONCURRENCY = 3;
     const DELAY = 100;
 
-    // 缓存相关
+    // ─── 持久化翻译缓存（文件存储 + 内存 LRU，跨标签页共享）─────────────
     const CACHE_FILE = "wa_translate_cache.json";
-    const CACHE_MAX_SIZE = 2000;
-    const CACHE_TRIM_TO = 1500;
-    const CACHE_FLUSH_INTERVAL = 8000;
+    const CACHE_MAX_SIZE = 2000;       // 最多缓存 2000 条译文
+    const CACHE_TRIM_TO   = 1500;      // 超出后裁剪到此数量（LRU 淘汰最老的）
+    const CACHE_FLUSH_INTERVAL = 8000; // 每 8s 批量写入文件（避免频繁 IO）
 
-    const memCache = new Map();
-    let cacheLoaded = false;
-    let cacheDirty = false;
+    // 内存层：Map<文本hash, {translated, ts}>，key 用文本内容（便于跨消息复用）
+    const memCache = new Map();   // key=textHash → {translated, ts}
+    let cacheLoaded  = false;
+    let cacheDirty   = false;
     let cacheFlushTimer = null;
 
+    // 简单 hash，把文本映射成短 key（碰撞概率极低，足够用）
     function hashText(str) {
       let h = 0;
       for (let i = 0; i < str.length; i++) {
@@ -5186,57 +5144,70 @@ function 注入浮动窗口() {
       return (h >>> 0).toString(36);
     }
 
+    // 从文件加载缓存（启动时调一次）
     async function loadCacheFromFile() {
       if (cacheLoaded) return;
       cacheLoaded = true;
-      if (!window.__csharpApiReady || typeof window.readFile !== "function")
-        return;
+      if (!window.__csharpApiReady || typeof window.readFile !== "function") return;
       try {
         const data = await window.readFile(CACHE_FILE);
         if (data && Array.isArray(data.entries)) {
+          let loaded = 0;
           for (const [k, v] of data.entries) {
             memCache.set(k, v);
+            loaded++;
           }
-          console.log(`[wa-translate] 加载本地缓存 ${memCache.size} 条`);
+          console.log(`[wa-translate] 加载本地缓存 ${loaded} 条`);
+          // 加载后如果已超限，立即 trim
           if (memCache.size > CACHE_MAX_SIZE) trimCache();
         }
-      } catch (e) {}
+      } catch (e) {
+        // 文件不存在或格式错误，忽略
+      }
     }
 
+    // LRU 裁剪：淘汰最老的条目
     function trimCache() {
       if (memCache.size <= CACHE_TRIM_TO) return;
+      // Map 保持插入顺序，最早的在前面
       const iter = memCache.keys();
       while (memCache.size > CACHE_TRIM_TO) {
         memCache.delete(iter.next().value);
       }
+      console.log(`[wa-translate] 缓存已裁剪至 ${memCache.size} 条`);
     }
 
+    // 批量写入文件（防抖，避免频繁 IO）
     function scheduleCacheFlush() {
       if (cacheFlushTimer) return;
       cacheFlushTimer = setTimeout(async () => {
         cacheFlushTimer = null;
         if (!cacheDirty) return;
         cacheDirty = false;
-        if (!window.__csharpApiReady || typeof window.saveFile !== "function")
-          return;
+        if (!window.__csharpApiReady || typeof window.saveFile !== "function") return;
         try {
           const entries = Array.from(memCache.entries());
           await window.saveFile(CACHE_FILE, { entries });
           console.log(`[wa-translate] 缓存已写入文件，共 ${entries.length} 条`);
-        } catch (e) {}
+        } catch (e) {
+          console.warn("[wa-translate] 缓存写入失败:", e);
+        }
       }, CACHE_FLUSH_INTERVAL);
     }
 
+    // 查文本缓存（先内存，无需查文件——文件已在启动时全量加载）
     function getCached(text) {
       const k = hashText(text);
       const entry = memCache.get(k);
       if (!entry) return null;
+      // 更新时间戳（LRU 访问刷新）—— 重新插入到 Map 末尾
       memCache.delete(k);
       entry.ts = Date.now();
       memCache.set(k, entry);
       return entry.translated;
     }
 
+    // 写文本缓存
     function setCached(text, translated) {
       const k = hashText(text);
       memCache.set(k, { translated, ts: Date.now() });
@@ -5245,13 +5216,20 @@ function 注入浮动窗口() {
       scheduleCacheFlush();
     }
 
-    const translatePending = new Set();
+    const translatePending = new Set(); // key=msgId，防止同一消息重复请求
     let translateQueue = [];
     let translateWorkers = 0;
+    let translateEnabled = false;
+    let translateChatSwitchDebounce = null;
+    let translateLastChatId = null;
 
+    const translateBtn = shadowRoot.getElementById("translateToggleBtn");
+
+    // ─── 翻译 API ─────────────────────────────────────────────────────────
     function buildTranslateUrl(text) {
       return (
-        "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" +
+        "https://translate.googleapis.com/translate_a/single" +
+        "?client=gtx&sl=auto&tl=" +
         TARGET_LANG +
         "&dt=t&q=" +
         encodeURIComponent(text)
@@ -5270,16 +5248,6 @@ function 注入浮动窗口() {
       }
     }
 
-    async function httpGetJson(url) {
-      try {
-        const res = await fetch(url);
-        const text = await res.text();
-        return { success: true, data: text };
-      } catch (e) {
-        return { success: false };
-      }
-    }
-
     async function fetchTranslation(text) {
       const res = await httpGetJson(buildTranslateUrl(text));
       if (!res.success) throw new Error("network");
@@ -5288,12 +5256,15 @@ function 注入浮动窗口() {
       return r;
     }
 
+    // ─── 并发队列 ─────────────────────────────────────────────────────────
     async function runTranslateWorker() {
       while (translateQueue.length > 0) {
         const task = translateQueue.shift();
         try {
           await task();
-        } catch (e) {}
+        } catch (e) {
+          /* 忽略单条失败 */
+        }
         await new Promise((r) => setTimeout(r, DELAY));
       }
       translateWorkers--;
@@ -5307,230 +5278,291 @@ function 注入浮动窗口() {
       }
     }
 
-    // ✅ 核心：找到真正的消息气泡容器
-    function findMessageBubble(st) {
-      // 向上查找消息容器（包含 data-pre-plain-text 或特定 class）
-      let parent = st.parentElement;
-      while (parent && parent !== document.body) {
-        // 检查是否是消息气泡
-        if (
-          parent.hasAttribute?.("data-pre-plain-text") ||
-          parent.classList?.contains("message-in") ||
-          parent.classList?.contains("message-out") ||
-          parent.classList?.contains("_amk4") ||
-          parent.classList?.contains("_amkz")
-        ) {
-          return parent;
-        }
-        parent = parent.parentElement;
-      }
-      return null;
+    // ─── DOM 工具 ─────────────────────────────────────────────────────────
+    // DOM 结构（实际）：
+    //   [data-id]
+    //     └── [data-pre-plain-text]   ← copyable-text，含发送者/时间元数据
+    //           └── [role="button"][aria-label="引用的消息"]  ← 引用块（可能存在）
+    //           └── _akbu             ← selectable-text 的直接父节点，是真正的气泡文本容器
+    //                 └── [data-testid="selectable-text"]
+    //
+    // isInsideQuotedBlock() 已在外层定义，此处直接使用
+
+    function getBubbleFromST(st) {
+      return st.parentElement; // selectable-text 的直接父 = 气泡文本容器
+    }
+
+    function getMsgId(bubble) {
+      const row = bubble.closest("[data-id]");
+      return row ? row.getAttribute("data-id") : null;
+    }
+
+    function extractText(bubble) {
+      const st = bubble.querySelector('[data-testid="selectable-text"]')
+        || (bubble.getAttribute?.("data-testid") === "selectable-text" ? bubble : null);
+      const source = st || bubble;
+      const clone = source.cloneNode(true);
+      clone.querySelectorAll('[aria-hidden="true"]').forEach((el) => el.remove());
+      clone.querySelectorAll('[data-testid="quoted-message"], [role="link"]').forEach((el) => el.remove());
+      clone.querySelectorAll("img[data-plain-text]").forEach((img) => {
+        img.replaceWith(document.createTextNode(img.getAttribute("data-plain-text")));
+      });
+      return (clone.innerText || clone.textContent || "").trim();
     }
 
     function insertTranslation(bubble, translated) {
+      // 去重：同一气泡只插一次
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
-
       const div = document.createElement("div");
       div.className = TRANSLATE_CLASS;
       div.style.cssText = `
-    margin: 6px 0 2px 0;
-    padding: 6px 10px;
-    border-left: 3px solid #1a73e8;
-    background: rgba(26,115,232,0.08);
-    border-radius: 0 6px 6px 0;
-    font-size: 13px;
-    line-height: 1.5;
-    color: #1a73e8;
-    white-space: pre-wrap;
-    word-break: break-word;
-  `;
+        margin: 4px 0 2px 0;
+        padding: 4px 8px;
+        border-left: 3px solid #1a73e8;
+        background: rgba(26,115,232,0.07);
+        border-radius: 0 4px 4px 0;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #ff00a5;
+        white-space: pre-wrap;
+        word-break: break-word;
+      `;
       div.textContent = translated;
-
-      // 找到文本容器
-      const textContainer = bubble.querySelector(
-        "._akbu, .copyable-text, ._ahy1, [data-pre-plain-text]",
-      );
-      if (textContainer) {
-        textContainer.appendChild(div);
-      } else {
-        bubble.appendChild(div);
-      }
+      // ✅ 直接 appendChild，不用找时间戳位置，避免 insertBefore 父子关系报错
+      bubble.appendChild(div);
     }
 
+    // ─── 处理单条消息气泡 ─────────────────────────────────────────────────
     function handleBubble(bubble) {
       if (!translateEnabled) return;
+      const msgId = getMsgId(bubble);
+      if (!msgId) return;
 
-      // 获取消息 ID
-      const msgId =
-        bubble.getAttribute("data-id") ||
-        bubble.closest("[data-id]")?.getAttribute("data-id");
-
-      // 已经翻译过
+      // 已经插入了译文，跳过（气泡内去重）
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
 
-      const text = getBubbleFullText(bubble);
+      const text = extractText(bubble);
       if (!text || text.length < 2) return;
 
-      // 查缓存
+      // 先查文本级缓存（跨消息、跨标签页复用相同内容的译文）
       const cached = getCached(text);
       if (cached) {
         insertTranslation(bubble, cached);
         return;
       }
 
-      // 防止重复请求（用文本 hash 做 key）
-      const textKey = hashText(text);
-      if (translatePending.has(textKey)) return;
+      // 同一 msgId 已在请求中，跳过
+      if (translatePending.has(msgId)) return;
 
-      translatePending.add(textKey);
+      translatePending.add(msgId);
       enqueueTranslate(async () => {
         try {
           const translated = await fetchTranslation(text);
           const result = translated && translated !== text ? translated : "";
           if (result) {
             setCached(text, result);
-            // 重新定位气泡
-            const msgRow = document.querySelector(
-              `[data-id="${CSS.escape(msgId)}"]`,
-            );
-            if (msgRow) {
-              const liveBubble =
-                msgRow.querySelector("._amk4, ._amkz") || msgRow;
-              if (liveBubble) insertTranslation(liveBubble, result);
+            // 重新从 DOM 精确查找气泡（虚拟滚动可能重建了节点）
+            const row = document.querySelector(`[data-id="${CSS.escape(msgId)}"]`);
+            if (row) {
+              const st = row.querySelector('[data-testid="selectable-text"]');
+              if (st) {
+                const liveBubble = getBubbleFromST(st);
+                if (liveBubble) insertTranslation(liveBubble, result);
+              }
             }
           }
         } catch (e) {
-          console.warn("[wa-translate] 失败:", e);
+          console.warn("[wa-translate] 失败:", msgId, e);
         } finally {
-          translatePending.delete(textKey);
+          translatePending.delete(msgId);
         }
       });
     }
 
+    // ─── 扫描 & 清除 ──────────────────────────────────────────────────────
     function scanExisting() {
-      // ✅ 直接查找所有消息气泡
-      const bubbles = document.querySelectorAll(
-        "[data-pre-plain-text], .message-in, .message-out, ._amk4, ._amkz",
-      );
       const seen = new Set();
-
-      console.log(`[wa-translate] 扫描到 ${bubbles.length} 个消息气泡`);
-
-      bubbles.forEach((bubble) => {
-        // 排除系统消息
-        if (bubble.querySelector('[data-icon="megaphone-refreshed"]')) return;
-
-        const msgId = bubble.closest("[data-id]")?.getAttribute("data-id");
-        if (!msgId || seen.has(msgId)) return;
-
-        seen.add(msgId);
+      document.querySelectorAll('[data-testid="selectable-text"]').forEach((st) => {
+        // ✅ 跳过引用块里的 selectable-text
+        if (isInsideQuotedBlock(st)) return;
+        const bubble = getBubbleFromST(st);
+        if (!bubble || seen.has(bubble)) return;
+        seen.add(bubble);
         handleBubble(bubble);
       });
     }
 
     function clearAllTranslations() {
-      document
-        .querySelectorAll("." + TRANSLATE_CLASS)
-        .forEach((el) => el.remove());
+      document.querySelectorAll("." + TRANSLATE_CLASS).forEach((el) => el.remove());
     }
 
-    // MutationObserver 监听新消息
+    // ─── MutationObserver：监听消息气泡插入（虚拟滚动）───────────────────
     const translateMsgObserver = new MutationObserver((mutations) => {
       if (!translateEnabled) return;
-
+      const seen = new Set();
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (node.nodeType !== Node.ELEMENT_NODE) continue;
-
-          // 查找新增的消息气泡
-          const newBubbles = [];
-          if (
-            node.hasAttribute?.("data-pre-plain-text") ||
-            node.classList?.contains("message-in") ||
-            node.classList?.contains("message-out") ||
-            node.classList?.contains("_amk4") ||
-            node.classList?.contains("_amkz")
-          ) {
-            newBubbles.push(node);
-          }
+          const sts = [];
+          if (node.getAttribute?.("data-testid") === "selectable-text") sts.push(node);
           if (node.querySelectorAll) {
-            node
-              .querySelectorAll(
-                "[data-pre-plain-text], .message-in, .message-out, ._amk4, ._amkz",
-              )
-              .forEach((b) => newBubbles.push(b));
+            node.querySelectorAll('[data-testid="selectable-text"]').forEach(el => sts.push(el));
           }
-
-          newBubbles.forEach((bubble) => {
-            if (!bubble.querySelector('[data-icon="megaphone-refreshed"]')) {
-              handleBubble(bubble);
-            }
-          });
+          for (const st of sts) {
+            // ✅ 跳过引用块里的 selectable-text
+            if (isInsideQuotedBlock(st)) continue;
+            const bubble = getBubbleFromST(st);
+            if (!bubble || seen.has(bubble)) continue;
+            seen.add(bubble);
+            handleBubble(bubble);
+          }
         }
       }
     });
 
-    // 聊天切换检测
-    let translateChatSwitchDebounce = null;
+    // ─── 聊天切换检测 ─────────────────────────────────────────────────────
+    function getCurrentChatTitle() {
+      const header = document.querySelector('#main header span[dir="auto"]');
+      return header ? header.textContent.trim() : null;
+    }
+
     function onChatSwitched() {
       if (!translateEnabled) return;
-      if (translateChatSwitchDebounce)
-        clearTimeout(translateChatSwitchDebounce);
+      if (translateChatSwitchDebounce) clearTimeout(translateChatSwitchDebounce);
       translateChatSwitchDebounce = setTimeout(() => {
         console.log("[wa-translate] 切换聊天，重新扫描...");
         scanExisting();
         translateChatSwitchDebounce = null;
-      }, 800);
+      }, 900);
     }
 
+    // body 级监听：检测消息容器整体替换（结构特征：data-scrolltracepolicy）
     const translateChatObserver = new MutationObserver((mutations) => {
       if (!translateEnabled) return;
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (node.nodeType !== Node.ELEMENT_NODE) continue;
           if (
-            node.getAttribute?.("data-scrolltracepolicy") ===
-              "wa.web.conversation.messages" ||
-            node.querySelector?.(
-              '[data-scrolltracepolicy="wa.web.conversation.messages"]',
-            )
+            node.getAttribute?.("data-scrolltracepolicy") === "wa.web.conversation.messages" ||
+            node.querySelector?.('[data-scrolltracepolicy="wa.web.conversation.messages"]')
           ) {
             onChatSwitched();
             return;
+          }
+          // 次选：新增大量 data-id 消息节点 = 切换了聊天
+          if (node.querySelectorAll) {
+            const msgs = node.querySelectorAll("[data-id]");
+            if (msgs.length >= 3) { onChatSwitched(); return; }
           }
         }
       }
     });
 
+    // 聊天列表点击监听（双保险，结构特征：role="row/listitem" 或 data-testid）
+    document.addEventListener(
+      "click",
+      (e) => {
+        if (!translateEnabled) return;
+        const chatItem = e.target.closest(
+          '[role="row"], [role="listitem"], [data-testid="chat-list-item"]',
+        );
+        if (!chatItem) return;
+        setTimeout(() => {
+          const currentTitle = getCurrentChatTitle();
+          if (currentTitle !== translateLastChatId) {
+            translateLastChatId = currentTitle;
+            console.log("[wa-translate] 点击切换聊天:", currentTitle);
+            scanExisting();
+          }
+        }, 1000);
+      },
+      true,
+    );
+
+    // ─── 开启 / 暂停 ──────────────────────────────────────────────────────
+    // ✅ 监听"滚动到底部"按钮：有新消息时按钮出现，自动翻译新到消息
+    let scrollBtnObserver = null;
+    let scrollBtnDebounce = null;
+
+    function startScrollBtnObserver() {
+      if (scrollBtnObserver) return;
+      scrollBtnObserver = new MutationObserver(() => {
+        if (!translateEnabled) return;
+        // 检测"滚动到底部"按钮是否可见（有新消息时出现）
+        const btn = document.querySelector(
+          'button[aria-label="滚动到底部"], button[data-tab="7"]',
+        );
+        if (btn && btn.offsetParent) {
+          if (scrollBtnDebounce) clearTimeout(scrollBtnDebounce);
+          scrollBtnDebounce = setTimeout(() => {
+            // 有新消息，扫描一次（新消息还没滚入视图，由 MutationObserver 处理插入时翻译）
+            scanExisting();
+          }, 300);
+        }
+      });
+      scrollBtnObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["style", "class"],
+      });
+    }
+
+    function stopScrollBtnObserver() {
+      if (scrollBtnObserver) {
+        scrollBtnObserver.disconnect();
+        scrollBtnObserver = null;
+      }
+    }
     function startTranslate() {
       translateEnabled = true;
-      console.log("[wa-translate] 已开启");
+      translateBtn.style.background = "#d93025";
+      translateBtn.textContent = "⏸ 暂停自动翻译";
 
+      // ✅ 启动时加载本地缓存（异步，不阻塞）
       loadCacheFromFile().then(() => {
+        // 加载完缓存后立即扫描，已缓存的消息可直接插入
         if (translateEnabled) scanExisting();
       });
 
-      translateMsgObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
+      // 启动 Observer
+      const root = document.querySelector("#main") || document.body;
+      translateMsgObserver.observe(root, { childList: true, subtree: true });
       translateChatObserver.observe(document.body, {
         childList: true,
         subtree: true,
       });
 
+      translateLastChatId = getCurrentChatTitle();
       scanExisting();
+      startScrollBtnObserver();
+      console.log("[wa-translate] 已开启");
     }
 
     function pauseTranslate() {
       translateEnabled = false;
+      translateBtn.style.background = "#1a73e8";
+      translateBtn.textContent = "🌐 开启自动翻译";
+
       translateMsgObserver.disconnect();
       translateChatObserver.disconnect();
+      stopScrollBtnObserver();
       clearAllTranslations();
+
+      // ✅ 暂停时立即把缓存写入文件（不等定时器）
+      if (cacheDirty && window.__csharpApiReady && typeof window.saveFile === "function") {
+        if (cacheFlushTimer) { clearTimeout(cacheFlushTimer); cacheFlushTimer = null; }
+        const entries = Array.from(memCache.entries());
+        window.saveFile(CACHE_FILE, { entries }).catch(() => {});
+        cacheDirty = false;
+        console.log(`[wa-translate] 暂停，缓存已写入 ${entries.length} 条`);
+      }
+
       translateQueue = [];
       translatePending.clear();
       console.log("[wa-translate] 已暂停");
     }
+
     // ─── 按钮事件 ─────────────────────────────────────────────────────────
     translateBtn.addEventListener("click", () => {
       if (translateEnabled) {
@@ -5540,8 +5572,6 @@ function 注入浮动窗口() {
       }
     });
   })();
-  // ==================== 自动翻译模块结束 ====================
-
   // ==================== 自动翻译模块结束 ====================
 }
 
