@@ -4,8 +4,10 @@
 // await advancedApi.restorePoppedTab() 依次分离标签页
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
-// ==================== 本地数据库管理 ====================
+// ✅ 版本号：修改这里即可，无需在代码里逐处查找
+const WA_VERSION = "v3.4.5";
 
+// ==================== 本地数据库管理 ====================
 // 数据库名称和版本
 const DB_NAME = "WhatsAppCustomerDB";
 const DB_VERSION = 1;
@@ -2347,9 +2349,6 @@ async function 发送图文同条(groupName, imgBase64, caption) {
 }
 
 // ==================== 浮动窗口代码 ====================
-// ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v3.4.5";
-
 function 注入浮动窗口() {
   // 创建宿主元素并添加到body
   const host = document.createElement("div");
