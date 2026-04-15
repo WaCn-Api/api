@@ -5,7 +5,7 @@
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
 // 在文件顶部添加版本号常量
-const WA_VERSION = "v0.0.0";
+const WA_VERSION = "v3.3.4";
 
 // ==================== 共享工具函数 ====================
 function isInsideQuotedBlock(element) {
@@ -5237,7 +5237,29 @@ function 注入浮动窗口() {
     }
 
     async function fetchTranslation(text) {
-      const res = await httpGetJson(buildTranslateUrl(text));
+      const url = buildTranslateUrl(text);
+
+      // 使用 C# 的 httpGet 发起请求（完全绕过 CSP）
+      if (typeof window.httpGet === "function") {
+        try {
+          const result = await window.httpGet(url);
+
+          if (result && result.success) {
+            // Google Translate 返回的是一个特殊的 JSON 数组格式
+            // result.data 是原始响应文本
+            const translated = parseTranslateResponse(result.data);
+            if (translated) {
+              return translated;
+            }
+          }
+          throw new Error("C# httpGet returned invalid data");
+        } catch (e) {
+          console.warn("[wa-translate] C# 请求失败，尝试降级:", e);
+        }
+      }
+
+      // 降级：直接使用 fetch（会被 CSP 阻止）
+      const res = await httpGetJson(url);
       if (!res.success) throw new Error("network");
       const r = parseTranslateResponse(res.data);
       if (!r) throw new Error("parse");
