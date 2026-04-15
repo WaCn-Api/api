@@ -5,7 +5,7 @@
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
 // 在文件顶部添加版本号常量
-const WA_VERSION = "v4";
+const WA_VERSION = "v5";
 
 // ==================== 共享工具函数 ====================
 function isInsideQuotedBlock(element) {
@@ -4144,7 +4144,7 @@ function 注入浮动窗口() {
   // ==================== 定时发送模块结束 ====================
 
   // ==================== 点赞模块（完整版） ====================
-  // ==================== 点赞模块（修复停止功能） ====================
+  // ==================== 点赞模块（修复肤色 + 可中断） ====================
   (() => {
     let reactionRunning = false;
     let reactionStopRequested = false;
@@ -4193,7 +4193,6 @@ function 注入浮动窗口() {
         .join("");
     }
 
-    // 全选/清空
     shadowRoot
       .getElementById("reactionSelectAll")
       ?.addEventListener("click", () => {
@@ -4209,7 +4208,7 @@ function 注入浮动窗口() {
           .forEach((cb) => (cb.checked = false));
       });
 
-    // ==================== 自定义表情功能 ====================
+    // 自定义表情
     const customEmojiInput = shadowRoot.getElementById("customEmojiInput");
     const customEmojiPreview = shadowRoot.getElementById("customEmojiPreview");
     const clearCustomEmojiBtn = shadowRoot.getElementById(
@@ -4296,7 +4295,7 @@ function 注入浮动窗口() {
         });
       });
 
-    // ==================== 可中断的工具函数 ====================
+    // ==================== 可中断工具 ====================
     async function interruptibleSleep(ms) {
       const start = Date.now();
       while (Date.now() - start < ms) {
@@ -4324,7 +4323,7 @@ function 注入浮动窗口() {
       console.log("[点赞]", msg);
     }
 
-    // ==================== 消息滚动和查找 ====================
+    // ==================== 消息滚动 ====================
     function getMessageScroller() {
       const byTestId = document.querySelector(
         '[data-testid="conversation-panel-messages"]',
@@ -4346,8 +4345,8 @@ function 注入浮动窗口() {
 
     async function scrollToBottom(scroller) {
       if (!scroller) return;
-      let lastScrollTop = -1;
-      let attempts = 0;
+      let lastScrollTop = -1,
+        attempts = 0;
       while (attempts < 10 && !reactionStopRequested) {
         scroller.scrollTop = scroller.scrollHeight;
         await interruptibleSleep(400);
@@ -4359,18 +4358,18 @@ function 注入浮动窗口() {
 
     async function scrollUpToLoadMessages(scroller, maxScrolls = 50) {
       if (!scroller) return;
-      let scrollCount = 0;
-      let noChangeCount = 0;
+      let scrollCount = 0,
+        noChangeCount = 0;
       while (scrollCount < maxScrolls && !reactionStopRequested) {
-        const currentCount = document.querySelectorAll(
+        const current = document.querySelectorAll(
           "div[data-pre-plain-text]",
         ).length;
         scroller.scrollTop = Math.max(0, scroller.scrollTop - 200);
         await interruptibleSleep(400);
-        const newCount = document.querySelectorAll(
+        const after = document.querySelectorAll(
           "div[data-pre-plain-text]",
         ).length;
-        if (newCount === currentCount) {
+        if (after === current) {
           noChangeCount++;
           if (noChangeCount >= 5) break;
         } else {
@@ -4431,29 +4430,24 @@ function 注入浮动窗口() {
           return [messagesArray[messagesArray.length - 1]];
         case "all":
           return messagesArray;
-        case "keyword":
+        case "keyword": {
           const matched = [];
-          const normalizedKeyword = keyword
-            .toLowerCase()
-            .replace(/[''']/g, "'");
+          const normKeyword = keyword.toLowerCase().replace(/[''']/g, "'");
           for (const msg of messagesArray) {
-            const msgText = msg.__fullText || getBubbleFullText(msg);
-            if (
-              msgText
-                .toLowerCase()
-                .replace(/[''']/g, "'")
-                .includes(normalizedKeyword)
-            ) {
-              matched.push(msg);
-            }
+            const msgText = (msg.__fullText || getBubbleFullText(msg))
+              .toLowerCase()
+              .replace(/[''']/g, "'");
+            if (msgText.includes(normKeyword)) matched.push(msg);
           }
           return matched;
-        case "index":
+        }
+        case "index": {
           const absN = Math.abs(index);
           const idx = messagesArray.length - absN;
           return idx >= 0 && idx < messagesArray.length
             ? [messagesArray[idx]]
             : [];
+        }
         default:
           return [];
       }
@@ -4520,7 +4514,7 @@ function 注入浮动窗口() {
 
     async function findEmojiAcrossAllCategories(targetEmoji) {
       const categoryButtons = getAllCategoryButtons();
-      const triedCategories = new Set();
+      const tried = new Set();
       let found = await scrollAndFindInCurrentCategory(targetEmoji);
       if (found) return found;
       for (const btn of categoryButtons) {
@@ -4529,9 +4523,9 @@ function 注入浮动窗口() {
           btn.getAttribute("aria-label") ||
           btn.getAttribute("title") ||
           btn.textContent?.trim();
-        if (triedCategories.has(label)) continue;
+        if (tried.has(label)) continue;
         if (label?.includes("肤色") || label?.includes("skin")) continue;
-        triedCategories.add(label);
+        tried.add(label);
         btn.click();
         await interruptibleSleep(600);
         found = await scrollAndFindInCurrentCategory(targetEmoji);
@@ -4540,37 +4534,46 @@ function 注入浮动窗口() {
       return null;
     }
 
+    // ==================== 肤色选择器（完全重写） ====================
     function getSkinTonePopup() {
-      for (const el of document.querySelectorAll('[role="application"]')) {
-        if (!el.offsetParent) continue;
+      // 新结构：div._ak4z._ap4- 或 role="application" 且内部有 li[role="button"] img
+      for (const el of document.querySelectorAll(
+        '._ak4z, [role="application"]',
+      )) {
+        if (!el.offsetParent) continue; // 不可见
         const items = el.querySelectorAll('li[role="button"]');
         if (items.length >= 2) {
           for (const li of items) {
-            const alt = li.querySelector("img")?.getAttribute("alt") || "";
-            if (/[\u{1F3FB}-\u{1F3FF}]/u.test(alt)) return el;
+            if (li.querySelector("img")) return el;
           }
         }
       }
       return null;
     }
 
-    const SKIN_TONE_MAP = { "🏻": 1, "🏼": 2, "🏽": 3, "🏾": 4, "🏿": 5 };
-
     function clickSkinToneInPopup(popup, targetEmoji) {
       const items = popup.querySelectorAll('li[role="button"]');
       if (!items.length) return false;
+
+      // 提取肤色修饰符
       const skinMatch = targetEmoji.match(/[\u{1F3FB}-\u{1F3FF}]/u);
-      const skinToneIndex = skinMatch ? (SKIN_TONE_MAP[skinMatch[0]] ?? 0) : 0;
-      if (skinToneIndex > 0 && items[skinToneIndex]) {
-        items[skinToneIndex].click();
-        return true;
+      const toneMap = { "🏻": 1, "🏼": 2, "🏽": 3, "🏾": 4, "🏿": 5 };
+      const toneIndex = skinMatch ? (toneMap[skinMatch[0]] ?? 0) : 0;
+
+      if (toneIndex > 0 && items[toneIndex]) {
+        items[toneIndex].click();
+        console.log(`🎨 点击肤色 index=${toneIndex}`);
+      } else {
+        items[0].click();
+        console.log(`🎨 点击默认肤色（无）`);
       }
-      items[0].click();
       return true;
     }
 
     async function smartClickEmoji(emojiElement, targetEmoji) {
       emojiElement.click();
+
+      // 等待肤色面板出现 或 整个菜单消失
       const result = await waitFor(
         () => {
           const popup = getSkinTonePopup();
@@ -4579,9 +4582,10 @@ function 注入浮动窗口() {
             return { type: "done" };
           return null;
         },
-        1000,
+        1200,
         40,
       );
+
       if (!result || result.type === "done") return true;
       if (result.type === "skin") {
         clickSkinToneInPopup(result.popup, targetEmoji);
@@ -4591,6 +4595,7 @@ function 注入浮动窗口() {
       return true;
     }
 
+    // ==================== 单条消息点赞 ====================
     async function reactToOneMessage(msgElement, targetEmoji) {
       try {
         if (reactionStopRequested) return false;
@@ -4690,8 +4695,8 @@ function 注入浮动窗口() {
         if (foundEmoji) return await smartClickEmoji(foundEmoji, targetEmoji);
         document.body.click();
         return false;
-      } catch (error) {
-        console.error("点赞出错:", error);
+      } catch (e) {
+        console.error("点赞出错:", e);
         return false;
       }
     }
@@ -4719,10 +4724,8 @@ function 注入浮动窗口() {
 
       const scroller = getMessageScroller();
       if (!scroller) return;
-
       await scrollToBottom(scroller);
       if (reactionStopRequested) return;
-
       await waitFor(
         () => document.querySelector("div[data-pre-plain-text]"),
         1000,
@@ -4800,9 +4803,7 @@ function 注入浮动窗口() {
         return;
       }
 
-      if (target === "all") {
-        await scrollUpToLoadMessages(scroller, 40);
-      }
+      if (target === "all") await scrollUpToLoadMessages(scroller, 40);
       if (reactionStopRequested) return;
       const targetMessages = findTargetMessages(target, keyword, index);
       if (!targetMessages.length) {
@@ -4876,11 +4877,9 @@ function 注入浮动窗口() {
       reactionRunning = false;
       reactionStartBtn.style.display = "block";
       reactionStopBtn.style.display = "none";
-      if (reactionStopRequested) {
+      if (reactionStopRequested)
         setStatus(`⏹ 已停止。完成 ${totalGroups} 个群组`);
-      } else {
-        setStatus(`🎉 完成！共 ${totalGroups} 个群组`);
-      }
+      else setStatus(`🎉 完成！共 ${totalGroups} 个群组`);
     });
 
     reactionStopBtn.addEventListener("click", () => {
