@@ -5,7 +5,7 @@
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v777";
+const WA_VERSION = "v5.0.1";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
