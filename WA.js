@@ -2348,7 +2348,7 @@ async function 发送图文同条(groupName, imgBase64, caption) {
 
 // ==================== 浮动窗口代码 ====================
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v3.4.5";
+const WA_VERSION = "v999";
 
 function 注入浮动窗口() {
   // 创建宿主元素并添加到body
@@ -5178,26 +5178,55 @@ function 注入浮动窗口() {
       return null;
     }
 
-    // 从 [data-id] 行找到气泡容器（_akbu），排除引用块
+    // 从 [data-id] 行找到正文气泡容器（_akbu），排除引用块
+    //
+    // 真实 DOM 层次（有引用时）：
+    //   [data-pre-plain-text]
+    //     └── _ahy0（wrapper div，有引用时存在）
+    //           ├── _aju3（引用块，role="button" aria-label="引用的消息"）
+    //           └── _akbu（正文容器，包含所有 selectable-text）
+    //   OR（无引用时，_akbu 直接是 copyable 子节点）：
+    //   [data-pre-plain-text]
+    //     └── _akbu
+    //
+    // 因此不能只遍历 copyable.children，要深度找含 selectable-text 且不在引用块内的容器
     function getBubbleFromRow(row) {
       const copyable = row.querySelector("[data-pre-plain-text]");
       if (!copyable) return null;
-      for (const child of copyable.children) {
-        if (!isInsideQuotedBlock(child) &&
-            child.querySelector('[data-testid="selectable-text"]')) {
-          return child;
+      // 找所有不在引用块内的 selectable-text，取其最近的 _akbu 层
+      // _akbu 的特征：是 data-pre-plain-text（或其 wrapper）的直接子节点，包含 selectable-text
+      const sts = copyable.querySelectorAll('[data-testid="selectable-text"]');
+      for (const st of sts) {
+        if (isInsideQuotedBlock(st)) continue;
+        // 向上找到 copyable 的某个子孙节点，该节点是 copyable 或其直接子的直接子（_akbu）
+        // 实际上 _akbu 就是 st 最近的、父节点是 data-pre-plain-text 或 _ahy0 的那层
+        let node = st.parentElement;
+        while (node && node !== copyable) {
+          const parent = node.parentElement;
+          if (parent === copyable || (parent && parent.parentElement === copyable)) {
+            // node 就是 _akbu（copyable 的直接子 or 其直接子的直接子）
+            if (!isInsideQuotedBlock(node)) return node;
+            break;
+          }
+          node = parent;
         }
       }
       return null;
     }
 
-    // 从气泡容器提取全部正文（合并多段粗体）
+    // 从气泡容器（_akbu）提取全部正文，合并多段粗体，去重嵌套
+    //
+    // 粗体结构：span.x1lliihq > strong[data-testid="selectable-text"]
+    // 其中 span 本身 data-testid="selectable-text" 也可能存在，导致同段文字被读两遍
+    // 解决：只取「没有 selectable-text 子孙」的叶子 selectable-text
     function extractBubbleText(bubble) {
       if (!bubble) return "";
       const sts = bubble.querySelectorAll('[data-testid="selectable-text"]');
       const parts = [];
       for (const st of sts) {
         if (isInsideQuotedBlock(st)) continue;
+        // 跳过「内部还有其他 selectable-text」的容器（避免读外层 span 又读内层 strong）
+        if (st.querySelector('[data-testid="selectable-text"]')) continue;
         const clone = st.cloneNode(true);
         clone.querySelectorAll('[aria-hidden="true"]').forEach(e => e.remove());
         clone.querySelectorAll("img[data-plain-text]").forEach(img => {
