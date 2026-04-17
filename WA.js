@@ -4170,6 +4170,7 @@ function 注入浮动窗口() {
     let reactionStopRequested = false;
     let selectedEmoji = "👍";
     let totalScrollAttempts = 0;
+    let translateWasEnabled = false; // ✅ 新增这一行
 
     const reactionDrawer = shadowRoot.getElementById("reactionDrawer");
     const reactionOpenBtn = shadowRoot.getElementById("reactionPanelToggleBtn");
@@ -4992,6 +4993,15 @@ function 注入浮动窗口() {
 
     // ==================== 开始/停止 ====================
     reactionStartBtn.addEventListener("click", async () => {
+      // ✅ 如果自动翻译开启，先关闭并记录状态
+      const translateBtn = shadowRoot.getElementById("translateToggleBtn");
+      translateWasEnabled =
+        translateBtn && translateBtn.style.background === "#d93025";
+      if (translateWasEnabled) {
+        translateBtn.click();
+        console.log("[点赞] 已关闭自动翻译");
+      }
+
       const selectedGroups = [
         ...shadowRoot.querySelectorAll(".reaction-group-cb:checked"),
       ].map((cb) => cb.value);
@@ -5041,6 +5051,16 @@ function 注入浮动窗口() {
       reactionRunning = false;
       reactionStartBtn.style.display = "block";
       reactionStopBtn.style.display = "none";
+
+      // ✅ 恢复翻译
+      if (translateWasEnabled) {
+        const translateBtn = shadowRoot.getElementById("translateToggleBtn");
+        if (translateBtn && translateBtn.style.background !== "#d93025") {
+          translateBtn.click();
+          console.log("[点赞] 已恢复自动翻译");
+        }
+        translateWasEnabled = false;
+      }
       if (reactionStopRequested) {
         setStatus(`⏹ 已停止。完成 ${totalGroups} 个群组`);
       } else {
@@ -5051,6 +5071,16 @@ function 注入浮动窗口() {
     reactionStopBtn.addEventListener("click", () => {
       reactionStopRequested = true;
       setStatus("⏹ 正在停止...");
+
+      // ✅ 恢复翻译（因为点赞即将结束）
+      if (translateWasEnabled) {
+        const translateBtn = shadowRoot.getElementById("translateToggleBtn");
+        if (translateBtn && translateBtn.style.background !== "#d93025") {
+          translateBtn.click();
+          console.log("[点赞] 已恢复自动翻译");
+        }
+        translateWasEnabled = false;
+      }
     });
   })();
 
