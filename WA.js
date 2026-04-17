@@ -5,7 +5,7 @@
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.0.0";
+const WA_VERSION = "v5.1.1";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5003,7 +5003,7 @@ function 注入浮动窗口() {
         );
       }
       translateWasEnabled =
-        translateBtn && translateBtn.style.background === "#d93025";
+        translateBtn && translateBtn.style.background === "rgb(217, 48, 37)";
       console.log("[调试] translateWasEnabled:", translateWasEnabled);
       if (translateWasEnabled) {
         translateBtn.click();
@@ -5063,7 +5063,10 @@ function 注入浮动窗口() {
       // ✅ 恢复翻译
       if (translateWasEnabled) {
         const translateBtn = shadowRoot.getElementById("translateToggleBtn");
-        if (translateBtn && translateBtn.style.background !== "#d93025") {
+        if (
+          translateBtn &&
+          translateBtn.style.background !== "rgb(217, 48, 37)"
+        ) {
           translateBtn.click();
           console.log("[点赞] 已恢复自动翻译");
         }
@@ -5083,7 +5086,10 @@ function 注入浮动窗口() {
       // ✅ 恢复翻译（因为点赞即将结束）
       if (translateWasEnabled) {
         const translateBtn = shadowRoot.getElementById("translateToggleBtn");
-        if (translateBtn && translateBtn.style.background !== "#d93025") {
+        if (
+          translateBtn &&
+          translateBtn.style.background !== "rgb(217, 48, 37)"
+        ) {
           translateBtn.click();
           console.log("[点赞] 已恢复自动翻译");
         }
