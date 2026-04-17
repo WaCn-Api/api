@@ -5,7 +5,7 @@
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.0.3";
+const WA_VERSION = "v5.0.0";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -4995,9 +4995,16 @@ function 注入浮动窗口() {
     reactionStartBtn.addEventListener("click", async () => {
       // ✅ 如果自动翻译开启，先关闭并记录状态
       const translateBtn = shadowRoot.getElementById("translateToggleBtn");
-      console.log(translateBtn);
+      console.log("[调试] translateBtn 元素:", translateBtn);
+      if (translateBtn) {
+        console.log(
+          "[调试] translateBtn 背景色:",
+          translateBtn.style.background,
+        );
+      }
       translateWasEnabled =
         translateBtn && translateBtn.style.background === "#d93025";
+      console.log("[调试] translateWasEnabled:", translateWasEnabled);
       if (translateWasEnabled) {
         translateBtn.click();
         console.log("[点赞] 已关闭自动翻译");
