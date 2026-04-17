@@ -2348,7 +2348,7 @@ async function 发送图文同条(groupName, imgBase64, caption) {
 
 // ==================== 浮动窗口代码 ====================
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v999";
+const WA_VERSION = "v3.4.5";
 
 function 注入浮动窗口() {
   // 创建宿主元素并添加到body
@@ -4681,29 +4681,30 @@ function 注入浮动窗口() {
       console.log(`🖱️ 点击表情: ${emoji}`);
 
       emojiElement.click();
+      await sleep(150); // 给浏览器渲染时间
 
-      // 智能等待：肤色面板出现 或 面板消失（直接完成）
-      const result = await waitFor(
-        () => {
-          const popup = getSkinTonePopup();
-          if (popup) return { type: "skin", popup };
-          // 面板消失 = 点赞成功
-          if (!document.querySelector('[data-menu-content="true"]')) return { type: "done" };
-          return null;
-        },
-        1000, 40,
-      );
-
-      if (!result || result.type === "done") return true;
-
-      // 出现了肤色面板，选择对应肤色
-      if (result.type === "skin") {
-        clickSkinToneInPopup(result.popup, targetEmoji);
-        // 等面板消失（肤色选中后面板应自动关闭）
-        await waitFor(() => !getSkinTonePopup(), 800, 40);
+      // 先检查：肤色面板是否已经出现
+      const skinPopup = getSkinTonePopup();
+      if (skinPopup) {
+        console.log("🎨 检测到肤色面板，准备选择...");
+        await sleep(100);
+        clickSkinToneInPopup(skinPopup, targetEmoji);
+        // 等肤色面板消失（最多等 1.5s）
+        await waitFor(() => !getSkinTonePopup(), 1500, 40);
         return true;
       }
 
+      // 没有肤色面板 → 等一会再检查一次（有时面板出现有延迟）
+      await sleep(300);
+      const skinPopup2 = getSkinTonePopup();
+      if (skinPopup2) {
+        console.log("🎨 延迟后检测到肤色面板，准备选择...");
+        clickSkinToneInPopup(skinPopup2, targetEmoji);
+        await waitFor(() => !getSkinTonePopup(), 1500, 40);
+        return true;
+      }
+
+      // 没有肤色面板 → 直接当成成功（WhatsApp 自动选了默认肤色）
       return true;
     }
 
@@ -5180,52 +5181,53 @@ function 注入浮动窗口() {
 
     // 从 [data-id] 行找到正文气泡容器（_akbu），排除引用块
     //
-    // 真实 DOM 层次（有引用时）：
-    //   [data-pre-plain-text]
-    //     └── _ahy0（wrapper div，有引用时存在）
-    //           ├── _aju3（引用块，role="button" aria-label="引用的消息"）
-    //           └── _akbu（正文容器，包含所有 selectable-text）
-    //   OR（无引用时，_akbu 直接是 copyable 子节点）：
-    //   [data-pre-plain-text]
-    //     └── _akbu
+    // 场景覆盖：
+    //  1. 纯文字：[data-pre-plain-text] → _akbu → selectable-text
+    //  2. 带引用：[data-pre-plain-text] → _ahy0 → {_aju3(引用块), _akbu}
+    //  3. 图片+文字：[data-id] → .message-in/out → _amk6 → _amlo → 多个子块
+    //     其中文字在 [data-pre-plain-text] → _akbu → selectable-text
     //
-    // 因此不能只遍历 copyable.children，要深度找含 selectable-text 且不在引用块内的容器
+    // 策略：找第一个不在引用块内的 selectable-text，向上爬到包含它的最小容器
+    // 该容器需满足：不是引用块、是 [data-pre-plain-text] 的后代（或就是其直接子/孙）
     function getBubbleFromRow(row) {
+      // 优先查 data-pre-plain-text（普通文字消息）
       const copyable = row.querySelector("[data-pre-plain-text]");
-      if (!copyable) return null;
-      // 找所有不在引用块内的 selectable-text，取其最近的 _akbu 层
-      // _akbu 的特征：是 data-pre-plain-text（或其 wrapper）的直接子节点，包含 selectable-text
-      const sts = copyable.querySelectorAll('[data-testid="selectable-text"]');
-      for (const st of sts) {
-        if (isInsideQuotedBlock(st)) continue;
-        // 向上找到 copyable 的某个子孙节点，该节点是 copyable 或其直接子的直接子（_akbu）
-        // 实际上 _akbu 就是 st 最近的、父节点是 data-pre-plain-text 或 _ahy0 的那层
-        let node = st.parentElement;
-        while (node && node !== copyable) {
-          const parent = node.parentElement;
-          if (parent === copyable || (parent && parent.parentElement === copyable)) {
-            // node 就是 _akbu（copyable 的直接子 or 其直接子的直接子）
-            if (!isInsideQuotedBlock(node)) return node;
-            break;
+      if (copyable) {
+        const sts = copyable.querySelectorAll('[data-testid="selectable-text"]');
+        for (const st of sts) {
+          if (isInsideQuotedBlock(st)) continue;
+          // 向上找：_akbu 是 data-pre-plain-text 的1-2级子孙
+          let node = st.parentElement;
+          while (node && node !== copyable) {
+            const p = node.parentElement;
+            if (!p) break;
+            // node 的父是 copyable 本身，或者父的父是 copyable → node = _akbu
+            if (p === copyable || p.parentElement === copyable) {
+              if (!isInsideQuotedBlock(node)) return node;
+              break;
+            }
+            node = p;
           }
-          node = parent;
         }
+      }
+      // 降级：消息内任意非引用块的 selectable-text 的父元素
+      const fallbackSts = row.querySelectorAll('[data-testid="selectable-text"]');
+      for (const st of fallbackSts) {
+        if (isInsideQuotedBlock(st)) continue;
+        return st.parentElement;
       }
       return null;
     }
 
-    // 从气泡容器（_akbu）提取全部正文，合并多段粗体，去重嵌套
-    //
-    // 粗体结构：span.x1lliihq > strong[data-testid="selectable-text"]
-    // 其中 span 本身 data-testid="selectable-text" 也可能存在，导致同段文字被读两遍
-    // 解决：只取「没有 selectable-text 子孙」的叶子 selectable-text
+    // 从气泡容器提取全部正文，合并多段粗体，去重嵌套
+    // 只取最内层叶子 selectable-text（跳过内部还有 selectable-text 子孙的外层容器）
     function extractBubbleText(bubble) {
       if (!bubble) return "";
       const sts = bubble.querySelectorAll('[data-testid="selectable-text"]');
       const parts = [];
       for (const st of sts) {
         if (isInsideQuotedBlock(st)) continue;
-        // 跳过「内部还有其他 selectable-text」的容器（避免读外层 span 又读内层 strong）
+        // 跳过外层容器（内部还有 selectable-text 子孙 → 读了会重复）
         if (st.querySelector('[data-testid="selectable-text"]')) continue;
         const clone = st.cloneNode(true);
         clone.querySelectorAll('[aria-hidden="true"]').forEach(e => e.remove());
@@ -5238,25 +5240,98 @@ function 注入浮动窗口() {
       return parts.join("\n").trim();
     }
 
-    function insertTranslation(bubble, translated) {
+    // ─── 进度圈 ───────────────────────────────────────────────────────────
+    const SPINNER_CLASS = "wa-translate-spinner";
+    const SPINNER_CSS = `
+      .${SPINNER_CLASS} {
+        display: inline-block;
+        width: 14px; height: 14px;
+        border: 2px solid rgba(26,115,232,0.25);
+        border-top-color: #1a73e8;
+        border-radius: 50%;
+        animation: wa-spin 0.7s linear infinite;
+        vertical-align: middle;
+        margin: 3px 4px 0 0;
+        flex-shrink: 0;
+      }
+      @keyframes wa-spin { to { transform: rotate(360deg); } }
+      .${TRANSLATE_CLASS}-wrap {
+        display: flex;
+        align-items: flex-start;
+        margin: 4px 0 2px 0;
+        padding: 4px 8px;
+        border-left: 3px solid #1a73e8;
+        background: rgba(26,115,232,0.07);
+        border-radius: 0 4px 4px 0;
+        min-height: 22px;
+      }
+      .${TRANSLATE_CLASS}-wrap .${TRANSLATE_CLASS} {
+        margin: 0; padding: 0; border: none; background: none; border-radius: 0;
+        font-size: 14px; line-height: 1.5; color: #ff00a5;
+        white-space: pre-wrap; word-break: break-word;
+      }
+    `;
+
+    // 注入 spinner CSS（只注入一次）
+    if (!document.getElementById("wa-translate-style")) {
+      const styleEl = document.createElement("style");
+      styleEl.id = "wa-translate-style";
+      styleEl.textContent = SPINNER_CSS;
+      document.head.appendChild(styleEl);
+    }
+
+    function insertSpinner(bubble) {
+      if (!bubble) return null;
+      if (bubble.querySelector("." + SPINNER_CLASS)) return null; // 已有 spinner
+      if (bubble.querySelector("." + TRANSLATE_CLASS)) return null; // 已有译文
+      const wrap = document.createElement("div");
+      wrap.className = TRANSLATE_CLASS + "-wrap";
+      const spinner = document.createElement("span");
+      spinner.className = SPINNER_CLASS;
+      const textEl = document.createElement("span");
+      textEl.className = TRANSLATE_CLASS;
+      textEl.textContent = "";
+      wrap.appendChild(spinner);
+      wrap.appendChild(textEl);
+      bubble.appendChild(wrap);
+      return wrap;
+    }
+
+    function fillTranslation(bubble, translated) {
       if (!bubble) return;
+      // 找已有的 wrap（spinner 模式）
+      let wrap = bubble.querySelector("." + TRANSLATE_CLASS + "-wrap");
+      if (wrap) {
+        const spinner = wrap.querySelector("." + SPINNER_CLASS);
+        if (spinner) spinner.remove();
+        const textEl = wrap.querySelector("." + TRANSLATE_CLASS);
+        if (textEl) { textEl.textContent = translated; return; }
+        wrap.textContent = translated;
+        return;
+      }
+      // 兜底：直接插普通 div（回调时 bubble 可能已重建）
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
       const div = document.createElement("div");
-      div.className = TRANSLATE_CLASS;
-      div.style.cssText = [
-        "margin:4px 0 2px 0",
-        "padding:4px 8px",
-        "border-left:3px solid #1a73e8",
-        "background:rgba(26,115,232,0.07)",
-        "border-radius:0 4px 4px 0",
-        "font-size:14px",
-        "line-height:1.5",
-        "color:#ff00a5",
-        "white-space:pre-wrap",
-        "word-break:break-word",
-      ].join(";");
+      div.className = TRANSLATE_CLASS + "-wrap";
+      div.style.cssText = "margin:4px 0 2px 0;padding:4px 8px;border-left:3px solid #1a73e8;background:rgba(26,115,232,0.07);border-radius:0 4px 4px 0;font-size:14px;line-height:1.5;color:#ff00a5;white-space:pre-wrap;word-break:break-word;";
       div.textContent = translated;
       bubble.appendChild(div);
+    }
+
+    function removeSpinner(bubble) {
+      if (!bubble) return;
+      const wrap = bubble.querySelector("." + TRANSLATE_CLASS + "-wrap");
+      if (wrap) {
+        const spinner = wrap.querySelector("." + SPINNER_CLASS);
+        if (spinner) spinner.remove();
+        // 如果 wrap 是空的（没有文字），整个移除
+        const textEl = wrap.querySelector("." + TRANSLATE_CLASS);
+        if (!textEl || !textEl.textContent) wrap.remove();
+      }
+    }
+
+    function insertTranslation(bubble, translated) {
+      fillTranslation(bubble, translated);
     }
 
     // ─── 处理单个 [data-id] 行 ────────────────────────────────────────────
@@ -5268,7 +5343,8 @@ function 注入浮动窗口() {
       const bubble = getBubbleFromRow(row);
       if (!bubble) return;
 
-      // 去重：气泡内已有译文则跳过
+      // 已有译文或正在翻译（spinner）则跳过
+      if (bubble.querySelector("." + TRANSLATE_CLASS + "-wrap")) return;
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
 
       const text = extractBubbleText(bubble);
@@ -5285,6 +5361,9 @@ function 注入浮动窗口() {
       if (translatePending.has(dataId)) return;
       translatePending.add(dataId);
 
+      // ✅ 立即插入 spinner，让用户看到正在翻译
+      insertSpinner(bubble);
+
       enqueueTranslate(async () => {
         try {
           const translated = await fetchTranslation(text);
@@ -5295,11 +5374,18 @@ function 注入浮动窗口() {
             const liveRow = document.querySelector(`[data-id="${CSS.escape(dataId)}"]`);
             if (liveRow) {
               const liveBubble = getBubbleFromRow(liveRow);
-              if (liveBubble) insertTranslation(liveBubble, result);
+              if (liveBubble) fillTranslation(liveBubble, result);
             }
+          } else {
+            // 翻译结果为空（同语言等），移除 spinner
+            const liveRow = document.querySelector(`[data-id="${CSS.escape(dataId)}"]`);
+            if (liveRow) removeSpinner(getBubbleFromRow(liveRow));
           }
         } catch (e) {
           console.warn("[wa-translate] 失败:", dataId, e);
+          // 移除 spinner，避免永久转圈
+          const liveRow = document.querySelector(`[data-id="${CSS.escape(dataId)}"]`);
+          if (liveRow) removeSpinner(getBubbleFromRow(liveRow));
         } finally {
           translatePending.delete(dataId);
         }
@@ -5318,7 +5404,7 @@ function 注入浮动窗口() {
     }
 
     function clearAllTranslations() {
-      document.querySelectorAll("." + TRANSLATE_CLASS).forEach(el => el.remove());
+      document.querySelectorAll("." + TRANSLATE_CLASS + "-wrap, ." + TRANSLATE_CLASS).forEach(el => el.remove());
     }
 
     // ─── MutationObserver：监听消息插入（虚拟滚动）───────────────────────
