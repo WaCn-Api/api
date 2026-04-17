@@ -4,8 +4,17 @@
 // await advancedApi.restorePoppedTab() 依次分离标签页
 // await advancedApi.popOutCurrentTab() 依次还原标签页
 
+// // 翻译源
+// const text = encodeURIComponent("保存和读取文件");
+// const url = `http://elephant.browser.360.cn/?t=translate&i=${text}&type=AUTO&doctype=text&xmlVersion=1.1&keyfrom=360se&m=youdao`;
+
+// const users = await httpGetJson(url);
+// if (users.success) {
+//   console.log("消息:", users.data);
+// }
+
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.1";
+const WA_VERSION = "v5.1.2";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5131,7 +5140,25 @@ function 注入浮动窗口() {
       try {
         const data = await window.readFile(CACHE_FILE);
         if (data && Array.isArray(data.entries)) {
-          for (const [k, v] of data.entries) memCache.set(k, v);
+          for (const [k, v] of data.entries) {
+            if (typeof v === "object" && v.translated && v.source) {
+              memCache.set(k, v);
+            } else if (typeof v === "object" && v.translated) {
+              // 旧缓存，source未知
+              memCache.set(k, {
+                translated: v.translated,
+                source: "Unknown",
+                ts: v.ts,
+              });
+            } else {
+              // 更旧的，v是string
+              memCache.set(k, {
+                translated: v,
+                source: "Unknown",
+                ts: Date.now(),
+              });
+            }
+          }
           console.log(`[wa-translate] 加载本地缓存 ${memCache.size} 条`);
           if (memCache.size > CACHE_MAX_SIZE) trimCache();
         }
@@ -5172,12 +5199,12 @@ function 注入浮动窗口() {
       memCache.delete(k);
       entry.ts = Date.now();
       memCache.set(k, entry);
-      return entry.translated;
+      return { translated: entry.translated, source: entry.source };
     }
 
-    function setCached(text, translated) {
+    function setCached(text, translated, source) {
       const k = hashText(text);
-      memCache.set(k, { translated, ts: Date.now() });
+      memCache.set(k, { translated, source, ts: Date.now() });
       if (memCache.size > CACHE_MAX_SIZE) trimCache();
       cacheDirty = true;
       scheduleCacheFlush();
@@ -5192,8 +5219,10 @@ function 注入浮动窗口() {
 
     const translateBtn = shadowRoot.getElementById("translateToggleBtn");
 
+    let apiCounter = 0; // 用于轮换API
+
     // ─── 翻译 API ─────────────────────────────────────────────────────────
-    function buildTranslateUrl(text) {
+    function buildGoogleTranslateUrl(text) {
       return (
         "https://translate.googleapis.com/translate_a/single" +
         "?client=gtx&sl=auto&tl=" +
@@ -5203,7 +5232,11 @@ function 注入浮动窗口() {
       );
     }
 
-    function parseTranslateResponse(data) {
+    function build360TranslateUrl(text) {
+      return `http://elephant.browser.360.cn/?t=translate&i=${encodeURIComponent(text)}&type=AUTO&doctype=text&xmlVersion=1.1&keyfrom=360se&m=youdao`;
+    }
+
+    function parseGoogleTranslateResponse(data) {
       try {
         const p = typeof data === "string" ? JSON.parse(data) : data;
         return p[0]
@@ -5215,12 +5248,49 @@ function 注入浮动窗口() {
       }
     }
 
+    function parse360TranslateResponse(data) {
+      if (typeof data !== "string") return null;
+      const lines = data.split("\n");
+      let errorCode = null;
+      let result = null;
+      for (const line of lines) {
+        if (line.startsWith("errorCode=")) {
+          errorCode = line.split("=")[1];
+        } else if (line.startsWith("result=")) {
+          result = line.split("=")[1];
+        }
+      }
+      if (errorCode === "0" && result) {
+        return result;
+      }
+      return null;
+    }
+
+    async function fetchGoogleTranslation(text) {
+      const res = await httpGetJson(buildGoogleTranslateUrl(text));
+      if (!res.success) throw new Error("Google network error");
+      const r = parseGoogleTranslateResponse(res.data);
+      if (!r) throw new Error("Google parse error");
+      return { translated: r, source: "Google" };
+    }
+
+    async function fetch360Translation(text) {
+      const res = await httpGetJson(build360TranslateUrl(text));
+      if (!res.success) throw new Error("360 network error");
+      const r = parse360TranslateResponse(res.data);
+      if (!r) throw new Error("360 parse error");
+      return { translated: r, source: "360" };
+    }
+
     async function fetchTranslation(text) {
-      const res = await httpGetJson(buildTranslateUrl(text));
-      if (!res.success) throw new Error("network");
-      const r = parseTranslateResponse(res.data);
-      if (!r) throw new Error("parse");
-      return r;
+      // 轮换使用两个API，平均分配任务
+      const useGoogle = apiCounter % 2 === 0;
+      apiCounter++;
+      if (useGoogle) {
+        return await fetchGoogleTranslation(text);
+      } else {
+        return await fetch360Translation(text);
+      }
     }
 
     // ─── 并发队列 ─────────────────────────────────────────────────────────
@@ -5486,8 +5556,14 @@ function 注入浮动窗口() {
       // 先查文本缓存（同内容直接插入，不发网络请求）
       const cached = getCached(text);
       if (cached) {
-        insertTranslation(bubble, cached);
-        return;
+        const result =
+          cached.translated && cached.translated !== text
+            ? `[${cached.source}] ${cached.translated}`
+            : "";
+        if (result) {
+          insertTranslation(bubble, result);
+          return;
+        }
       }
 
       // 同一消息行已在请求中，跳过
@@ -5499,10 +5575,13 @@ function 注入浮动窗口() {
 
       enqueueTranslate(async () => {
         try {
-          const translated = await fetchTranslation(text);
-          const result = translated && translated !== text ? translated : "";
+          const { translated, source } = await fetchTranslation(text);
+          const result =
+            translated && translated !== text
+              ? `[${source}] ${translated}`
+              : "";
           if (result) {
-            setCached(text, result);
+            setCached(text, translated, source); // 缓存原文和来源
             // 重新从 DOM 找（虚拟滚动可能重建了节点）
             const liveRow = document.querySelector(
               `[data-id="${CSS.escape(dataId)}"]`,
