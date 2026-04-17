@@ -37,7 +37,7 @@
 // ----------------------------------------C#后台接口结束-----------------------------------------
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v4.0.1";
+const WA_VERSION = "v4.0.2";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -4629,10 +4629,24 @@ function 注入浮动窗口() {
       );
     }
 
+    function getEmojiStringFromElement(el) {
+      if (!el) return "";
+      const dataEmoji = el.getAttribute("data-emoji");
+      if (dataEmoji) return dataEmoji;
+      const alt = el.getAttribute("alt");
+      if (alt) return alt.trim();
+      const ariaLabel = el.getAttribute("aria-label");
+      if (ariaLabel) return ariaLabel.trim();
+      return el.textContent?.trim() || "";
+    }
+
     function findEmojiInCurrentView(targetEmoji) {
-      const allEmojis = document.querySelectorAll("[data-emoji]");
+      const allEmojis = document.querySelectorAll(
+        "[data-emoji], img[alt], [aria-label][role='button']",
+      );
       for (const span of allEmojis) {
-        if (span.getAttribute("data-emoji") !== targetEmoji) continue;
+        const emoji = getEmojiStringFromElement(span);
+        if (!emoji || emoji !== targetEmoji) continue;
         if (!span.offsetParent) continue;
         const rect = span.getBoundingClientRect();
         if (rect.top > 0 && rect.bottom < window.innerHeight) return span;
@@ -4754,21 +4768,48 @@ function 注入浮动窗口() {
       const items = popup.querySelectorAll('li[role="button"]');
       if (!items.length) return false;
 
-      // 解析目标肤色修饰符
-      const skinMatch = targetEmoji.match(/[\u{1F3FB}-\u{1F3FF}]/u);
+      const rawTarget = targetEmoji;
+      const baseEmoji = rawTarget.replace(/[\u{1F3FB}-\u{1F3FF}]/u, "");
+      const skinMatch = rawTarget.match(/[\u{1F3FB}-\u{1F3FF}]/u);
       const skinToneIndex = skinMatch ? (SKIN_TONE_MAP[skinMatch[0]] ?? 0) : 0;
 
+      // 先尝试精确匹配 alt
+      for (const li of items) {
+        const imgAlt = li.querySelector("img")?.getAttribute("alt") || "";
+        if (imgAlt === rawTarget) {
+          console.log(`🎨 精确匹配肤色 emoji: ${rawTarget}`);
+          li.click();
+          return true;
+        }
+      }
+
       if (skinToneIndex > 0 && items[skinToneIndex]) {
-        // 点击对应肤色
         console.log(`🎨 选择肤色 index=${skinToneIndex}`);
         items[skinToneIndex].click();
         return true;
       }
 
-      // 无肤色需求 → 点第一项（原版，alt 不含肤色修饰）
+      // 无肤色需求或未找到对应肤色，尝试默认原版表情
+      for (const li of items) {
+        const imgAlt = li.querySelector("img")?.getAttribute("alt") || "";
+        if (imgAlt === baseEmoji || imgAlt === rawTarget) {
+          console.log(`🎨 选择默认肤色项: ${imgAlt}`);
+          li.click();
+          return true;
+        }
+      }
+
+      console.log(`🎨 未找到精确肤色项，点击第一项`);
       items[0].click();
-      console.log(`🎨 选择默认肤色（无）`);
       return true;
+    }
+
+    function isEmojiPickerOpen() {
+      return !!(
+        document.querySelector("[data-emoji]") ||
+        document.querySelector("[role='tab']") ||
+        document.querySelector("[role='application'] img[alt]")
+      );
     }
 
     async function smartClickEmoji(emojiElement, targetEmoji) {
@@ -4777,17 +4818,15 @@ function 注入浮动窗口() {
 
       emojiElement.click();
 
-      // 智能等待：肤色面板出现 或 面板消失（直接完成）
+      // 智能等待：肤色面板出现 或 反应面板关闭（直接完成）
       const result = await waitFor(
         () => {
           const popup = getSkinTonePopup();
           if (popup) return { type: "skin", popup };
-          // 面板消失 = 点赞成功
-          if (!document.querySelector('[data-menu-content="true"]'))
-            return { type: "done" };
+          if (!isEmojiPickerOpen()) return { type: "done" };
           return null;
         },
-        1000,
+        1200,
         40,
       );
 
