@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.2";
+const WA_VERSION = "v5.1.3";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5219,81 +5219,201 @@ function 注入浮动窗口() {
 
     const translateBtn = shadowRoot.getElementById("translateToggleBtn");
 
-    let apiCounter = 0; // 用于轮换API
+    // ─── 智能翻译调度层（替换原 apiCounter 轮询机制）─────────────────────
 
-    // ─── 翻译 API ─────────────────────────────────────────────────────────
-    function buildGoogleTranslateUrl(text) {
-      return (
-        "https://translate.googleapis.com/translate_a/single" +
-        "?client=gtx&sl=auto&tl=" +
-        TARGET_LANG +
-        "&dt=t&q=" +
-        encodeURIComponent(text)
-      );
+    // ── Provider 注册表 ──────────────────────────────────────────────────
+    const translationProviders = [
+      {
+        name: "Google",
+        fn: async (text) => {
+          const url =
+            "https://translate.googleapis.com/translate_a/single" +
+            "?client=gtx&sl=auto&tl=" +
+            TARGET_LANG +
+            "&dt=t&q=" +
+            encodeURIComponent(text);
+          const res = await httpGetJson(url);
+          if (!res.success) throw new Error("Google network error");
+          try {
+            const p =
+              typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+            const r = p[0]
+              .map((i) => i[0])
+              .filter(Boolean)
+              .join("");
+            if (!r) throw new Error("Google parse error");
+            return { translated: r, source: "Google" };
+          } catch {
+            throw new Error("Google parse error");
+          }
+        },
+        success: 0,
+        fail: 0,
+        avgTime: 600,
+        disabledUntil: 0,
+      },
+      {
+        name: "360",
+        fn: async (text) => {
+          const url = `http://elephant.browser.360.cn/?t=translate&i=${encodeURIComponent(text)}&type=AUTO&doctype=text&xmlVersion=1.1&keyfrom=360se&m=youdao`;
+          const res = await httpGetJson(url);
+          if (!res.success) throw new Error("360 network error");
+          const data = typeof res.data === "string" ? res.data : "";
+          const lines = data.split("\n");
+          let errorCode = null,
+            result = null;
+          for (const line of lines) {
+            if (line.startsWith("errorCode=")) errorCode = line.split("=")[1];
+            else if (line.startsWith("result=")) result = line.split("=")[1];
+          }
+          if (errorCode === "0" && result)
+            return { translated: result, source: "360" };
+          throw new Error("360 parse error");
+        },
+        success: 0,
+        fail: 0,
+        avgTime: 700,
+        disabledUntil: 0,
+      },
+      {
+        name: "Lingva",
+        fn: async (text) => {
+          const url = `https://lingva.ml/api/v1/auto/${TARGET_LANG}/${encodeURIComponent(text)}`;
+          const res = await httpGetJson(url);
+          if (!res.success || !res.data?.translation)
+            throw new Error("Lingva error");
+          return { translated: res.data.translation, source: "Lingva" };
+        },
+        success: 0,
+        fail: 0,
+        avgTime: 900,
+        disabledUntil: 0,
+      },
+      {
+        name: "Simply",
+        fn: async (text) => {
+          const url = `https://simplytranslate.org/api/translate?engine=google&from=auto&to=${TARGET_LANG}&text=${encodeURIComponent(text)}`;
+          const res = await httpGetJson(url);
+          if (!res.success || !res.data?.translatedText)
+            throw new Error("Simply error");
+          return { translated: res.data.translatedText, source: "Simply" };
+        },
+        success: 0,
+        fail: 0,
+        avgTime: 1000,
+        disabledUntil: 0,
+      },
+      {
+        name: "Mozhi",
+        fn: async (text) => {
+          const url = `https://mozhi.aryak.me/api/translate?engine=google&from=auto&to=${TARGET_LANG}&text=${encodeURIComponent(text)}`;
+          const res = await httpGetJson(url);
+          if (!res.success || !res.data?.translatedText)
+            throw new Error("Mozhi error");
+          return { translated: res.data.translatedText, source: "Mozhi" };
+        },
+        success: 0,
+        fail: 0,
+        avgTime: 950,
+        disabledUntil: 0,
+      },
+      {
+        name: "MyMemory",
+        fn: async (text) => {
+          // MyMemory langpair 使用固定 en|zh-CN（不随 TARGET_LANG 动态切换，避免格式问题）
+          const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh-CN`;
+          const res = await httpGetJson(url);
+          if (!res.success || !res.data?.responseData?.translatedText)
+            throw new Error("MyMemory error");
+          return {
+            translated: res.data.responseData.translatedText,
+            source: "MyMemory",
+          };
+        },
+        success: 0,
+        fail: 0,
+        avgTime: 1100,
+        disabledUntil: 0,
+      },
+    ];
+
+    // ── 熔断常量 ─────────────────────────────────────────────────────────
+    const CIRCUIT_FAIL_THRESHOLD = 3; // 连续失败多少次触发熔断
+    const CIRCUIT_COOLDOWN_MS = 60_000; // 熔断冷却时间（60 秒）
+
+    // ── 评分算法：score 越高越优先 ──────────────────────────────────────
+    function scoreProvider(p) {
+      const total = p.success + p.fail;
+      const successRate = total === 0 ? 0.5 : p.success / total; // 冷启动给0.5
+      // avgTime 归一化：以 2000ms 为上限，越快分越高
+      const speedScore = Math.max(0, 1 - p.avgTime / 2000);
+      return successRate * 0.7 + speedScore * 0.3;
     }
 
-    function build360TranslateUrl(text) {
-      return `http://elephant.browser.360.cn/?t=translate&i=${encodeURIComponent(text)}&type=AUTO&doctype=text&xmlVersion=1.1&keyfrom=360se&m=youdao`;
+    // ── 获取可用 provider（已排序，剔除熔断中的）────────────────────────
+    function getAvailableProviders() {
+      const now = Date.now();
+      return translationProviders
+        .filter((p) => p.disabledUntil <= now)
+        .sort((a, b) => scoreProvider(b) - scoreProvider(a));
     }
 
-    function parseGoogleTranslateResponse(data) {
-      try {
-        const p = typeof data === "string" ? JSON.parse(data) : data;
-        return p[0]
-          .map((i) => i[0])
-          .filter(Boolean)
-          .join("");
-      } catch (e) {
-        return null;
+    // ── 核心调度：依次尝试，自动 fallback ───────────────────────────────
+    async function fetchTranslation(text) {
+      const providers = getAvailableProviders();
+      if (providers.length === 0) {
+        // 所有 provider 都在熔断中，强制重置最早恢复的那个
+        translationProviders.sort((a, b) => a.disabledUntil - b.disabledUntil);
+        translationProviders[0].disabledUntil = 0;
+        return fetchTranslation(text);
       }
-    }
 
-    function parse360TranslateResponse(data) {
-      if (typeof data !== "string") return null;
-      const lines = data.split("\n");
-      let errorCode = null;
-      let result = null;
-      for (const line of lines) {
-        if (line.startsWith("errorCode=")) {
-          errorCode = line.split("=")[1];
-        } else if (line.startsWith("result=")) {
-          result = line.split("=")[1];
+      let lastErr;
+      for (const provider of providers) {
+        // jitter 延迟，防止固定节奏被封
+        await new Promise((r) => setTimeout(r, DELAY + Math.random() * 200));
+
+        const t0 = Date.now();
+        try {
+          const result = await provider.fn(text);
+          const elapsed = Date.now() - t0;
+
+          // 更新指标：指数移动平均 avgTime，平滑窗口 α=0.3
+          provider.avgTime = Math.round(provider.avgTime * 0.7 + elapsed * 0.3);
+          provider.success++;
+
+          console.log(`[wa-translate] ✅ ${provider.name} (${elapsed}ms)`);
+          return result;
+        } catch (err) {
+          provider.fail++;
+          lastErr = err;
+
+          // 熔断判断：最近 (success+fail) 次中，fail 占比过高 OR 连续失败达阈值
+          const recentFails = provider.fail;
+          const recentTotal = provider.success + provider.fail;
+          const failRate = recentTotal > 0 ? recentFails / recentTotal : 0;
+
+          if (
+            recentFails >= CIRCUIT_FAIL_THRESHOLD &&
+            (failRate > 0.6 || recentFails >= CIRCUIT_FAIL_THRESHOLD * 2)
+          ) {
+            provider.disabledUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+            console.warn(
+              `[wa-translate] ⚡ ${provider.name} 熔断 ${CIRCUIT_COOLDOWN_MS / 1000}s（失败 ${recentFails}/${recentTotal}）`,
+            );
+          } else {
+            console.warn(
+              `[wa-translate] ⚠️ ${provider.name} 失败，尝试下一个:`,
+              err.message,
+            );
+          }
         }
       }
-      if (errorCode === "0" && result) {
-        return result;
-      }
-      return null;
+
+      throw lastErr || new Error("All providers failed");
     }
 
-    async function fetchGoogleTranslation(text) {
-      const res = await httpGetJson(buildGoogleTranslateUrl(text));
-      if (!res.success) throw new Error("Google network error");
-      const r = parseGoogleTranslateResponse(res.data);
-      if (!r) throw new Error("Google parse error");
-      return { translated: r, source: "Google" };
-    }
-
-    async function fetch360Translation(text) {
-      const res = await httpGetJson(build360TranslateUrl(text));
-      if (!res.success) throw new Error("360 network error");
-      const r = parse360TranslateResponse(res.data);
-      if (!r) throw new Error("360 parse error");
-      return { translated: r, source: "360" };
-    }
-
-    async function fetchTranslation(text) {
-      // 轮换使用两个API，平均分配任务
-      const useGoogle = apiCounter % 2 === 0;
-      apiCounter++;
-      if (useGoogle) {
-        return await fetchGoogleTranslation(text);
-      } else {
-        return await fetch360Translation(text);
-      }
-    }
-
-    // ─── 并发队列 ─────────────────────────────────────────────────────────
+    // ─── 并发队列（保持不变）──────────────────────────────────────────────
     async function runTranslateWorker() {
       while (translateQueue.length > 0) {
         const task = translateQueue.shift();
