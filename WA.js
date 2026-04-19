@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.4";
+const WA_VERSION = "v5.1.5";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5382,11 +5382,12 @@ function 注入浮动窗口() {
       const fallbacks = providers.filter((p) => p !== primary);
       const ordered = [primary, ...fallbacks];
 
+      // jitter 延迟只在入口等一次，防止固定节奏被封
+      // 不能放循环内：fallback 多次等待会超过虚拟列表重建周期导致 spinner 丢失
+      await new Promise((r) => setTimeout(r, DELAY + Math.random() * 200));
+
       let lastErr;
       for (const provider of ordered) {
-        // jitter 延迟，防止固定节奏被封
-        await new Promise((r) => setTimeout(r, DELAY + Math.random() * 200));
-
         const t0 = Date.now();
         try {
           const result = await provider.fn(text);
