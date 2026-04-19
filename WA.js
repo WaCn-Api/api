@@ -5108,7 +5108,6 @@ function 注入浮动窗口() {
   })();
 
   // ==================== 自动翻译模块 ====================
-  // ==================== 自动翻译模块（独立进度圈版） ====================
   (() => {
     const TRANSLATE_CLASS = "wa-translate-result";
     const TARGET_LANG = "zh-CN";
@@ -5121,7 +5120,7 @@ function 注入浮动窗口() {
     const CACHE_TRIM_TO = 1500;
     const CACHE_FLUSH_INTERVAL = 8000;
 
-    const memCache = new Map();
+    const memCache = new Map(); // key=textHash → {translated, ts}
     let cacheLoaded = false;
     let cacheDirty = false;
     let cacheFlushTimer = null;
@@ -5145,12 +5144,14 @@ function 注入浮动窗口() {
             if (typeof v === "object" && v.translated && v.source) {
               memCache.set(k, v);
             } else if (typeof v === "object" && v.translated) {
+              // 旧缓存，source未知
               memCache.set(k, {
                 translated: v.translated,
                 source: "Unknown",
                 ts: v.ts,
               });
             } else {
+              // 更旧的，v是string
               memCache.set(k, {
                 translated: v,
                 source: "Unknown",
@@ -5161,7 +5162,9 @@ function 注入浮动窗口() {
           console.log(`[wa-translate] 加载本地缓存 ${memCache.size} 条`);
           if (memCache.size > CACHE_MAX_SIZE) trimCache();
         }
-      } catch (e) {}
+      } catch (e) {
+        /* 文件不存在忽略 */
+      }
     }
 
     function trimCache() {
@@ -5207,300 +5210,98 @@ function 注入浮动窗口() {
       scheduleCacheFlush();
     }
 
-    // ─── 翻译Provider（保持原有）─────────────────────────────────────────
-    const translationProviders = [
-      {
-        name: "Google",
-        fn: async (text) => {
-          const url =
-            "https://translate.googleapis.com/translate_a/single" +
-            "?client=gtx&sl=auto&tl=" +
-            TARGET_LANG +
-            "&dt=t&q=" +
-            encodeURIComponent(text);
-          const res = await httpGetJson(url);
-          if (!res.success) throw new Error("Google network error");
-          try {
-            const p =
-              typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-            const r = p[0]
-              .map((i) => i[0])
-              .filter(Boolean)
-              .join("");
-            if (!r) throw new Error("Google parse error");
-            return { translated: r, source: "Google" };
-          } catch {
-            throw new Error("Google parse error");
-          }
-        },
-        success: 0,
-        fail: 0,
-        avgTime: 600,
-        disabledUntil: 0,
-      },
-      {
-        name: "360",
-        fn: async (text) => {
-          const url = `http://elephant.browser.360.cn/?t=translate&i=${encodeURIComponent(text)}&type=AUTO&doctype=text&xmlVersion=1.1&keyfrom=360se&m=youdao`;
-          const res = await httpGetJson(url);
-          if (!res.success) throw new Error("360 network error");
-          const data = typeof res.data === "string" ? res.data : "";
-          const lines = data.split("\n");
-          let errorCode = null,
-            result = null;
-          for (const line of lines) {
-            if (line.startsWith("errorCode=")) errorCode = line.split("=")[1];
-            else if (line.startsWith("result=")) result = line.split("=")[1];
-          }
-          if (errorCode === "0" && result)
-            return { translated: result, source: "360" };
-          throw new Error("360 parse error");
-        },
-        success: 0,
-        fail: 0,
-        avgTime: 700,
-        disabledUntil: 0,
-      },
-    ];
+    const translatePending = new Set(); // key=dataId，防重复
+    let translateQueue = [];
+    let translateWorkers = 0;
+    let translateEnabled = false;
+    let translateChatSwitchDebounce = null;
+    let translateLastChatId = null;
 
-    const CIRCUIT_FAIL_THRESHOLD = 3;
-    const CIRCUIT_COOLDOWN_MS = 60_000;
-    const REQUEST_TIMEOUT_MS = 1500;
-    const TIMEOUT_PENALTY_MAX = 5;
-    const TIMEOUT_PENALTY_STEP = 0.15;
+    const translateBtn = shadowRoot.getElementById("translateToggleBtn");
 
-    function callWithTimeout(provider, text) {
-      return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-          provider.timeouts = (provider.timeouts || 0) + 1;
-          provider.timeoutPenalty = Math.min(
-            (provider.timeoutPenalty || 0) + TIMEOUT_PENALTY_STEP,
-            1.0,
-          );
-          if (provider.timeouts >= TIMEOUT_PENALTY_MAX) {
-            provider.disabledUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
-            console.warn(
-              `[wa-translate] ⏱️ ${provider.name} 连续超时 ${provider.timeouts} 次，熔断 ${CIRCUIT_COOLDOWN_MS / 1000}s`,
-            );
-          }
-          reject(new Error(`${provider.name} timeout`));
-        }, REQUEST_TIMEOUT_MS);
+    let apiCounter = 0; // 用于轮换API
 
-        provider.fn(text).then(
-          (res) => {
-            clearTimeout(timer);
-            resolve(res);
-          },
-          (err) => {
-            clearTimeout(timer);
-            reject(err);
-          },
-        );
-      });
-    }
-
-    function scoreProvider(p) {
-      const total = p.success + p.fail;
-      const successRate = total === 0 ? 0.5 : p.success / total;
-      const speedScore = Math.max(0, 1 - p.avgTime / 4000);
-      const base = successRate * 0.7 + speedScore * 0.3;
-      return Math.max(base - (p.timeoutPenalty || 0), 0.01);
-    }
-
-    function getAvailableProviders() {
-      const now = Date.now();
-      return translationProviders
-        .filter((p) => p.disabledUntil <= now)
-        .sort((a, b) => scoreProvider(b) - scoreProvider(a));
-    }
-
-    function pickWeightedRandom(providers) {
-      const weights = providers.map((p) => Math.max(scoreProvider(p), 0.01));
-      const total = weights.reduce((s, w) => s + w, 0);
-      let rand = Math.random() * total;
-      for (let i = 0; i < providers.length; i++) {
-        rand -= weights[i];
-        if (rand <= 0) return providers[i];
-      }
-      return providers[providers.length - 1];
-    }
-
-    async function fetchTranslation(text) {
-      const providers = getAvailableProviders();
-      if (providers.length === 0) {
-        translationProviders.sort((a, b) => a.disabledUntil - b.disabledUntil);
-        translationProviders[0].disabledUntil = 0;
-        return fetchTranslation(text);
-      }
-
-      const primary = pickWeightedRandom(providers);
-      const fallbacks = providers
-        .filter((p) => p !== primary)
-        .sort((a, b) => scoreProvider(b) - scoreProvider(a));
-      const ordered = [primary, ...fallbacks];
-
-      await new Promise((r) => setTimeout(r, DELAY + Math.random() * 200));
-
-      let lastErr;
-      for (const provider of ordered) {
-        const t0 = Date.now();
-        try {
-          const result = await callWithTimeout(provider, text);
-          const elapsed = Date.now() - t0;
-
-          provider.avgTime = Math.round(provider.avgTime * 0.7 + elapsed * 0.3);
-          provider.success++;
-          provider.timeouts = Math.max((provider.timeouts || 0) - 1, 0);
-          provider.timeoutPenalty = Math.max(
-            (provider.timeoutPenalty || 0) - TIMEOUT_PENALTY_STEP,
-            0,
-          );
-
-          console.log(
-            `[wa-translate] ✅ ${provider.name} (${elapsed}ms) score=${scoreProvider(provider).toFixed(2)}`,
-          );
-          return result;
-        } catch (err) {
-          lastErr = err;
-          const isTimeout = err.message.includes("timeout");
-          if (!isTimeout) {
-            provider.fail++;
-            const recentFails = provider.fail;
-            const recentTotal = provider.success + provider.fail;
-            const failRate = recentTotal > 0 ? recentFails / recentTotal : 0;
-            if (
-              recentFails >= CIRCUIT_FAIL_THRESHOLD &&
-              (failRate > 0.6 || recentFails >= CIRCUIT_FAIL_THRESHOLD * 2)
-            ) {
-              provider.disabledUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
-              console.warn(
-                `[wa-translate] ⚡ ${provider.name} 熔断 ${CIRCUIT_COOLDOWN_MS / 1000}s`,
-              );
-            }
-          }
-        }
-      }
-
-      throw lastErr || new Error("All providers failed");
-    }
-
-    // ─── 批量翻译 ─────────────────────────────────────────────────────────
-    const BATCH_SEP = "\uE001";
-    const BATCH_NL = "\uE002";
-    const BATCH_WINDOW_MS = 80;
-    const BATCH_MAX_CHARS = 1800;
-    const BATCH_MAX_ITEMS = 12;
-
-    let batchQueue = [];
-    let batchTimer = null;
-
-    async function flushBatch() {
-      batchTimer = null;
-      if (batchQueue.length === 0) return;
-
-      const batch = batchQueue.splice(0, BATCH_MAX_ITEMS);
-
-      if (batch.length === 1) {
-        const { text, resolve, reject } = batch[0];
-        fetchTranslation(text).then(resolve).catch(reject);
-        return;
-      }
-
-      const encoded = batch.map((b) => b.text.replace(/\n/g, BATCH_NL));
-      const joined = encoded.join(BATCH_SEP);
-
-      const url =
+    // ─── 翻译 API ─────────────────────────────────────────────────────────
+    function buildGoogleTranslateUrl(text) {
+      return (
         "https://translate.googleapis.com/translate_a/single" +
         "?client=gtx&sl=auto&tl=" +
         TARGET_LANG +
         "&dt=t&q=" +
-        encodeURIComponent(joined);
+        encodeURIComponent(text)
+      );
+    }
 
+    function build360TranslateUrl(text) {
+      return `http://elephant.browser.360.cn/?t=translate&i=${encodeURIComponent(text)}&type=AUTO&doctype=text&xmlVersion=1.1&keyfrom=360se&m=youdao`;
+    }
+
+    function parseGoogleTranslateResponse(data) {
       try {
-        const res = await httpGetJson(url);
-        if (!res.success) throw new Error("batch network error");
-        const p =
-          typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-
-        const fullTranslated = p[0].map((i) => i[0] || "").join("");
-        const parts = fullTranslated.split(BATCH_SEP);
-
-        if (parts.length !== batch.length) {
-          console.warn(`[wa-translate] ⚠️ 批量分隔符错位，全部降级`);
-          for (const { text, resolve, reject } of batch) {
-            fetchTranslation(text).then(resolve).catch(reject);
-          }
-          return;
-        }
-
-        let batchSuccess = 0;
-        batch.forEach((item, idx) => {
-          const translated = parts[idx]
-            .replace(new RegExp(BATCH_NL, "g"), "\n")
-            .replace(new RegExp(BATCH_SEP, "g"), "")
-            .trim();
-
-          if (translated && translated !== item.text) {
-            item.resolve({ translated, source: "Google(batch)" });
-            batchSuccess++;
-          } else {
-            fetchTranslation(item.text).then(item.resolve).catch(item.reject);
-          }
-        });
-
-        console.log(
-          `[wa-translate] ⚡ 批量翻译 ${batch.length} 条 → 1 次请求（成功 ${batchSuccess} 条）`,
-        );
-
-        const gp = translationProviders.find((p) => p.name === "Google");
-        if (gp) gp.success += batchSuccess;
+        const p = typeof data === "string" ? JSON.parse(data) : data;
+        return p[0]
+          .map((i) => i[0])
+          .filter(Boolean)
+          .join("");
       } catch (e) {
-        console.warn("[wa-translate] 批量翻译失败，降级单条:", e.message);
-        for (const { text, resolve, reject } of batch) {
-          fetchTranslation(text).then(resolve).catch(reject);
-        }
-      }
-
-      if (batchQueue.length > 0) {
-        batchTimer = setTimeout(flushBatch, BATCH_WINDOW_MS);
+        return null;
       }
     }
 
-    function fetchTranslationBatched(text) {
-      return new Promise((resolve, reject) => {
-        batchQueue.push({ text, resolve, reject });
-
-        const totalChars = batchQueue.reduce((s, b) => s + b.text.length, 0);
-        if (
-          batchQueue.length >= BATCH_MAX_ITEMS ||
-          totalChars >= BATCH_MAX_CHARS
-        ) {
-          if (batchTimer) {
-            clearTimeout(batchTimer);
-            batchTimer = null;
-          }
-          flushBatch();
-          return;
+    function parse360TranslateResponse(data) {
+      if (typeof data !== "string") return null;
+      const lines = data.split("\n");
+      let errorCode = null;
+      let result = null;
+      for (const line of lines) {
+        if (line.startsWith("errorCode=")) {
+          errorCode = line.split("=")[1];
+        } else if (line.startsWith("result=")) {
+          result = line.split("=")[1];
         }
+      }
+      if (errorCode === "0" && result) {
+        return result;
+      }
+      return null;
+    }
 
-        if (!batchTimer) {
-          batchTimer = setTimeout(flushBatch, BATCH_WINDOW_MS);
-        }
-      });
+    async function fetchGoogleTranslation(text) {
+      const res = await httpGetJson(buildGoogleTranslateUrl(text));
+      if (!res.success) throw new Error("Google network error");
+      const r = parseGoogleTranslateResponse(res.data);
+      if (!r) throw new Error("Google parse error");
+      return { translated: r, source: "Google" };
+    }
+
+    async function fetch360Translation(text) {
+      const res = await httpGetJson(build360TranslateUrl(text));
+      if (!res.success) throw new Error("360 network error");
+      const r = parse360TranslateResponse(res.data);
+      if (!r) throw new Error("360 parse error");
+      return { translated: r, source: "360" };
+    }
+
+    async function fetchTranslation(text) {
+      // 轮换使用两个API，平均分配任务
+      const useGoogle = apiCounter % 2 === 0;
+      apiCounter++;
+      if (useGoogle) {
+        return await fetchGoogleTranslation(text);
+      } else {
+        return await fetch360Translation(text);
+      }
     }
 
     // ─── 并发队列 ─────────────────────────────────────────────────────────
-    const translatePending = new Set();
-    let translateQueue = [];
-    let translateWorkers = 0;
-    let translateEnabled = false;
-
     async function runTranslateWorker() {
       while (translateQueue.length > 0) {
         const task = translateQueue.shift();
         try {
           await task();
-        } catch (e) {}
+        } catch (e) {
+          /* 忽略单条失败 */
+        }
         await new Promise((r) => setTimeout(r, DELAY));
       }
       translateWorkers--;
@@ -5515,24 +5316,46 @@ function 注入浮动窗口() {
     }
 
     // ─── DOM 工具 ─────────────────────────────────────────────────────────
-    function isInsideQuotedBlock(el) {
-      if (!el) return false;
-      if (el.classList?.contains("quoted-mention")) return true;
-      let node = el.parentElement;
-      while (node && !node.hasAttribute("data-id")) {
-        const role = node.getAttribute("role");
-        const label = node.getAttribute("aria-label") || "";
-        if (
-          role === "button" &&
-          (label.includes("引用") || label.includes("quoted"))
-        )
-          return true;
-        node = node.parentElement;
+    //
+    // 正确的消息 DOM 结构：
+    //
+    //   [data-id]  ← 消息行，唯一稳定 ID
+    //     └── [data-pre-plain-text]  ← copyable-text（含引用块 + 正文）
+    //           ├── [role="button"][aria-label*="引用"]  ← 引用块（可能无）
+    //           └── _akbu                                ← 正文容器
+    //                 ├── span.x1lliihq > strong[data-testid="selectable-text"]  ← 粗体第1段
+    //                 ├── span.x1lliihq > strong[data-testid="selectable-text"]  ← 粗体第2段
+    //                 └── span[data-testid="selectable-text"]                    ← 普通文本
+    //
+    // ✅ 关键洞察：一条消息可能有 N 个 selectable-text（粗体每段一个）
+    //    bubble = 整个 _akbu 层（data-pre-plain-text 的直接子节点，包含所有正文 span）
+    //    正确做法：从任意 selectable-text 向上找到 [data-pre-plain-text]，
+    //    然后找其中不在引用块里的第一个直接子容器，即 _akbu
+
+    // 从一个正文 selectable-text 向上找到整个气泡容器（_akbu 层）
+    // _akbu = data-pre-plain-text 的直接子节点中包含该 selectable-text 的那个
+    function getBubbleContainer(st) {
+      const copyable = st.closest("[data-pre-plain-text]");
+      if (!copyable) return null;
+      // 找 copyable 的直接子节点中包含 st 的那个（就是 _akbu）
+      for (const child of copyable.children) {
+        if (child.contains(st) && !isInsideQuotedBlock(child)) return child;
       }
-      return false;
+      return null;
     }
 
+    // 从 [data-id] 行找到正文气泡容器（_akbu），排除引用块
+    //
+    // 场景覆盖：
+    //  1. 纯文字：[data-pre-plain-text] → _akbu → selectable-text
+    //  2. 带引用：[data-pre-plain-text] → _ahy0 → {_aju3(引用块), _akbu}
+    //  3. 图片+文字：[data-id] → .message-in/out → _amk6 → _amlo → 多个子块
+    //     其中文字在 [data-pre-plain-text] → _akbu → selectable-text
+    //
+    // 策略：找第一个不在引用块内的 selectable-text，向上爬到包含它的最小容器
+    // 该容器需满足：不是引用块、是 [data-pre-plain-text] 的后代（或就是其直接子/孙）
     function getBubbleFromRow(row) {
+      // 优先查 data-pre-plain-text（普通文字消息）
       const copyable = row.querySelector("[data-pre-plain-text]");
       if (copyable) {
         const sts = copyable.querySelectorAll(
@@ -5540,10 +5363,12 @@ function 注入浮动窗口() {
         );
         for (const st of sts) {
           if (isInsideQuotedBlock(st)) continue;
+          // 向上找：_akbu 是 data-pre-plain-text 的1-2级子孙
           let node = st.parentElement;
           while (node && node !== copyable) {
             const p = node.parentElement;
             if (!p) break;
+            // node 的父是 copyable 本身，或者父的父是 copyable → node = _akbu
             if (p === copyable || p.parentElement === copyable) {
               if (!isInsideQuotedBlock(node)) return node;
               break;
@@ -5552,6 +5377,7 @@ function 注入浮动窗口() {
           }
         }
       }
+      // 降级：消息内任意非引用块的 selectable-text 的父元素
       const fallbackSts = row.querySelectorAll(
         '[data-testid="selectable-text"]',
       );
@@ -5562,6 +5388,9 @@ function 注入浮动窗口() {
       return null;
     }
 
+    // 从气泡容器提取全部正文，合并多段粗体，去重嵌套
+    // 只取最内层叶子 selectable-text（跳过内部还有 selectable-text 子孙的外层容器）
+    // 从气泡容器提取全部正文，合并多段粗体，去重嵌套
     function extractBubbleText(bubble) {
       if (!bubble) return "";
       const sts = bubble.querySelectorAll('[data-testid="selectable-text"]');
@@ -5569,6 +5398,8 @@ function 注入浮动窗口() {
       for (const st of sts) {
         if (isInsideQuotedBlock(st)) continue;
 
+        // 跳过被其他 selectable-text 包含的元素（只处理最内层叶子节点）
+        // 检查方式：是否有祖先（除了自己）也是 selectable-text
         let parent = st.parentElement;
         let hasSelectableAncestor = false;
         while (parent && parent !== bubble) {
@@ -5584,12 +5415,16 @@ function 注入浮动窗口() {
         }
         if (hasSelectableAncestor) continue;
 
+        // 特殊处理：表情 img 标签
         if (st.tagName === "IMG" && st.hasAttribute("data-plain-text")) {
           const plainText = st.getAttribute("data-plain-text");
-          if (plainText) parts.push(plainText);
+          if (plainText) {
+            parts.push(plainText);
+          }
           continue;
         }
 
+        // 普通文本 span：提取 innerText
         const clone = st.cloneNode(true);
         clone
           .querySelectorAll('[aria-hidden="true"]')
@@ -5604,319 +5439,121 @@ function 注入浮动窗口() {
       return parts.join("\n").trim();
     }
 
-    // ==================== 🆕 独立进度圈浮层管理 ====================
-
-    // 浮层容器（绝对定位在body上）
-    let spinnerOverlayContainer = null;
-
-    function getOrCreateOverlayContainer() {
-      if (spinnerOverlayContainer) return spinnerOverlayContainer;
-
-      spinnerOverlayContainer = document.createElement("div");
-      spinnerOverlayContainer.id = "wa-translate-spinner-overlay";
-      spinnerOverlayContainer.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 999999;
-    `;
-      document.body.appendChild(spinnerOverlayContainer);
-      return spinnerOverlayContainer;
-    }
-
-    // 注入全局样式
-    function injectSpinnerStyles() {
-      if (document.getElementById("wa-translate-spinner-style")) return;
-
-      const style = document.createElement("style");
-      style.id = "wa-translate-spinner-style";
-      style.textContent = `
-      .wa-translate-spinner-float {
-        position: absolute;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-        transition: opacity 0.15s;
-      }
-      .wa-translate-spinner-float .spinner-core {
-        width: 16px;
-        height: 16px;
-        border: 2.5px solid rgba(26, 115, 232, 0.2);
+    // ─── 进度圈 ───────────────────────────────────────────────────────────
+    const SPINNER_CLASS = "wa-translate-spinner";
+    const SPINNER_CSS = `
+      .${SPINNER_CLASS} {
+        display: inline-block;
+        width: 14px; height: 14px;
+        border: 2px solid rgba(26,115,232,0.25);
         border-top-color: #1a73e8;
         border-radius: 50%;
-        animation: wa-spinner-rotate 0.7s linear infinite;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        animation: wa-spin 0.7s linear infinite;
+        vertical-align: middle;
+        margin: 3px 4px 0 0;
+        flex-shrink: 0;
       }
-      @keyframes wa-spinner-rotate {
-        to { transform: rotate(360deg); }
-      }
-
-      /* 译文显示样式 */
-      .wa-translate-float-result {
-        position: absolute;
-        max-width: 380px;
-        padding: 6px 10px;
-        background: rgba(26, 115, 232, 0.12);
+      @keyframes wa-spin { to { transform: rotate(360deg); } }
+      .${TRANSLATE_CLASS}-wrap {
+        display: flex;
+        align-items: flex-start;
+        margin: 4px 0 2px 0;
+        padding: 4px 8px;
         border-left: 3px solid #1a73e8;
-        border-radius: 0 6px 6px 0;
-        font-size: 13px;
-        line-height: 1.5;
-        color: #ff00a5;
-        white-space: pre-wrap;
-        word-break: break-word;
-        pointer-events: none;
-        backdrop-filter: blur(2px);
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+        background: rgba(26,115,232,0.07);
+        border-radius: 0 4px 4px 0;
+        min-height: 22px;
+      }
+      .${TRANSLATE_CLASS}-wrap .${TRANSLATE_CLASS} {
+        margin: 0; padding: 0; border: none; background: none; border-radius: 0;
+        font-size: 14px; line-height: 1.5; color: #ff00a5;
+        white-space: pre-wrap; word-break: break-word;
       }
     `;
-      document.head.appendChild(style);
+
+    // 注入 spinner CSS（只注入一次）
+    if (!document.getElementById("wa-translate-style")) {
+      const styleEl = document.createElement("style");
+      styleEl.id = "wa-translate-style";
+      styleEl.textContent = SPINNER_CSS;
+      document.head.appendChild(styleEl);
     }
 
-    // 管理所有活动的 spinner 元素
-    const activeSpinners = new Map(); // dataId -> { element, row, bubble, text }
-
-    // 管理所有显示的译文元素
-    const activeResults = new Map(); // dataId -> { element, row, bubble }
-
-    // 滚动/resize 防抖
-    let updatePositionTimer = null;
-
-    // 更新所有浮层位置
-    function updateAllPositions() {
-      const container = getOrCreateOverlayContainer();
-
-      // 更新 spinner 位置
-      for (const [dataId, info] of activeSpinners) {
-        const row = document.querySelector(`[data-id="${CSS.escape(dataId)}"]`);
-        if (!row || !row.isConnected) {
-          // 消息已不存在，移除浮层
-          info.element.remove();
-          activeSpinners.delete(dataId);
-          continue;
-        }
-
-        const bubble = getBubbleFromRow(row);
-        if (!bubble) {
-          info.element.remove();
-          activeSpinners.delete(dataId);
-          continue;
-        }
-
-        // 检查是否在视口内
-        const rect = bubble.getBoundingClientRect();
-        const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
-
-        if (!isVisible) {
-          info.element.style.display = "none";
-          continue;
-        }
-
-        info.element.style.display = "flex";
-        info.element.style.transform = `translate(${rect.right + 8}px, ${rect.top + 4}px)`;
-      }
-
-      // 更新译文位置
-      for (const [dataId, info] of activeResults) {
-        const row = document.querySelector(`[data-id="${CSS.escape(dataId)}"]`);
-        if (!row || !row.isConnected) {
-          info.element.remove();
-          activeResults.delete(dataId);
-          continue;
-        }
-
-        const bubble = getBubbleFromRow(row);
-        if (!bubble) {
-          info.element.remove();
-          activeResults.delete(dataId);
-          continue;
-        }
-
-        const rect = bubble.getBoundingClientRect();
-        const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
-
-        info.element.style.display = isVisible ? "block" : "none";
-        info.element.style.transform = `translate(${rect.left}px, ${rect.bottom + 6}px)`;
-      }
+    function insertSpinner(bubble) {
+      if (!bubble) return null;
+      if (bubble.querySelector("." + SPINNER_CLASS)) return null; // 已有 spinner
+      if (bubble.querySelector("." + TRANSLATE_CLASS)) return null; // 已有译文
+      const wrap = document.createElement("div");
+      wrap.className = TRANSLATE_CLASS + "-wrap";
+      const spinner = document.createElement("span");
+      spinner.className = SPINNER_CLASS;
+      const textEl = document.createElement("span");
+      textEl.className = TRANSLATE_CLASS;
+      textEl.textContent = "";
+      wrap.appendChild(spinner);
+      wrap.appendChild(textEl);
+      bubble.appendChild(wrap);
+      return wrap;
     }
 
-    // 防抖更新位置
-    function schedulePositionUpdate() {
-      if (updatePositionTimer) clearTimeout(updatePositionTimer);
-      updatePositionTimer = setTimeout(() => {
-        updateAllPositions();
-        updatePositionTimer = null;
-      }, 50);
-    }
-
-    // 添加进度圈
-    function addSpinner(dataId, row, bubble, text) {
-      if (activeSpinners.has(dataId)) return;
-      if (activeResults.has(dataId)) return; // 已有译文
-
-      const container = getOrCreateOverlayContainer();
-      injectSpinnerStyles();
-
-      const rect = bubble.getBoundingClientRect();
-      const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
-
-      const spinnerEl = document.createElement("div");
-      spinnerEl.className = "wa-translate-spinner-float";
-      spinnerEl.innerHTML = '<div class="spinner-core"></div>';
-      spinnerEl.style.display = isVisible ? "flex" : "none";
-      spinnerEl.style.transform = `translate(${rect.right + 8}px, ${rect.top + 4}px)`;
-
-      container.appendChild(spinnerEl);
-
-      activeSpinners.set(dataId, {
-        element: spinnerEl,
-        row,
-        bubble,
-        text,
-      });
-    }
-
-    // 移除进度圈，添加译文
-    function replaceSpinnerWithResult(dataId, translatedText) {
-      const spinnerInfo = activeSpinners.get(dataId);
-      if (spinnerInfo) {
-        spinnerInfo.element.remove();
-        activeSpinners.delete(dataId);
-      }
-
-      // 检查是否已有译文
-      if (activeResults.has(dataId)) return;
-
-      const row = document.querySelector(`[data-id="${CSS.escape(dataId)}"]`);
-      if (!row) return;
-
-      const bubble = getBubbleFromRow(row);
+    function fillTranslation(bubble, translated) {
       if (!bubble) return;
-
-      const container = getOrCreateOverlayContainer();
-
-      const rect = bubble.getBoundingClientRect();
-      const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
-
-      const resultEl = document.createElement("div");
-      resultEl.className = "wa-translate-float-result";
-      resultEl.textContent = translatedText;
-      resultEl.style.display = isVisible ? "block" : "none";
-      resultEl.style.transform = `translate(${rect.left}px, ${rect.bottom + 6}px)`;
-      resultEl.style.width = `${Math.min(rect.width, 380)}px`;
-
-      container.appendChild(resultEl);
-
-      activeResults.set(dataId, {
-        element: resultEl,
-        row,
-        bubble,
-      });
-    }
-
-    // 移除进度圈（翻译失败或取消时）
-    function removeSpinner(dataId) {
-      const info = activeSpinners.get(dataId);
-      if (info) {
-        info.element.remove();
-        activeSpinners.delete(dataId);
-      }
-    }
-
-    // 清除所有浮层
-    function clearAllFloatingElements() {
-      for (const [dataId, info] of activeSpinners) {
-        info.element.remove();
-      }
-      activeSpinners.clear();
-
-      for (const [dataId, info] of activeResults) {
-        info.element.remove();
-      }
-      activeResults.clear();
-    }
-
-    // ─── 监听滚动和resize ───────────────────────────────────────────────
-    let scrollListenerAttached = false;
-
-    function attachScrollListeners() {
-      if (scrollListenerAttached) return;
-      scrollListenerAttached = true;
-
-      const messageScroller = () =>
-        document.querySelector(
-          '[data-scrolltracepolicy="wa.web.conversation.messages"]',
-        ) || document.querySelector('#main [role="region"]');
-
-      // 监听消息容器的滚动
-      const attachToScroller = () => {
-        const scroller = messageScroller();
-        if (scroller && !scroller._translateScrollBound) {
-          scroller._translateScrollBound = true;
-          scroller.addEventListener("scroll", schedulePositionUpdate, {
-            passive: true,
-          });
-        }
-      };
-
-      // 定期检查并绑定滚动容器
-      const checkInterval = setInterval(() => {
-        if (!translateEnabled) {
-          clearInterval(checkInterval);
+      // 找已有的 wrap（spinner 模式）
+      let wrap = bubble.querySelector("." + TRANSLATE_CLASS + "-wrap");
+      if (wrap) {
+        const spinner = wrap.querySelector("." + SPINNER_CLASS);
+        if (spinner) spinner.remove();
+        const textEl = wrap.querySelector("." + TRANSLATE_CLASS);
+        if (textEl) {
+          textEl.textContent = translated;
           return;
         }
-        attachToScroller();
-      }, 500);
-
-      window.addEventListener("resize", schedulePositionUpdate, {
-        passive: true,
-      });
-      window.addEventListener("scroll", schedulePositionUpdate, {
-        passive: true,
-      });
-
-      // 保存清理函数
-      window._translateCleanup = () => {
-        clearInterval(checkInterval);
-        window.removeEventListener("resize", schedulePositionUpdate);
-        window.removeEventListener("scroll", schedulePositionUpdate);
-        const scroller = messageScroller();
-        if (scroller) {
-          scroller.removeEventListener("scroll", schedulePositionUpdate);
-          scroller._translateScrollBound = false;
-        }
-        scrollListenerAttached = false;
-      };
+        wrap.textContent = translated;
+        return;
+      }
+      // 兜底：直接插普通 div（回调时 bubble 可能已重建）
+      if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
+      const div = document.createElement("div");
+      div.className = TRANSLATE_CLASS + "-wrap";
+      div.style.cssText =
+        "margin:4px 0 2px 0;padding:4px 8px;border-left:3px solid #1a73e8;background:rgba(26,115,232,0.07);border-radius:0 4px 4px 0;font-size:14px;line-height:1.5;color:#ff00a5;white-space:pre-wrap;word-break:break-word;";
+      div.textContent = translated;
+      bubble.appendChild(div);
     }
 
-    function detachScrollListeners() {
-      if (window._translateCleanup) {
-        window._translateCleanup();
-        window._translateCleanup = null;
+    function removeSpinner(bubble) {
+      if (!bubble) return;
+      const wrap = bubble.querySelector("." + TRANSLATE_CLASS + "-wrap");
+      if (wrap) {
+        const spinner = wrap.querySelector("." + SPINNER_CLASS);
+        if (spinner) spinner.remove();
+        // 如果 wrap 是空的（没有文字），整个移除
+        const textEl = wrap.querySelector("." + TRANSLATE_CLASS);
+        if (!textEl || !textEl.textContent) wrap.remove();
       }
     }
 
-    // ─── 处理单个消息行 ───────────────────────────────────────────────────
+    function insertTranslation(bubble, translated) {
+      fillTranslation(bubble, translated);
+    }
+
+    // ─── 处理单个 [data-id] 行 ────────────────────────────────────────────
     function handleRow(row) {
       if (!translateEnabled) return;
-
       const dataId = row.getAttribute("data-id");
       if (!dataId) return;
 
-      // 已有译文或正在翻译
-      if (activeResults.has(dataId) || activeSpinners.has(dataId)) return;
-      if (translatePending.has(dataId)) return;
-
       const bubble = getBubbleFromRow(row);
       if (!bubble) return;
+
+      // 已有译文或正在翻译（spinner）则跳过
+      if (bubble.querySelector("." + TRANSLATE_CLASS + "-wrap")) return;
+      if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
 
       const text = extractBubbleText(bubble);
       if (!text || text.length < 2) return;
 
-      // 检查缓存
+      // 先查文本缓存（同内容直接插入，不发网络请求）
       const cached = getCached(text);
       if (cached) {
         const result =
@@ -5924,72 +5561,83 @@ function 注入浮动窗口() {
             ? `[${cached.source}] ${cached.translated}`
             : "";
         if (result) {
-          replaceSpinnerWithResult(dataId, result);
+          insertTranslation(bubble, result);
           return;
         }
       }
 
-      // 添加进度圈
-      addSpinner(dataId, row, bubble, text);
+      // 同一消息行已在请求中，跳过
+      if (translatePending.has(dataId)) return;
       translatePending.add(dataId);
+
+      // ✅ 立即插入 spinner，让用户看到正在翻译
+      insertSpinner(bubble);
 
       enqueueTranslate(async () => {
         try {
-          const { translated, source } = await fetchTranslationBatched(text);
+          const { translated, source } = await fetchTranslation(text);
           const result =
             translated && translated !== text
               ? `[${source}] ${translated}`
               : "";
-
           if (result) {
-            setCached(text, translated, source);
-            replaceSpinnerWithResult(dataId, result);
+            setCached(text, translated, source); // 缓存原文和来源
+            // 重新从 DOM 找（虚拟滚动可能重建了节点）
+            const liveRow = document.querySelector(
+              `[data-id="${CSS.escape(dataId)}"]`,
+            );
+            if (liveRow) {
+              const liveBubble = getBubbleFromRow(liveRow);
+              if (liveBubble) fillTranslation(liveBubble, result);
+            }
           } else {
-            removeSpinner(dataId);
+            // 翻译结果为空（同语言等），移除 spinner
+            const liveRow = document.querySelector(
+              `[data-id="${CSS.escape(dataId)}"]`,
+            );
+            if (liveRow) removeSpinner(getBubbleFromRow(liveRow));
           }
         } catch (e) {
           console.warn("[wa-translate] 失败:", dataId, e);
-          removeSpinner(dataId);
+          // 移除 spinner，避免永久转圈
+          const liveRow = document.querySelector(
+            `[data-id="${CSS.escape(dataId)}"]`,
+          );
+          if (liveRow) removeSpinner(getBubbleFromRow(liveRow));
         } finally {
           translatePending.delete(dataId);
-          schedulePositionUpdate();
         }
       });
-
-      schedulePositionUpdate();
     }
 
-    // ─── 扫描所有消息 ─────────────────────────────────────────────────────
-    let scanDebounceTimer = null;
-
+    // ─── 扫描所有已渲染消息 ───────────────────────────────────────────────
     function scanExisting() {
-      if (!translateEnabled) return;
-
-      const rows = Array.from(document.querySelectorAll("[data-id]")).reverse();
+      // 找所有已渲染的 [data-id] 行（有 selectable-text 的）
+      const rows = document.querySelectorAll("[data-id]");
       for (const row of rows) {
+        // 虚拟列表中 data-virtualized="true" 的是占位，跳过
         if (!row.querySelector('[data-testid="selectable-text"]')) continue;
         handleRow(row);
       }
-      schedulePositionUpdate();
     }
 
-    function scanExistingDebounced(delay = 150) {
-      if (scanDebounceTimer) clearTimeout(scanDebounceTimer);
-      scanDebounceTimer = setTimeout(() => {
-        scanDebounceTimer = null;
-        scanExisting();
-      }, delay);
+    function clearAllTranslations() {
+      document
+        .querySelectorAll("." + TRANSLATE_CLASS + "-wrap, ." + TRANSLATE_CLASS)
+        .forEach((el) => el.remove());
     }
 
-    // ─── MutationObserver ──────────────────────────────────────────────────
+    // ─── MutationObserver：监听消息插入（虚拟滚动）───────────────────────
+    // 虚拟列表在滚动时会把 data-virtualized="true" 的占位节点替换成真实内容
+    // 监听 [data-id] 节点的子节点变化，检测到 selectable-text 出现时翻译
     const translateMsgObserver = new MutationObserver((mutations) => {
       if (!translateEnabled) return;
       const seenRows = new Set();
-
       for (const mutation of mutations) {
+        // 检查 addedNodes（新增节点）
         for (const node of mutation.addedNodes) {
           if (node.nodeType !== Node.ELEMENT_NODE) continue;
-
+          // 直接就是 [data-id] 行
           if (node.hasAttribute("data-id")) {
             if (
               !seenRows.has(node) &&
@@ -6000,7 +5648,7 @@ function 注入浮动窗口() {
             }
             continue;
           }
-
+          // 新增节点内含 [data-id]
           const rows = node.querySelectorAll
             ? node.querySelectorAll("[data-id]")
             : [];
@@ -6013,7 +5661,7 @@ function 注入浮动窗口() {
               handleRow(row);
             }
           }
-
+          // 也检查 selectable-text 直接插入（虚拟列表内容填充）
           const sts = node.querySelectorAll
             ? node.querySelectorAll('[data-testid="selectable-text"]')
             : [];
@@ -6027,6 +5675,7 @@ function 注入浮动窗口() {
           }
         }
 
+        // 检查 target 自身（[data-id] 行的内容被替换时，target = [data-id]）
         const target = mutation.target;
         if (
           target.hasAttribute &&
@@ -6039,11 +5688,28 @@ function 注入浮动窗口() {
           }
         }
       }
-
-      if (seenRows.size > 0) schedulePositionUpdate();
     });
 
     // ─── 聊天切换检测 ─────────────────────────────────────────────────────
+    function getCurrentChatTitle() {
+      const header = document.querySelector('#main header span[dir="auto"]');
+      return header ? header.textContent.trim() : null;
+    }
+
+    function onChatSwitched() {
+      if (!translateEnabled) return;
+      if (translateChatSwitchDebounce)
+        clearTimeout(translateChatSwitchDebounce);
+      translateChatSwitchDebounce = setTimeout(() => {
+        console.log("[wa-translate] 切换聊天，重新扫描...");
+        // 清除 pending（新聊天的 dataId 不同，旧 pending 无意义）
+        translatePending.clear();
+        scanExisting();
+        translateChatSwitchDebounce = null;
+      }, 900);
+    }
+
+    // body 级监听：检测消息容器整体替换
     const translateChatObserver = new MutationObserver((mutations) => {
       if (!translateEnabled) return;
       for (const mutation of mutations) {
@@ -6056,19 +5722,14 @@ function 注入浮动窗口() {
               '[data-scrolltracepolicy="wa.web.conversation.messages"]',
             )
           ) {
-            console.log("[wa-translate] 切换聊天，重新扫描...");
-            translatePending.clear();
-            clearAllFloatingElements();
-            scanExistingDebounced(300);
+            onChatSwitched();
             return;
           }
+          // 大量新 data-id 节点 = 切换了聊天
           if (node.querySelectorAll) {
             const msgs = node.querySelectorAll("[data-id]");
             if (msgs.length >= 5) {
-              console.log("[wa-translate] 切换聊天，重新扫描...");
-              translatePending.clear();
-              clearAllFloatingElements();
-              scanExistingDebounced(300);
+              onChatSwitched();
               return;
             }
           }
@@ -6076,21 +5737,70 @@ function 注入浮动窗口() {
       }
     });
 
-    // ─── 开启/关闭 ────────────────────────────────────────────────────────
-    const translateBtn = shadowRoot.getElementById("translateToggleBtn");
+    // 聊天列表点击监听（双保险）
+    document.addEventListener(
+      "click",
+      (e) => {
+        if (!translateEnabled) return;
+        const chatItem = e.target.closest(
+          '[role="row"], [role="listitem"], [data-testid="chat-list-item"]',
+        );
+        if (!chatItem) return;
+        setTimeout(() => {
+          const currentTitle = getCurrentChatTitle();
+          if (currentTitle !== translateLastChatId) {
+            translateLastChatId = currentTitle;
+            console.log("[wa-translate] 点击切换聊天:", currentTitle);
+            translatePending.clear();
+            scanExisting();
+          }
+        }, 1000);
+      },
+      true,
+    );
 
+    // ─── 滚动到底部按钮监听（新消息提醒）────────────────────────────────
+    let scrollBtnObserver = null;
+    let scrollBtnDebounce = null;
+
+    function startScrollBtnObserver() {
+      if (scrollBtnObserver) return;
+      scrollBtnObserver = new MutationObserver(() => {
+        if (!translateEnabled) return;
+        const btn = document.querySelector(
+          'button[aria-label="滚动到底部"], button[data-tab="7"]',
+        );
+        if (btn && btn.offsetParent) {
+          if (scrollBtnDebounce) clearTimeout(scrollBtnDebounce);
+          scrollBtnDebounce = setTimeout(() => scanExisting(), 300);
+        }
+      });
+      scrollBtnObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["style", "class"],
+      });
+    }
+
+    function stopScrollBtnObserver() {
+      if (scrollBtnObserver) {
+        scrollBtnObserver.disconnect();
+        scrollBtnObserver = null;
+      }
+    }
+
+    // ─── 开启 / 暂停 ──────────────────────────────────────────────────────
     function startTranslate() {
       translateEnabled = true;
       translateBtn.style.background = "#d93025";
       translateBtn.textContent = "⏸ 暂停自动翻译";
 
-      injectSpinnerStyles();
-      attachScrollListeners();
-
       loadCacheFromFile().then(() => {
         if (translateEnabled) scanExisting();
       });
 
+      // observe 整个 #main，捕获虚拟列表内容替换
       const root = document.querySelector("#main") || document.body;
       translateMsgObserver.observe(root, { childList: true, subtree: true });
       translateChatObserver.observe(document.body, {
@@ -6098,7 +5808,9 @@ function 注入浮动窗口() {
         subtree: true,
       });
 
+      translateLastChatId = getCurrentChatTitle();
       scanExisting();
+      startScrollBtnObserver();
       console.log("[wa-translate] 已开启");
     }
 
@@ -6109,8 +5821,8 @@ function 注入浮动窗口() {
 
       translateMsgObserver.disconnect();
       translateChatObserver.disconnect();
-      detachScrollListeners();
-      clearAllFloatingElements();
+      stopScrollBtnObserver();
+      clearAllTranslations();
 
       if (
         cacheDirty &&
