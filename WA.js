@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.3";
+const WA_VERSION = "v5.1.4";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5336,7 +5336,7 @@ function 注入浮动窗口() {
     // ── 熔断 & 超时常量 ──────────────────────────────────────────────────
     const CIRCUIT_FAIL_THRESHOLD = 3;      // 普通失败次数触发熔断
     const CIRCUIT_COOLDOWN_MS    = 60_000; // 熔断冷却（60s）
-    const REQUEST_TIMEOUT_MS     = 3000;   // 单次请求超时（3s）
+    const REQUEST_TIMEOUT_MS     = 1500;   // 单次请求超时（1.5s，超过即切源）
     const TIMEOUT_PENALTY_MAX    = 5;      // 连续超时达此次数 → 熔断
     const TIMEOUT_PENALTY_STEP   = 0.15;   // 每次超时扣除的权重惩罚
 
@@ -5463,7 +5463,120 @@ function 注入浮动窗口() {
       throw lastErr || new Error("All providers failed");
     }
 
-    // ─── 并发队列（保持不变）──────────────────────────────────────────────
+    // ─── 批处理层（极速模式核心）────────────────────────────────────────
+    // Google 支持用 \n 拼接多条文本一次翻译，返回结果再按 \n 拆分
+    // 其他源不支持批量，单条走原有 fetchTranslation 流程
+    const BATCH_WINDOW_MS  = 80;   // 收集窗口：80ms 内的请求合并成一批
+    const BATCH_MAX_CHARS  = 1800; // 单批最大字符数（Google URL 长度限制）
+    const BATCH_MAX_ITEMS  = 12;   // 单批最多条数
+
+    // 待批处理队列：[{ text, resolve, reject }]
+    let batchQueue   = [];
+    let batchTimer   = null;
+
+    async function flushBatch() {
+      batchTimer = null;
+      if (batchQueue.length === 0) return;
+
+      // 取出本批
+      const batch = batchQueue.splice(0, BATCH_MAX_ITEMS);
+
+      // 单条直接走原有流程（不走批处理）
+      if (batch.length === 1) {
+        const { text, resolve, reject } = batch[0];
+        fetchTranslation(text).then(resolve).catch(reject);
+        return;
+      }
+
+      // 尝试 Google 批量翻译
+      const joined = batch.map(b => b.text).join("\n");
+      const url =
+        "https://translate.googleapis.com/translate_a/single" +
+        "?client=gtx&sl=auto&tl=" + TARGET_LANG +
+        "&dt=t&q=" + encodeURIComponent(joined);
+
+      try {
+        const res = await httpGetJson(url);
+        if (!res.success) throw new Error("batch network error");
+        const p = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        // Google 批量返回：p[0] 每个元素是一句，element[0] 是译文
+        const translatedLines = p[0].map(i => (i[0] || "").trim());
+
+        // 按原始行数对应回 resolve
+        batch.forEach((item, idx) => {
+          const translated = translatedLines[idx] || "";
+          if (translated && translated !== item.text) {
+            item.resolve({ translated, source: "Google(batch)" });
+          } else {
+            // 批量结果对不上，降级单条
+            fetchTranslation(item.text).then(item.resolve).catch(item.reject);
+          }
+        });
+
+        console.log(`[wa-translate] ⚡ 批量翻译 ${batch.length} 条 → 1 次请求`);
+
+        // 更新 Google provider 指标
+        const gp = translationProviders.find(p => p.name === "Google");
+        if (gp) gp.success += batch.length;
+
+      } catch (e) {
+        console.warn("[wa-translate] 批量翻译失败，降级单条:", e.message);
+        // 全部降级
+        for (const { text, resolve, reject } of batch) {
+          fetchTranslation(text).then(resolve).catch(reject);
+        }
+      }
+
+      // 如果批处理期间又积累了新请求，继续 flush
+      if (batchQueue.length > 0) {
+        batchTimer = setTimeout(flushBatch, BATCH_WINDOW_MS);
+      }
+    }
+
+    // 对外接口：提交一条文本，返回 Promise<{translated, source}>
+    function fetchTranslationBatched(text) {
+      return new Promise((resolve, reject) => {
+        batchQueue.push({ text, resolve, reject });
+
+        // 超过单批字符上限，立即 flush
+        const totalChars = batchQueue.reduce((s, b) => s + b.text.length, 0);
+        if (batchQueue.length >= BATCH_MAX_ITEMS || totalChars >= BATCH_MAX_CHARS) {
+          if (batchTimer) { clearTimeout(batchTimer); batchTimer = null; }
+          flushBatch();
+          return;
+        }
+
+        // 否则等收集窗口到期再统一 flush
+        if (!batchTimer) {
+          batchTimer = setTimeout(flushBatch, BATCH_WINDOW_MS);
+        }
+      });
+    }
+
+    // ─── 预热：启动时悄悄测一次各源，建立真实 avgTime ────────────────────
+    async function warmupProviders() {
+      const WARMUP_TEXT = "Hello";
+      // 顺序测，不影响正常翻译并发槽
+      for (const p of translationProviders) {
+        if (p.disabledUntil > Date.now()) continue;
+        const t0 = Date.now();
+        try {
+          await callWithTimeout(p, WARMUP_TEXT);
+          const elapsed = Date.now() - t0;
+          p.avgTime = Math.round(p.avgTime * 0.4 + elapsed * 0.6); // 预热权重更高
+          p.success++;
+          console.log(`[wa-translate] 🔥 预热 ${p.name}: ${elapsed}ms → avgTime=${p.avgTime}ms`);
+        } catch (e) {
+          p.fail++;
+          console.warn(`[wa-translate] 🔥 预热 ${p.name} 失败:`, e.message);
+        }
+        // 预热间隔，不要瞬间打爆
+        await new Promise(r => setTimeout(r, 200));
+      }
+      console.log("[wa-translate] 🔥 预热完成，调度已就绪");
+    }
+
+    // ─── 并发队列 ─────────────────────────────────────────────────────────
     async function runTranslateWorker() {
       while (translateQueue.length > 0) {
         const task = translateQueue.shift();
@@ -5745,7 +5858,7 @@ function 注入浮动窗口() {
 
       enqueueTranslate(async () => {
         try {
-          const { translated, source } = await fetchTranslation(text);
+          const { translated, source } = await fetchTranslationBatched(text);
           const result =
             translated && translated !== text
               ? `[${source}] ${translated}`
@@ -5781,12 +5894,21 @@ function 注入浮动窗口() {
     }
 
     // ─── 扫描所有已渲染消息（从下往上，优先翻译最新消息）─────────────────
+    let scanDebounceTimer = null;
     function scanExisting() {
       const rows = Array.from(document.querySelectorAll("[data-id]")).reverse();
       for (const row of rows) {
         if (!row.querySelector('[data-testid="selectable-text"]')) continue;
         handleRow(row);
       }
+    }
+    // debounce 版：滚动/频繁触发时合并，避免重复扫 DOM
+    function scanExistingDebounced(delay = 150) {
+      if (scanDebounceTimer) clearTimeout(scanDebounceTimer);
+      scanDebounceTimer = setTimeout(() => {
+        scanDebounceTimer = null;
+        scanExisting();
+      }, delay);
     }
 
     function clearAllTranslations() {
@@ -5872,7 +5994,7 @@ function 注入浮动窗口() {
         console.log("[wa-translate] 切换聊天，重新扫描...");
         // 清除 pending（新聊天的 dataId 不同，旧 pending 无意义）
         translatePending.clear();
-        scanExisting();
+        scanExistingDebounced(300);
         translateChatSwitchDebounce = null;
       }, 900);
     }
@@ -5920,7 +6042,7 @@ function 注入浮动窗口() {
             translateLastChatId = currentTitle;
             console.log("[wa-translate] 点击切换聊天:", currentTitle);
             translatePending.clear();
-            scanExisting();
+            scanExistingDebounced(300);
           }
         }, 1000);
       },
@@ -5940,7 +6062,7 @@ function 注入浮动窗口() {
         );
         if (btn && btn.offsetParent) {
           if (scrollBtnDebounce) clearTimeout(scrollBtnDebounce);
-          scrollBtnDebounce = setTimeout(() => scanExisting(), 300);
+          scrollBtnDebounce = setTimeout(() => scanExistingDebounced(), 300);
         }
       });
       scrollBtnObserver.observe(document.body, {
@@ -5967,6 +6089,9 @@ function 注入浮动窗口() {
       loadCacheFromFile().then(() => {
         if (translateEnabled) scanExisting();
       });
+
+      // 预热：悄悄测一次各源，建立真实 avgTime，首次调度就能选到最快的源
+      warmupProviders().catch(() => {});
 
       // observe 整个 #main，捕获虚拟列表内容替换
       const root = document.querySelector("#main") || document.body;
