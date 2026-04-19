@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.7";
+const WA_VERSION = "v5.1.8";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5832,6 +5832,7 @@ function 注入浮动窗口() {
       wrap.appendChild(spinner);
       wrap.appendChild(textEl);
       bubble.appendChild(wrap);
+      console.log("[wa-translate] spinner inserted for bubble:", bubble);
       return wrap;
     }
 
@@ -5845,9 +5846,17 @@ function 注入浮动窗口() {
         const textEl = wrap.querySelector("." + TRANSLATE_CLASS);
         if (textEl) {
           textEl.textContent = translated;
+          console.log(
+            "[wa-translate] spinner removed, translation filled:",
+            translated,
+          );
           return;
         }
         wrap.textContent = translated;
+        console.log(
+          "[wa-translate] translation filled (no textEl):",
+          translated,
+        );
         return;
       }
       // 兜底：直接插普通 div（回调时 bubble 可能已重建）
@@ -5858,6 +5867,7 @@ function 注入浮动窗口() {
         "margin:4px 0 2px 0;padding:4px 8px;border-left:3px solid #1a73e8;background:rgba(26,115,232,0.07);border-radius:0 4px 4px 0;font-size:14px;line-height:1.5;color:#ff00a5;white-space:pre-wrap;word-break:break-word;";
       div.textContent = translated;
       bubble.appendChild(div);
+      console.log("[wa-translate] translation filled (fallback):", translated);
     }
 
     function removeSpinner(bubble) {
@@ -5865,7 +5875,10 @@ function 注入浮动窗口() {
       const wrap = bubble.querySelector("." + TRANSLATE_CLASS + "-wrap");
       if (wrap) {
         const spinner = wrap.querySelector("." + SPINNER_CLASS);
-        if (spinner) spinner.remove();
+        if (spinner) {
+          spinner.remove();
+          console.log("[wa-translate] spinner removed via removeSpinner");
+        }
         // 如果 wrap 是空的（没有文字），整个移除
         const textEl = wrap.querySelector("." + TRANSLATE_CLASS);
         if (!textEl || !textEl.textContent) wrap.remove();
@@ -5874,6 +5887,17 @@ function 注入浮动窗口() {
 
     function insertTranslation(bubble, translated) {
       fillTranslation(bubble, translated);
+    }
+
+    // ─── 滚动事件处理：防抖扫描新消息 ────────────────────────────────────
+    let scrollScanTimer = null;
+    function handleScrollForTranslate() {
+      if (!translateEnabled) return;
+      if (scrollScanTimer) clearTimeout(scrollScanTimer);
+      scrollScanTimer = setTimeout(() => {
+        console.log("[wa-translate] 滚动检测，扫描新消息");
+        scanExisting();
+      }, 200); // 200ms 防抖
     }
 
     // ─── 处理单个 [data-id] 行 ────────────────────────────────────────────
@@ -6175,6 +6199,15 @@ function 注入浮动窗口() {
         subtree: true,
       });
 
+      // 添加滚动监听器，确保滚动加载的历史消息被扫描
+      const scroller = getMessageScroller();
+      if (scroller) {
+        scroller.addEventListener("scroll", handleScrollForTranslate, {
+          passive: true,
+        });
+        console.log("[wa-translate] 滚动监听器已添加");
+      }
+
       translateLastChatId = getCurrentChatTitle();
       scanExisting();
       startScrollBtnObserver();
@@ -6189,6 +6222,14 @@ function 注入浮动窗口() {
       translateMsgObserver.disconnect();
       translateChatObserver.disconnect();
       stopScrollBtnObserver();
+
+      // 移除滚动监听器
+      const scroller = getMessageScroller();
+      if (scroller) {
+        scroller.removeEventListener("scroll", handleScrollForTranslate);
+        console.log("[wa-translate] 滚动监听器已移除");
+      }
+
       clearAllTranslations();
 
       if (
