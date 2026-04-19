@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.3";
+const WA_VERSION = "v5.1.4";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5855,7 +5855,7 @@ function 注入浮动窗口() {
 if (window.location.hostname.includes("web.whatsapp.com")) {
   console.log("当前在 WhatsApp Web");
   // 缩小布局窗口
-  document.body.style.zoom = "70%";
+  document.body.style.zoom = "75%";
   // 调用函数注入浮动窗口
   注入浮动窗口();
 }
