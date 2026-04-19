@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.4";
+const WA_VERSION = "v5.1.5";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5464,32 +5464,35 @@ function 注入浮动窗口() {
     }
 
     // ─── 批处理层（极速模式核心）────────────────────────────────────────
-    // Google 支持用 \n 拼接多条文本一次翻译，返回结果再按 \n 拆分
-    // 其他源不支持批量，单条走原有 fetchTranslation 流程
-    const BATCH_WINDOW_MS  = 80;   // 收集窗口：80ms 内的请求合并成一批
-    const BATCH_MAX_CHARS  = 1800; // 单批最大字符数（Google URL 长度限制）
-    const BATCH_MAX_ITEMS  = 12;   // 单批最多条数
+    // 用 Unicode 私有区字符作分隔符，消息内换行用另一个占位符替换
+    // 两个字符均不可能出现在用户聊天文本中，Google 翻译会原样保留
+    const BATCH_SEP        = "\uE001"; // 消息间分隔符（Google 原样保留）
+    const BATCH_NL         = "\uE002"; // 消息内换行占位符
+    const BATCH_WINDOW_MS  = 80;        // 收集窗口（ms）
+    const BATCH_MAX_CHARS  = 1800;      // 单批最大字符数
+    const BATCH_MAX_ITEMS  = 12;        // 单批最多条数
 
     // 待批处理队列：[{ text, resolve, reject }]
-    let batchQueue   = [];
-    let batchTimer   = null;
+    let batchQueue = [];
+    let batchTimer = null;
 
     async function flushBatch() {
       batchTimer = null;
       if (batchQueue.length === 0) return;
 
-      // 取出本批
       const batch = batchQueue.splice(0, BATCH_MAX_ITEMS);
 
-      // 单条直接走原有流程（不走批处理）
+      // 单条直接走原有流程
       if (batch.length === 1) {
         const { text, resolve, reject } = batch[0];
         fetchTranslation(text).then(resolve).catch(reject);
         return;
       }
 
-      // 尝试 Google 批量翻译
-      const joined = batch.map(b => b.text).join("\n");
+      // 编码：消息内换行 → BATCH_NL，消息间用 BATCH_SEP 连接
+      const encoded = batch.map(b => b.text.replace(/\n/g, BATCH_NL));
+      const joined  = encoded.join(BATCH_SEP);
+
       const url =
         "https://translate.googleapis.com/translate_a/single" +
         "?client=gtx&sl=auto&tl=" + TARGET_LANG +
@@ -5499,35 +5502,55 @@ function 注入浮动窗口() {
         const res = await httpGetJson(url);
         if (!res.success) throw new Error("batch network error");
         const p = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-        // Google 批量返回：p[0] 每个元素是一句，element[0] 是译文
-        const translatedLines = p[0].map(i => (i[0] || "").trim());
 
-        // 按原始行数对应回 resolve
+        // Google 返回 p[0]：每个元素 [译文片段, ...]
+        // 把所有片段拼回成完整译文字符串，再按 BATCH_SEP 切分
+        const fullTranslated = p[0].map(i => i[0] || "").join("");
+        const parts = fullTranslated.split(BATCH_SEP);
+
+        // 条数校验：不等于 batch.length 说明分隔符被翻译破坏，全部降级
+        if (parts.length !== batch.length) {
+          console.warn(
+            `[wa-translate] ⚠️ 批量分隔符错位（期望 ${batch.length} 条，得到 ${parts.length} 条），全部降级`
+          );
+          for (const { text, resolve, reject } of batch) {
+            fetchTranslation(text).then(resolve).catch(reject);
+          }
+          return;
+        }
+
+        let batchSuccess = 0;
         batch.forEach((item, idx) => {
-          const translated = translatedLines[idx] || "";
+          // 解码：BATCH_NL → 换行，BATCH_SEP（残留）→ 空
+          const translated = parts[idx]
+            .replace(new RegExp(BATCH_NL, "g"), "\n")
+            .replace(new RegExp(BATCH_SEP, "g"), "")
+            .trim();
+
           if (translated && translated !== item.text) {
             item.resolve({ translated, source: "Google(batch)" });
+            batchSuccess++;
           } else {
-            // 批量结果对不上，降级单条
+            // 单条译文为空或等于原文（同语言），降级
             fetchTranslation(item.text).then(item.resolve).catch(item.reject);
           }
         });
 
-        console.log(`[wa-translate] ⚡ 批量翻译 ${batch.length} 条 → 1 次请求`);
+        console.log(
+          `[wa-translate] ⚡ 批量翻译 ${batch.length} 条 → 1 次请求（成功 ${batchSuccess} 条）`
+        );
 
         // 更新 Google provider 指标
         const gp = translationProviders.find(p => p.name === "Google");
-        if (gp) gp.success += batch.length;
+        if (gp) gp.success += batchSuccess;
 
       } catch (e) {
         console.warn("[wa-translate] 批量翻译失败，降级单条:", e.message);
-        // 全部降级
         for (const { text, resolve, reject } of batch) {
           fetchTranslation(text).then(resolve).catch(reject);
         }
       }
 
-      // 如果批处理期间又积累了新请求，继续 flush
       if (batchQueue.length > 0) {
         batchTimer = setTimeout(flushBatch, BATCH_WINDOW_MS);
       }
