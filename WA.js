@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.8";
+const WA_VERSION = "v5.1.9";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5865,9 +5865,21 @@ function 注入浮动窗口() {
       div.className = TRANSLATE_CLASS + "-wrap";
       div.style.cssText =
         "margin:4px 0 2px 0;padding:4px 8px;border-left:3px solid #1a73e8;background:rgba(26,115,232,0.07);border-radius:0 4px 4px 0;font-size:14px;line-height:1.5;color:#ff00a5;white-space:pre-wrap;word-break:break-word;";
-      div.textContent = translated;
+      // 强制插入 spinner 和译文
+      const spinner = document.createElement("span");
+      spinner.className = SPINNER_CLASS;
+      const textEl = document.createElement("span");
+      textEl.className = TRANSLATE_CLASS;
+      textEl.textContent = translated;
+      div.appendChild(spinner);
+      div.appendChild(textEl);
       bubble.appendChild(div);
-      console.log("[wa-translate] translation filled (fallback):", translated);
+      // 立即移除 spinner（模拟正常流程）
+      setTimeout(() => spinner.remove(), 100); // 短暂显示 spinner
+      console.log(
+        "[wa-translate] translation filled (fallback with spinner):",
+        translated,
+      );
     }
 
     function removeSpinner(bubble) {
