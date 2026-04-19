@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.1";
+const WA_VERSION = "v5.1.3";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5780,12 +5780,10 @@ function 注入浮动窗口() {
       });
     }
 
-    // ─── 扫描所有已渲染消息 ───────────────────────────────────────────────
+    // ─── 扫描所有已渲染消息（从下往上，优先翻译最新消息）─────────────────
     function scanExisting() {
-      // 找所有已渲染的 [data-id] 行（有 selectable-text 的）
-      const rows = document.querySelectorAll("[data-id]");
+      const rows = Array.from(document.querySelectorAll("[data-id]")).reverse();
       for (const row of rows) {
-        // 虚拟列表中 data-virtualized="true" 的是占位，跳过
         if (!row.querySelector('[data-testid="selectable-text"]')) continue;
         handleRow(row);
       }
