@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.5";
+const WA_VERSION = "v5.1.6";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5275,70 +5275,81 @@ function 注入浮动窗口() {
         avgTime: 700,
         disabledUntil: 0,
       },
-      {
-        name: "Lingva",
-        fn: async (text) => {
-          const url = `https://lingva.ml/api/v1/auto/zh/${encodeURIComponent(text)}`;
-          const res = await httpGetJson(url);
-          const d = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-          if (!res.success || !d?.translation) throw new Error("Lingva error");
-          return { translated: d.translation, source: "Lingva" };
-        },
-        success: 0,
-        fail: 0,
-        avgTime: 900,
-        disabledUntil: 0,
-      },
-      {
-        name: "Simply",
-        fn: async (text) => {
-          const url = `https://simplytranslate.org/api/translate?engine=google&from=auto&to=${TARGET_LANG}&text=${encodeURIComponent(text)}`;
-          const res = await httpGetJson(url);
-          const d = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-          if (!res.success || !d?.translated_text) throw new Error("Simply error");
-          return { translated: d.translated_text, source: "Simply" };
-        },
-        success: 0,
-        fail: 0,
-        avgTime: 1000,
-        disabledUntil: 0,
-      },
-      {
-        name: "Mozhi",
-        fn: async (text) => {
-          const url = `https://mozhi.aryak.me/api/translate?engine=google&from=auto&to=${TARGET_LANG}&text=${encodeURIComponent(text)}`;
-          const res = await httpGetJson(url);
-          const d = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-          if (!res.success || !d?.["translated-text"]) throw new Error("Mozhi error");
-          return { translated: d["translated-text"], source: "Mozhi" };
-        },
-        success: 0,
-        fail: 0,
-        avgTime: 950,
-        disabledUntil: 0,
-      },
-      {
-        name: "MyMemory",
-        fn: async (text) => {
-          const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh-CN`;
-          const res = await httpGetJson(url);
-          const d = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-          if (!res.success || !d?.responseData?.translatedText) throw new Error("MyMemory error");
-          return { translated: d.responseData.translatedText, source: "MyMemory" };
-        },
-        success: 0,
-        fail: 0,
-        avgTime: 1100,
-        disabledUntil: 0,
-      },
+      // {
+      //   name: "Lingva",
+      //   fn: async (text) => {
+      //     const url = `https://lingva.ml/api/v1/auto/zh/${encodeURIComponent(text)}`;
+      //     const res = await httpGetJson(url);
+      //     const d =
+      //       typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      //     if (!res.success || !d?.translation) throw new Error("Lingva error");
+      //     return { translated: d.translation, source: "Lingva" };
+      //   },
+      //   success: 0,
+      //   fail: 0,
+      //   avgTime: 900,
+      //   disabledUntil: 0,
+      // },
+      // {
+      //   name: "Simply",
+      //   fn: async (text) => {
+      //     const url = `https://simplytranslate.org/api/translate?engine=google&from=auto&to=${TARGET_LANG}&text=${encodeURIComponent(text)}`;
+      //     const res = await httpGetJson(url);
+      //     const d =
+      //       typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      //     if (!res.success || !d?.translated_text)
+      //       throw new Error("Simply error");
+      //     return { translated: d.translated_text, source: "Simply" };
+      //   },
+      //   success: 0,
+      //   fail: 0,
+      //   avgTime: 1000,
+      //   disabledUntil: 0,
+      // },
+      // {
+      //   name: "Mozhi",
+      //   fn: async (text) => {
+      //     const url = `https://mozhi.aryak.me/api/translate?engine=google&from=auto&to=${TARGET_LANG}&text=${encodeURIComponent(text)}`;
+      //     const res = await httpGetJson(url);
+      //     const d =
+      //       typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      //     if (!res.success || !d?.["translated-text"])
+      //       throw new Error("Mozhi error");
+      //     return { translated: d["translated-text"], source: "Mozhi" };
+      //   },
+      //   success: 0,
+      //   fail: 0,
+      //   avgTime: 950,
+      //   disabledUntil: 0,
+      // }
+      // ,
+      // {
+      //   name: "MyMemory",
+      //   fn: async (text) => {
+      //     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh-CN`;
+      //     const res = await httpGetJson(url);
+      //     const d =
+      //       typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      //     if (!res.success || !d?.responseData?.translatedText)
+      //       throw new Error("MyMemory error");
+      //     return {
+      //       translated: d.responseData.translatedText,
+      //       source: "MyMemory",
+      //     };
+      //   },
+      //   success: 0,
+      //   fail: 0,
+      //   avgTime: 1100,
+      //   disabledUntil: 0,
+      // },
     ];
 
     // ── 熔断 & 超时常量 ──────────────────────────────────────────────────
-    const CIRCUIT_FAIL_THRESHOLD = 3;      // 普通失败次数触发熔断
-    const CIRCUIT_COOLDOWN_MS    = 60_000; // 熔断冷却（60s）
-    const REQUEST_TIMEOUT_MS     = 1500;   // 单次请求超时（1.5s，超过即切源）
-    const TIMEOUT_PENALTY_MAX    = 5;      // 连续超时达此次数 → 熔断
-    const TIMEOUT_PENALTY_STEP   = 0.15;   // 每次超时扣除的权重惩罚
+    const CIRCUIT_FAIL_THRESHOLD = 3; // 普通失败次数触发熔断
+    const CIRCUIT_COOLDOWN_MS = 60_000; // 熔断冷却（60s）
+    const REQUEST_TIMEOUT_MS = 1500; // 单次请求超时（1.5s，超过即切源）
+    const TIMEOUT_PENALTY_MAX = 5; // 连续超时达此次数 → 熔断
+    const TIMEOUT_PENALTY_STEP = 0.15; // 每次超时扣除的权重惩罚
 
     // ── 带超时封装：超时计入惩罚，不计入 fail ────────────────────────────
     function callWithTimeout(provider, text) {
@@ -5347,25 +5358,31 @@ function 注入浮动窗口() {
           provider.timeouts = (provider.timeouts || 0) + 1;
           provider.timeoutPenalty = Math.min(
             (provider.timeoutPenalty || 0) + TIMEOUT_PENALTY_STEP,
-            1.0
+            1.0,
           );
           if (provider.timeouts >= TIMEOUT_PENALTY_MAX) {
             provider.disabledUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
             console.warn(
-              `[wa-translate] ⏱️ ${provider.name} 连续超时 ${provider.timeouts} 次，熔断 ${CIRCUIT_COOLDOWN_MS / 1000}s`
+              `[wa-translate] ⏱️ ${provider.name} 连续超时 ${provider.timeouts} 次，熔断 ${CIRCUIT_COOLDOWN_MS / 1000}s`,
             );
           } else {
             console.warn(
               `[wa-translate] ⏱️ ${provider.name} 超时 (${provider.timeouts}/${TIMEOUT_PENALTY_MAX})，` +
-              `惩罚权重 -${provider.timeoutPenalty.toFixed(2)}`
+                `惩罚权重 -${provider.timeoutPenalty.toFixed(2)}`,
             );
           }
           reject(new Error(`${provider.name} timeout`));
         }, REQUEST_TIMEOUT_MS);
 
         provider.fn(text).then(
-          (res) => { clearTimeout(timer); resolve(res); },
-          (err) => { clearTimeout(timer); reject(err); }
+          (res) => {
+            clearTimeout(timer);
+            resolve(res);
+          },
+          (err) => {
+            clearTimeout(timer);
+            reject(err);
+          },
         );
       });
     }
@@ -5374,7 +5391,7 @@ function 注入浮动窗口() {
     function scoreProvider(p) {
       const total = p.success + p.fail;
       const successRate = total === 0 ? 0.5 : p.success / total;
-      const speedScore  = Math.max(0, 1 - p.avgTime / 4000);
+      const speedScore = Math.max(0, 1 - p.avgTime / 4000);
       const base = successRate * 0.7 + speedScore * 0.3;
       return Math.max(base - (p.timeoutPenalty || 0), 0.01);
     }
@@ -5408,7 +5425,7 @@ function 注入浮动窗口() {
         return fetchTranslation(text);
       }
 
-      const primary  = pickWeightedRandom(providers);
+      const primary = pickWeightedRandom(providers);
       const fallbacks = providers
         .filter((p) => p !== primary)
         .sort((a, b) => scoreProvider(b) - scoreProvider(a));
@@ -5427,11 +5444,14 @@ function 注入浮动窗口() {
           // 成功：更新 avgTime，超时惩罚衰减（奖励恢复）
           provider.avgTime = Math.round(provider.avgTime * 0.7 + elapsed * 0.3);
           provider.success++;
-          provider.timeouts     = Math.max((provider.timeouts     || 0) - 1, 0);
-          provider.timeoutPenalty = Math.max((provider.timeoutPenalty || 0) - TIMEOUT_PENALTY_STEP, 0);
+          provider.timeouts = Math.max((provider.timeouts || 0) - 1, 0);
+          provider.timeoutPenalty = Math.max(
+            (provider.timeoutPenalty || 0) - TIMEOUT_PENALTY_STEP,
+            0,
+          );
 
           console.log(
-            `[wa-translate] ✅ ${provider.name} (${elapsed}ms) score=${scoreProvider(provider).toFixed(2)}`
+            `[wa-translate] ✅ ${provider.name} (${elapsed}ms) score=${scoreProvider(provider).toFixed(2)}`,
           );
           return result;
         } catch (err) {
@@ -5442,7 +5462,7 @@ function 注入浮动窗口() {
             provider.fail++;
             const recentFails = provider.fail;
             const recentTotal = provider.success + provider.fail;
-            const failRate    = recentTotal > 0 ? recentFails / recentTotal : 0;
+            const failRate = recentTotal > 0 ? recentFails / recentTotal : 0;
             if (
               recentFails >= CIRCUIT_FAIL_THRESHOLD &&
               (failRate > 0.6 || recentFails >= CIRCUIT_FAIL_THRESHOLD * 2)
@@ -5450,10 +5470,13 @@ function 注入浮动窗口() {
               provider.disabledUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
               console.warn(
                 `[wa-translate] ⚡ ${provider.name} 熔断 ${CIRCUIT_COOLDOWN_MS / 1000}s` +
-                `（失败 ${recentFails}/${recentTotal}）`
+                  `（失败 ${recentFails}/${recentTotal}）`,
               );
             } else {
-              console.warn(`[wa-translate] ⚠️ ${provider.name} 失败，尝试下一个:`, err.message);
+              console.warn(
+                `[wa-translate] ⚠️ ${provider.name} 失败，尝试下一个:`,
+                err.message,
+              );
             }
           }
           // 超时已在 callWithTimeout 里处理，直接 fallback
@@ -5466,11 +5489,11 @@ function 注入浮动窗口() {
     // ─── 批处理层（极速模式核心）────────────────────────────────────────
     // 用 Unicode 私有区字符作分隔符，消息内换行用另一个占位符替换
     // 两个字符均不可能出现在用户聊天文本中，Google 翻译会原样保留
-    const BATCH_SEP        = "\uE001"; // 消息间分隔符（Google 原样保留）
-    const BATCH_NL         = "\uE002"; // 消息内换行占位符
-    const BATCH_WINDOW_MS  = 80;        // 收集窗口（ms）
-    const BATCH_MAX_CHARS  = 1800;      // 单批最大字符数
-    const BATCH_MAX_ITEMS  = 12;        // 单批最多条数
+    const BATCH_SEP = "\uE001"; // 消息间分隔符（Google 原样保留）
+    const BATCH_NL = "\uE002"; // 消息内换行占位符
+    const BATCH_WINDOW_MS = 80; // 收集窗口（ms）
+    const BATCH_MAX_CHARS = 1800; // 单批最大字符数
+    const BATCH_MAX_ITEMS = 12; // 单批最多条数
 
     // 待批处理队列：[{ text, resolve, reject }]
     let batchQueue = [];
@@ -5490,28 +5513,31 @@ function 注入浮动窗口() {
       }
 
       // 编码：消息内换行 → BATCH_NL，消息间用 BATCH_SEP 连接
-      const encoded = batch.map(b => b.text.replace(/\n/g, BATCH_NL));
-      const joined  = encoded.join(BATCH_SEP);
+      const encoded = batch.map((b) => b.text.replace(/\n/g, BATCH_NL));
+      const joined = encoded.join(BATCH_SEP);
 
       const url =
         "https://translate.googleapis.com/translate_a/single" +
-        "?client=gtx&sl=auto&tl=" + TARGET_LANG +
-        "&dt=t&q=" + encodeURIComponent(joined);
+        "?client=gtx&sl=auto&tl=" +
+        TARGET_LANG +
+        "&dt=t&q=" +
+        encodeURIComponent(joined);
 
       try {
         const res = await httpGetJson(url);
         if (!res.success) throw new Error("batch network error");
-        const p = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        const p =
+          typeof res.data === "string" ? JSON.parse(res.data) : res.data;
 
         // Google 返回 p[0]：每个元素 [译文片段, ...]
         // 把所有片段拼回成完整译文字符串，再按 BATCH_SEP 切分
-        const fullTranslated = p[0].map(i => i[0] || "").join("");
+        const fullTranslated = p[0].map((i) => i[0] || "").join("");
         const parts = fullTranslated.split(BATCH_SEP);
 
         // 条数校验：不等于 batch.length 说明分隔符被翻译破坏，全部降级
         if (parts.length !== batch.length) {
           console.warn(
-            `[wa-translate] ⚠️ 批量分隔符错位（期望 ${batch.length} 条，得到 ${parts.length} 条），全部降级`
+            `[wa-translate] ⚠️ 批量分隔符错位（期望 ${batch.length} 条，得到 ${parts.length} 条），全部降级`,
           );
           for (const { text, resolve, reject } of batch) {
             fetchTranslation(text).then(resolve).catch(reject);
@@ -5537,13 +5563,12 @@ function 注入浮动窗口() {
         });
 
         console.log(
-          `[wa-translate] ⚡ 批量翻译 ${batch.length} 条 → 1 次请求（成功 ${batchSuccess} 条）`
+          `[wa-translate] ⚡ 批量翻译 ${batch.length} 条 → 1 次请求（成功 ${batchSuccess} 条）`,
         );
 
         // 更新 Google provider 指标
-        const gp = translationProviders.find(p => p.name === "Google");
+        const gp = translationProviders.find((p) => p.name === "Google");
         if (gp) gp.success += batchSuccess;
-
       } catch (e) {
         console.warn("[wa-translate] 批量翻译失败，降级单条:", e.message);
         for (const { text, resolve, reject } of batch) {
@@ -5563,8 +5588,14 @@ function 注入浮动窗口() {
 
         // 超过单批字符上限，立即 flush
         const totalChars = batchQueue.reduce((s, b) => s + b.text.length, 0);
-        if (batchQueue.length >= BATCH_MAX_ITEMS || totalChars >= BATCH_MAX_CHARS) {
-          if (batchTimer) { clearTimeout(batchTimer); batchTimer = null; }
+        if (
+          batchQueue.length >= BATCH_MAX_ITEMS ||
+          totalChars >= BATCH_MAX_CHARS
+        ) {
+          if (batchTimer) {
+            clearTimeout(batchTimer);
+            batchTimer = null;
+          }
           flushBatch();
           return;
         }
@@ -5588,13 +5619,15 @@ function 注入浮动窗口() {
           const elapsed = Date.now() - t0;
           p.avgTime = Math.round(p.avgTime * 0.4 + elapsed * 0.6); // 预热权重更高
           p.success++;
-          console.log(`[wa-translate] 🔥 预热 ${p.name}: ${elapsed}ms → avgTime=${p.avgTime}ms`);
+          console.log(
+            `[wa-translate] 🔥 预热 ${p.name}: ${elapsed}ms → avgTime=${p.avgTime}ms`,
+          );
         } catch (e) {
           p.fail++;
           console.warn(`[wa-translate] 🔥 预热 ${p.name} 失败:`, e.message);
         }
         // 预热间隔，不要瞬间打爆
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 200));
       }
       console.log("[wa-translate] 🔥 预热完成，调度已就绪");
     }
