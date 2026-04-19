@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.5";
+const WA_VERSION = "v5.1.1";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5333,17 +5333,50 @@ function 注入浮动窗口() {
       },
     ];
 
-    // ── 熔断常量 ─────────────────────────────────────────────────────────
-    const CIRCUIT_FAIL_THRESHOLD = 3; // 连续失败多少次触发熔断
-    const CIRCUIT_COOLDOWN_MS = 60_000; // 熔断冷却时间（60 秒）
+    // ── 熔断 & 超时常量 ──────────────────────────────────────────────────
+    const CIRCUIT_FAIL_THRESHOLD = 3;      // 普通失败次数触发熔断
+    const CIRCUIT_COOLDOWN_MS    = 60_000; // 熔断冷却（60s）
+    const REQUEST_TIMEOUT_MS     = 3000;   // 单次请求超时（3s）
+    const TIMEOUT_PENALTY_MAX    = 5;      // 连续超时达此次数 → 熔断
+    const TIMEOUT_PENALTY_STEP   = 0.15;   // 每次超时扣除的权重惩罚
 
-    // ── 评分算法：score 越高越优先 ──────────────────────────────────────
+    // ── 带超时封装：超时计入惩罚，不计入 fail ────────────────────────────
+    function callWithTimeout(provider, text) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          provider.timeouts = (provider.timeouts || 0) + 1;
+          provider.timeoutPenalty = Math.min(
+            (provider.timeoutPenalty || 0) + TIMEOUT_PENALTY_STEP,
+            1.0
+          );
+          if (provider.timeouts >= TIMEOUT_PENALTY_MAX) {
+            provider.disabledUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+            console.warn(
+              `[wa-translate] ⏱️ ${provider.name} 连续超时 ${provider.timeouts} 次，熔断 ${CIRCUIT_COOLDOWN_MS / 1000}s`
+            );
+          } else {
+            console.warn(
+              `[wa-translate] ⏱️ ${provider.name} 超时 (${provider.timeouts}/${TIMEOUT_PENALTY_MAX})，` +
+              `惩罚权重 -${provider.timeoutPenalty.toFixed(2)}`
+            );
+          }
+          reject(new Error(`${provider.name} timeout`));
+        }, REQUEST_TIMEOUT_MS);
+
+        provider.fn(text).then(
+          (res) => { clearTimeout(timer); resolve(res); },
+          (err) => { clearTimeout(timer); reject(err); }
+        );
+      });
+    }
+
+    // ── 评分算法：超时惩罚直接压低权重 ─────────────────────────────────
     function scoreProvider(p) {
       const total = p.success + p.fail;
-      const successRate = total === 0 ? 0.5 : p.success / total; // 冷启动给0.5
-      // avgTime 归一化：以 2000ms 为上限，越快分越高
-      const speedScore = Math.max(0, 1 - p.avgTime / 2000);
-      return successRate * 0.7 + speedScore * 0.3;
+      const successRate = total === 0 ? 0.5 : p.success / total;
+      const speedScore  = Math.max(0, 1 - p.avgTime / 4000);
+      const base = successRate * 0.7 + speedScore * 0.3;
+      return Math.max(base - (p.timeoutPenalty || 0), 0.01);
     }
 
     // ── 获取可用 provider（已排序，剔除熔断中的）────────────────────────
@@ -5354,10 +5387,9 @@ function 注入浮动窗口() {
         .sort((a, b) => scoreProvider(b) - scoreProvider(a));
     }
 
-    // ── 加权随机选取：按 score 分配概率，避免 Google 独占 ───────────────
+    // ── 加权随机选取：按 score 分配概率 ─────────────────────────────────
     function pickWeightedRandom(providers) {
-      // score 最低保底 0.05，避免某个 provider 永远得不到机会
-      const weights = providers.map((p) => Math.max(scoreProvider(p), 0.05));
+      const weights = providers.map((p) => Math.max(scoreProvider(p), 0.01));
       const total = weights.reduce((s, w) => s + w, 0);
       let rand = Math.random() * total;
       for (let i = 0; i < providers.length; i++) {
@@ -5367,61 +5399,64 @@ function 注入浮动窗口() {
       return providers[providers.length - 1];
     }
 
-    // ── 核心调度：加权随机选主力，失败后 fallback 剩余 ──────────────────
+    // ── 核心调度：加权随机选主力，超时/失败后 fallback ──────────────────
     async function fetchTranslation(text) {
       const providers = getAvailableProviders();
       if (providers.length === 0) {
-        // 所有 provider 都在熔断中，强制重置最早恢复的那个
         translationProviders.sort((a, b) => a.disabledUntil - b.disabledUntil);
         translationProviders[0].disabledUntil = 0;
         return fetchTranslation(text);
       }
 
-      // 加权随机选出首选，剩余的按 score 排序作为 fallback 队列
-      const primary = pickWeightedRandom(providers);
-      const fallbacks = providers.filter((p) => p !== primary);
+      const primary  = pickWeightedRandom(providers);
+      const fallbacks = providers
+        .filter((p) => p !== primary)
+        .sort((a, b) => scoreProvider(b) - scoreProvider(a));
       const ordered = [primary, ...fallbacks];
 
-      // jitter 延迟只在入口等一次，防止固定节奏被封
-      // 不能放循环内：fallback 多次等待会超过虚拟列表重建周期导致 spinner 丢失
+      // jitter 只在入口等一次，不在循环内（避免 spinner 超时丢失）
       await new Promise((r) => setTimeout(r, DELAY + Math.random() * 200));
 
       let lastErr;
       for (const provider of ordered) {
         const t0 = Date.now();
         try {
-          const result = await provider.fn(text);
+          const result = await callWithTimeout(provider, text);
           const elapsed = Date.now() - t0;
 
-          // 更新指标：指数移动平均 avgTime，平滑窗口 α=0.3
+          // 成功：更新 avgTime，超时惩罚衰减（奖励恢复）
           provider.avgTime = Math.round(provider.avgTime * 0.7 + elapsed * 0.3);
           provider.success++;
+          provider.timeouts     = Math.max((provider.timeouts     || 0) - 1, 0);
+          provider.timeoutPenalty = Math.max((provider.timeoutPenalty || 0) - TIMEOUT_PENALTY_STEP, 0);
 
-          console.log(`[wa-translate] ✅ ${provider.name} (${elapsed}ms)`);
+          console.log(
+            `[wa-translate] ✅ ${provider.name} (${elapsed}ms) score=${scoreProvider(provider).toFixed(2)}`
+          );
           return result;
         } catch (err) {
-          provider.fail++;
           lastErr = err;
-
-          // 熔断判断：最近 (success+fail) 次中，fail 占比过高 OR 连续失败达阈值
-          const recentFails = provider.fail;
-          const recentTotal = provider.success + provider.fail;
-          const failRate = recentTotal > 0 ? recentFails / recentTotal : 0;
-
-          if (
-            recentFails >= CIRCUIT_FAIL_THRESHOLD &&
-            (failRate > 0.6 || recentFails >= CIRCUIT_FAIL_THRESHOLD * 2)
-          ) {
-            provider.disabledUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
-            console.warn(
-              `[wa-translate] ⚡ ${provider.name} 熔断 ${CIRCUIT_COOLDOWN_MS / 1000}s（失败 ${recentFails}/${recentTotal}）`,
-            );
-          } else {
-            console.warn(
-              `[wa-translate] ⚠️ ${provider.name} 失败，尝试下一个:`,
-              err.message,
-            );
+          const isTimeout = err.message.includes("timeout");
+          if (!isTimeout) {
+            // 普通失败 → 熔断计数
+            provider.fail++;
+            const recentFails = provider.fail;
+            const recentTotal = provider.success + provider.fail;
+            const failRate    = recentTotal > 0 ? recentFails / recentTotal : 0;
+            if (
+              recentFails >= CIRCUIT_FAIL_THRESHOLD &&
+              (failRate > 0.6 || recentFails >= CIRCUIT_FAIL_THRESHOLD * 2)
+            ) {
+              provider.disabledUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+              console.warn(
+                `[wa-translate] ⚡ ${provider.name} 熔断 ${CIRCUIT_COOLDOWN_MS / 1000}s` +
+                `（失败 ${recentFails}/${recentTotal}）`
+              );
+            } else {
+              console.warn(`[wa-translate] ⚠️ ${provider.name} 失败，尝试下一个:`, err.message);
+            }
           }
+          // 超时已在 callWithTimeout 里处理，直接 fallback
         }
       }
 
