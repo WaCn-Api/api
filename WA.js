@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.3";
+const WA_VERSION = "v5.1.4";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5278,11 +5278,11 @@ function 注入浮动窗口() {
       {
         name: "Lingva",
         fn: async (text) => {
-          const url = `https://lingva.ml/api/v1/auto/${TARGET_LANG}/${encodeURIComponent(text)}`;
+          const url = `https://lingva.ml/api/v1/auto/zh/${encodeURIComponent(text)}`;
           const res = await httpGetJson(url);
-          if (!res.success || !res.data?.translation)
-            throw new Error("Lingva error");
-          return { translated: res.data.translation, source: "Lingva" };
+          const d = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+          if (!res.success || !d?.translation) throw new Error("Lingva error");
+          return { translated: d.translation, source: "Lingva" };
         },
         success: 0,
         fail: 0,
@@ -5294,9 +5294,9 @@ function 注入浮动窗口() {
         fn: async (text) => {
           const url = `https://simplytranslate.org/api/translate?engine=google&from=auto&to=${TARGET_LANG}&text=${encodeURIComponent(text)}`;
           const res = await httpGetJson(url);
-          if (!res.success || !res.data?.translatedText)
-            throw new Error("Simply error");
-          return { translated: res.data.translatedText, source: "Simply" };
+          const d = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+          if (!res.success || !d?.translated_text) throw new Error("Simply error");
+          return { translated: d.translated_text, source: "Simply" };
         },
         success: 0,
         fail: 0,
@@ -5308,9 +5308,9 @@ function 注入浮动窗口() {
         fn: async (text) => {
           const url = `https://mozhi.aryak.me/api/translate?engine=google&from=auto&to=${TARGET_LANG}&text=${encodeURIComponent(text)}`;
           const res = await httpGetJson(url);
-          if (!res.success || !res.data?.translatedText)
-            throw new Error("Mozhi error");
-          return { translated: res.data.translatedText, source: "Mozhi" };
+          const d = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+          if (!res.success || !d?.["translated-text"]) throw new Error("Mozhi error");
+          return { translated: d["translated-text"], source: "Mozhi" };
         },
         success: 0,
         fail: 0,
@@ -5320,15 +5320,11 @@ function 注入浮动窗口() {
       {
         name: "MyMemory",
         fn: async (text) => {
-          // MyMemory langpair 使用固定 en|zh-CN（不随 TARGET_LANG 动态切换，避免格式问题）
           const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh-CN`;
           const res = await httpGetJson(url);
-          if (!res.success || !res.data?.responseData?.translatedText)
-            throw new Error("MyMemory error");
-          return {
-            translated: res.data.responseData.translatedText,
-            source: "MyMemory",
-          };
+          const d = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+          if (!res.success || !d?.responseData?.translatedText) throw new Error("MyMemory error");
+          return { translated: d.responseData.translatedText, source: "MyMemory" };
         },
         success: 0,
         fail: 0,
@@ -5358,7 +5354,20 @@ function 注入浮动窗口() {
         .sort((a, b) => scoreProvider(b) - scoreProvider(a));
     }
 
-    // ── 核心调度：依次尝试，自动 fallback ───────────────────────────────
+    // ── 加权随机选取：按 score 分配概率，避免 Google 独占 ───────────────
+    function pickWeightedRandom(providers) {
+      // score 最低保底 0.05，避免某个 provider 永远得不到机会
+      const weights = providers.map((p) => Math.max(scoreProvider(p), 0.05));
+      const total = weights.reduce((s, w) => s + w, 0);
+      let rand = Math.random() * total;
+      for (let i = 0; i < providers.length; i++) {
+        rand -= weights[i];
+        if (rand <= 0) return providers[i];
+      }
+      return providers[providers.length - 1];
+    }
+
+    // ── 核心调度：加权随机选主力，失败后 fallback 剩余 ──────────────────
     async function fetchTranslation(text) {
       const providers = getAvailableProviders();
       if (providers.length === 0) {
@@ -5368,8 +5377,13 @@ function 注入浮动窗口() {
         return fetchTranslation(text);
       }
 
+      // 加权随机选出首选，剩余的按 score 排序作为 fallback 队列
+      const primary = pickWeightedRandom(providers);
+      const fallbacks = providers.filter((p) => p !== primary);
+      const ordered = [primary, ...fallbacks];
+
       let lastErr;
-      for (const provider of providers) {
+      for (const provider of ordered) {
         // jitter 延迟，防止固定节奏被封
         await new Promise((r) => setTimeout(r, DELAY + Math.random() * 200));
 
