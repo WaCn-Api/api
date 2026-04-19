@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.6";
+const WA_VERSION = "v5.1.7";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5878,6 +5878,10 @@ function 注入浮动窗口() {
 
     // ─── 处理单个 [data-id] 行 ────────────────────────────────────────────
     function handleRow(row) {
+      console.log(
+        "[wa-translate] handleRow called for row:",
+        row.getAttribute("data-id"),
+      );
       if (!translateEnabled) return;
       const dataId = row.getAttribute("data-id");
       if (!dataId) return;
@@ -5890,6 +5894,10 @@ function 注入浮动窗口() {
       if (bubble.querySelector("." + TRANSLATE_CLASS)) return;
 
       const text = extractBubbleText(bubble);
+      console.log(
+        "[wa-translate] extracted text:",
+        text.substring(0, 50) + "...",
+      );
       if (!text || text.length < 2) return;
 
       // 先查文本缓存（同内容直接插入，不发网络请求）
@@ -5919,6 +5927,12 @@ function 注入浮动窗口() {
             translated && translated !== text
               ? `[${source}] ${translated}`
               : "";
+          console.log(
+            "[wa-translate] translation result:",
+            result,
+            "for text:",
+            text.substring(0, 50) + "...",
+          );
           if (result) {
             setCached(text, translated, source); // 缓存原文和来源
             // 重新从 DOM 找（虚拟滚动可能重建了节点）
@@ -5977,6 +5991,10 @@ function 注入浮动窗口() {
     // 虚拟列表在滚动时会把 data-virtualized="true" 的占位节点替换成真实内容
     // 监听 [data-id] 节点的子节点变化，检测到 selectable-text 出现时翻译
     const translateMsgObserver = new MutationObserver((mutations) => {
+      console.log(
+        "[wa-translate] observer triggered, mutations:",
+        mutations.length,
+      );
       if (!translateEnabled) return;
       const seenRows = new Set();
       for (const mutation of mutations) {
