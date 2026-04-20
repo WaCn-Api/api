@@ -5853,9 +5853,9 @@ function 注入浮动窗口() {
 }
 
 if (window.location.hostname.includes("web.whatsapp.com")) {
-  console.log("当前在 WhatsApp Web");
+  //console.log("当前在 WhatsApp Web");
   // 缩小布局窗口
-  document.body.style.zoom = "75%";
+  //document.body.style.zoom = "75%";
   // 调用函数注入浮动窗口
-  注入浮动窗口();
+  //注入浮动窗口();
 }
