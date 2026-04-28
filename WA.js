@@ -1407,14 +1407,7 @@ function 注入badge(客户数已读, 客户数已收到, 已读客户列表, �
     // console.log(已读客户列表);
 
     const cleanName = (
-      [
-        ...document.querySelectorAll(
-          'header span[data-testid="selectable-text"]',
-        ),
-      ]
-        .find((s) => s.textContent.includes("+"))
-        ?.closest("header")
-        ?.querySelector('span[dir="auto"]:not([data-testid])')?.innerHTML || ""
+      document.querySelector('header span[dir="auto"]')?.innerHTML || ""
     ).replace(/<img[^>]*alt="([^"]*)"[^>]*>/g, "$1");
     统计看群数据 =
       cleanName +
