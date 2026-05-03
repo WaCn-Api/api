@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.7";
+const WA_VERSION = "v5.1.8";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -1188,7 +1188,9 @@ function 标记当前聊天窗口(重试次数 = 0) {
   const matches = text.match(/\+[\d\s\(\)\-]{9,20}/g);
   if (!matches) return;
 
-  const nameEl = header.querySelector('span[dir="auto"]:not([data-testid])');
+  const nameEl = header.querySelector(
+    '[data-testid="conversation-info-header-chat-title"]',
+  );
   if (!nameEl) return;
 
   let 本群客户数 = 0;
