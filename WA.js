@@ -1206,7 +1206,7 @@ function 标记当前聊天窗口(重试次数 = 0) {
         已标记 = true;
         const badge = document.createElement("span");
         badge.className = "header-customer-badge customer-badge";
-        badge.innerHTML = "⭐ 客户";
+        badge.innerHTML = "⭐ 客户 | 点击群头像可复制美国客户号码";
         badge.style.cssText = `
           background: #25D366; color: white; padding: 2px 8px;
           border-radius: 12px; font-size: 12px; margin-left: 10px;
