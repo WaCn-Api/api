@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.2.0";
+const WA_VERSION = "v5.2.1";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5855,6 +5855,26 @@ if (window.location.hostname.includes("web.whatsapp.com")) {
   注入浮动窗口();
 }
 
+function 等待(getter, timeout = 8000) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+
+    const timer = setInterval(() => {
+      const val = getter();
+
+      if (val) {
+        clearInterval(timer);
+        resolve(val);
+      }
+
+      if (Date.now() - start > timeout) {
+        clearInterval(timer);
+        resolve(null);
+      }
+    }, 200);
+  });
+}
+
 const 群组工具 = {
   // ✅ 获取群名
   获取群名() {
@@ -5869,11 +5889,13 @@ const 群组工具 = {
 
   // ✅ 获取群组成员号码（返回数组或 null）
   获取成员号码() {
-    return (
-      document
-        .querySelector('header span[data-testid="selectable-text"]')
-        ?.textContent.match(/\+[\d\s\(\)\-]+/g) ?? null
-    );
+    return 等待(() => {
+      const el = document.querySelector(
+        'header span[data-testid="selectable-text"]',
+      );
+
+      return el?.textContent.match(/\+[\d\s\(\)\-]+/g);
+    });
   },
 
   // ✅ 标记统计备注（内部调用上面两个）
@@ -5990,11 +6012,32 @@ const 群组工具 = {
 
     return { 本群美国客户数, 本群美国客户, 非美国客户数, 非美国客户 };
   },
+
+  async 获取群组所有客户号码() {
+    let 本群客户数 = 0;
+    let 本群客户 = [];
+
+    const 数据 = await window.readFile("whatsapp_customers.json");
+    const 当前群名 = 群组工具.获取群名();
+
+    for (const item of 数据.号码列表) {
+      const 号码 = item.号码;
+      const 群组列表 = item.所在群组;
+
+      // 只筛选：只在当前群的人
+      if (群组列表.length === 1 && 群组列表[0] === 当前群名) {
+        本群客户数++;
+        本群客户.push(号码);
+      }
+    }
+
+    return { 本群客户数, 本群客户 };
+  },
 };
 
 // 只读取信息
 // console.log("群名:", 群组工具.获取群名());
-// console.log("成员号码:", 群组工具.获取成员号码());
+// console.log("成员号码:",await 群组工具.获取成员号码());
 
 // console.log((async () => {
 //   const result = await 群组工具.获取群组美国客户号码();
@@ -6007,24 +6050,46 @@ const 群组工具 = {
 document.addEventListener(
   "click",
   async (e) => {
-    // 🎯 只监听头像容器
+    // 🎯 点击头像（原逻辑）
     const avatar = e.target.closest('div[title="个人主页详情"][role="button"]');
 
-    if (!avatar) return;
+    if (avatar) {
+      try {
+        console.log("🟡 点击头像：复制美国号码");
 
-    try {
-      console.log("🟡 点击头像，开始复制...");
+        const result = await 群组工具.获取群组美国客户号码();
 
-      const result = await 群组工具.获取群组美国客户号码();
+        await navigator.clipboard.writeText(result.本群美国客户.join("\n"));
 
-      const text = result.本群美国客户.join("\n");
+        alert(`已复制 ${result.本群美国客户.length} 个美国号码`);
+      } catch (err) {
+        console.error("❌ 头像逻辑失败:", err);
+      }
 
-      await navigator.clipboard.writeText(text);
+      return;
+    }
 
-      console.log("✅ 已复制美国号码:", result.本群美国客户.length);
-      alert(`已复制 ${result.本群美国客户.length} 个美国号码到剪贴板！`);
-    } catch (err) {
-      console.error("❌ 复制失败:", err);
+    // 🎯 点击群名（新逻辑）
+    const title = e.target.closest(
+      '[data-testid="conversation-info-header-chat-title"]',
+    );
+
+    if (title) {
+      try {
+        console.log("🟢 点击群名：获取全部客户号码");
+
+        const result = await 群组工具.获取群组所有客户号码();
+
+        console.log("📊 本群客户:", result);
+
+        await navigator.clipboard.writeText(result.本群客户.join("\n"));
+
+        alert(`已复制本群 ${result.本群客户数} 个客户号码`);
+      } catch (err) {
+        console.error("❌ 群名逻辑失败:", err);
+      }
+
+      return;
     }
   },
   true,
