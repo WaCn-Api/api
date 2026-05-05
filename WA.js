@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.8";
+const WA_VERSION = "v5.1.9";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5854,3 +5854,208 @@ if (window.location.hostname.includes("web.whatsapp.com")) {
   // 调用函数注入浮动窗口
   注入浮动窗口();
 }
+
+const 群组工具 = {
+  // ✅ 获取群名
+  获取群名() {
+    return Array.from(
+      document.querySelector(
+        '[data-testid="conversation-info-header-chat-title"]',
+      )?.childNodes || [],
+    )
+      .map((node) => (node.nodeType === 3 ? node.textContent : node.alt || ""))
+      .join("");
+  },
+
+  // ✅ 获取群组成员号码（返回数组或 null）
+  获取成员号码() {
+    return (
+      document
+        .querySelector('header span[data-testid="selectable-text"]')
+        ?.textContent.match(/\+[\d\s\(\)\-]+/g) ?? null
+    );
+  },
+
+  // ✅ 标记统计备注（内部调用上面两个）
+  标记统计备注(重试次数 = 0) {
+    const allSpans = document.querySelectorAll(
+      'header span[data-testid="selectable-text"]',
+    );
+    const numberSpan = [...allSpans].find((s) => s.textContent.includes("+"));
+
+    console.log(
+      `重试${重试次数}, 找到span数:`,
+      allSpans.length,
+      "含+的:",
+      !!numberSpan,
+    );
+
+    if (!numberSpan) {
+      if (重试次数 < 8) {
+        setTimeout(() => this.标记统计备注(重试次数 + 1), 400);
+      }
+      return;
+    }
+
+    const header = numberSpan.closest("header");
+    if (!header) return;
+
+    header
+      .querySelectorAll(".header-customer-badge")
+      .forEach((el) => el.remove());
+    header.querySelectorAll(".header-group-count").forEach((el) => el.remove());
+
+    // ✅ 复用 获取成员号码()
+    const text = numberSpan.textContent || "";
+    const matches = text.match(/\+[\d\s\(\)\-]{9,20}/g);
+    if (!matches) return;
+
+    // ✅ 复用 获取群名()
+    const nameEl = header.querySelector(
+      '[data-testid="conversation-info-header-chat-title"]',
+    );
+    if (!nameEl) return;
+
+    let 本群客户数 = 0;
+    let 本群美国客户数 = 0;
+    let 已标记 = false;
+
+    for (const match of matches) {
+      const 号码 = match.replace(/[\s\(\)\-]/g, "");
+      if (window.__客户号码列表?.has(号码)) {
+        本群客户数++;
+        if (号码.startsWith("+1")) 本群美国客户数++;
+        if (!已标记) {
+          已标记 = true;
+          const badge = document.createElement("span");
+          badge.className = "header-customer-badge customer-badge";
+          badge.innerHTML = "⭐ 客户";
+          badge.style.cssText = `
+            background: #25D366; color: white; padding: 2px 8px;
+            border-radius: 12px; font-size: 12px; margin-left: 10px;
+            font-weight: bold; display: inline-block; pointer-events: none;
+          `;
+          nameEl.parentNode.appendChild(badge);
+        }
+      }
+    }
+
+    if (本群客户数 > 0) {
+      let 时间显示 = "";
+      if (window.__数据采集时间) {
+        const d = new Date(window.__数据采集时间);
+        时间显示 = ` ${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+      }
+      const countBadge = document.createElement("span");
+      countBadge.className = "header-group-count";
+      const 美国显示 =
+        本群美国客户数 > 0 ? ` | 美国客户： ${本群美国客户数} 位` : "";
+      countBadge.textContent = `👥 本群有： ${本群客户数} 位客户${美国显示} | 数据采集时间：${时间显示}`;
+      countBadge.style.cssText = `
+        background: #f39c12; color: white; padding: 2px 8px;
+        border-radius: 12px; font-size: 12px; margin-left: 6px;
+        font-weight: bold; display: inline-block; pointer-events: none;
+      `;
+      nameEl.parentNode.appendChild(countBadge);
+      console.log(
+        `📊 本群: ${this.获取群名()} 客户数: ${本群客户数} 美国: ${本群美国客户数}`,
+      );
+    }
+  },
+
+  async 获取群组美国客户号码() {
+    let 本群美国客户数 = 0;
+    let 本群美国客户 = [];
+    let 非美国客户数 = 0;
+    let 非美国客户 = [];
+
+    const 数据 = await window.readFile("whatsapp_customers.json");
+    const 当前群名 = 群组工具.获取群名();
+
+    for (const item of 数据.号码列表) {
+      const 号码 = item.号码;
+      const 群组列表 = item.所在群组;
+
+      // 只筛选：只在当前群的人
+      if (群组列表.length === 1 && 群组列表[0] === 当前群名) {
+        if (号码.startsWith("+1")) {
+          本群美国客户数++;
+          本群美国客户.push(号码);
+        } else {
+          非美国客户数++;
+          非美国客户.push(号码);
+        }
+      }
+    }
+
+    return { 本群美国客户数, 本群美国客户, 非美国客户数, 非美国客户 };
+  },
+};
+
+// 只读取信息
+// 群组工具.获取群名();
+// console.log("群名:", 群组工具.获取群名());
+// 群组工具.获取成员号码();
+// console.log("成员号码:", 群组工具.获取成员号码());
+
+// console.log((async () => {
+//   const result = await 群组工具.获取群组美国客户号码();
+//   console.log(result);
+// })());
+
+// 执行标记
+// 群组工具.标记统计备注();
+
+// document.addEventListener("click", async function handler() {
+//   try {
+//     console.log("🟡 开始获取数据...");
+
+//     const result = await 群组工具.获取群组美国客户号码();
+
+//     const text = result.本群美国客户.join("\n");
+
+//     await navigator.clipboard.writeText(text);
+
+//     console.log("✅ 已复制美国号码（换行格式）");
+//     // console.log("📊 数量:", result.本群美国客户.length);
+//     // console.log("📋 内容:\n" + text);
+//   } catch (err) {
+//     console.error("❌ 失败:", err);
+//   }
+
+//   // 只执行一次
+//   document.removeEventListener("click", handler);
+// });
+
+document.addEventListener(
+  "click",
+  async (e) => {
+    // 🎯 找到点击位置是否属于 header
+    const header = e.target.closest(
+      'header[data-testid="conversation-header"]',
+    );
+    if (!header) return;
+
+    // 🎯 判断是否点在客户区域附近（badge或标题区域）
+    const badge = header.querySelector(".header-customer-badge");
+    if (!badge) return;
+
+    try {
+      console.log("🟡 点击 header，开始复制...");
+
+      const result = await 群组工具.获取群组美国客户号码();
+
+      const text = result.本群美国客户.join("\n");
+
+      await navigator.clipboard.writeText(text);
+
+      console.log("✅ 已复制:", result.本群美国客户.length);
+      alert(
+        `已复制 ${result.本群美国客户数} 个美国客户号码到剪贴板！\n\n${text}`,
+      );
+    } catch (err) {
+      console.error("❌ 失败:", err);
+    }
+  },
+  true,
+); // ⚠️ 捕获模式（非常重要）
