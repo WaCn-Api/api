@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.1.9";
+const WA_VERSION = "v5.2.0";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -5993,9 +5993,7 @@ const 群组工具 = {
 };
 
 // 只读取信息
-// 群组工具.获取群名();
 // console.log("群名:", 群组工具.获取群名());
-// 群组工具.获取成员号码();
 // console.log("成员号码:", 群组工具.获取成员号码());
 
 // console.log((async () => {
@@ -6006,42 +6004,16 @@ const 群组工具 = {
 // 执行标记
 // 群组工具.标记统计备注();
 
-// document.addEventListener("click", async function handler() {
-//   try {
-//     console.log("🟡 开始获取数据...");
-
-//     const result = await 群组工具.获取群组美国客户号码();
-
-//     const text = result.本群美国客户.join("\n");
-
-//     await navigator.clipboard.writeText(text);
-
-//     console.log("✅ 已复制美国号码（换行格式）");
-//     // console.log("📊 数量:", result.本群美国客户.length);
-//     // console.log("📋 内容:\n" + text);
-//   } catch (err) {
-//     console.error("❌ 失败:", err);
-//   }
-
-//   // 只执行一次
-//   document.removeEventListener("click", handler);
-// });
-
 document.addEventListener(
   "click",
   async (e) => {
-    // 🎯 找到点击位置是否属于 header
-    const header = e.target.closest(
-      'header[data-testid="conversation-header"]',
-    );
-    if (!header) return;
+    // 🎯 只监听头像容器
+    const avatar = e.target.closest('div[title="个人主页详情"][role="button"]');
 
-    // 🎯 判断是否点在客户区域附近（badge或标题区域）
-    const badge = header.querySelector(".header-customer-badge");
-    if (!badge) return;
+    if (!avatar) return;
 
     try {
-      console.log("🟡 点击 header，开始复制...");
+      console.log("🟡 点击头像，开始复制...");
 
       const result = await 群组工具.获取群组美国客户号码();
 
@@ -6049,13 +6021,11 @@ document.addEventListener(
 
       await navigator.clipboard.writeText(text);
 
-      console.log("✅ 已复制:", result.本群美国客户.length);
-      alert(
-        `已复制 ${result.本群美国客户数} 个美国客户号码到剪贴板！\n\n${text}`,
-      );
+      console.log("✅ 已复制美国号码:", result.本群美国客户.length);
+      alert(`已复制 ${result.本群美国客户.length} 个美国号码到剪贴板！`);
     } catch (err) {
-      console.error("❌ 失败:", err);
+      console.error("❌ 复制失败:", err);
     }
   },
   true,
-); // ⚠️ 捕获模式（非常重要）
+);
