@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.2.1";
+const WA_VERSION = "v5.2.2";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -2342,7 +2342,17 @@ async function 发送图文同条(groupName, imgBase64, caption) {
       await new Promise((r) => setTimeout(r, 500));
     }
 
-    sendButton.click();
+    const xpath =
+      '//div[@role="button"]//*[local-name()="svg"]//*[local-name()="path" and contains(@d, "M5.4 19.425")]/ancestor::div[@role="button"]';
+    const button = document.evaluate(
+      xpath,
+      document,
+      null,
+      XPathResult.FIRST_ORDERED_NODE_TYPE,
+      null,
+    ).singleNodeValue;
+
+    button.click();
     console.log(`✅ 图文同条发送成功: ${groupName}`);
     await new Promise((r) => setTimeout(r, 1000));
     return true;
