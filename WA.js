@@ -979,11 +979,9 @@ async function 注入控制面板(WA_VERSION) {
 }
 
 if (window.location.hostname.includes("web.whatsapp.com")) {
-  console.log("当前在 WhatsApp Web");
-  // 缩小布局窗口
-  //document.body.style.zoom = "75%";
-  // 调用函数注入浮动窗口
-  await 注入控制面板("1.0.1");
+  (async () => {
+    await 注入控制面板("1.0.1");
+  })();
 }
 
 //-------------------------------------------------------------------------------------通用工具函数-------------------------------------------------------------------------------------
@@ -1193,7 +1191,9 @@ function 获取已选群组() {
   }));
 }
 //初始化列表
-await 加载群组到列表();
+(async () => {
+  await 加载群组到列表();
+})();
 //绑定事件到按钮
 const loadingData = window._shadowRoot
   .querySelector("#loadContactsBtn")
