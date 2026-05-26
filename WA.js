@@ -1,21 +1,3 @@
-// 图片出现就要改变布局
-const observer = new MutationObserver(() => {
-  const overlay = document.querySelector(".overlay");
-  if (overlay && !overlay.style.width) {
-    overlay.style.width = "calc(100% - 309px)";
-    console.log("已修改 .overlay 宽度");
-  }
-});
-observer.observe(document.body, {
-  childList: true,
-  subtree: true,
-});
-
-//改变whatsapp布局
-document
-  .getElementById("app")
-  .setAttribute("style", "width: calc(100% - 309px);");
-
 async function 注入控制面板(WA_VERSION) {
   // 创建宿主元素并添加到body
   const host = document.createElement("div");
@@ -976,6 +958,24 @@ async function 注入控制面板(WA_VERSION) {
   }
 
   初始化列表操作按钮();
+
+  // 图片出现就要改变布局
+  const observer = new MutationObserver(() => {
+    const overlay = document.querySelector(".overlay");
+    if (overlay && !overlay.style.width) {
+      overlay.style.width = "calc(100% - 309px)";
+      console.log("已修改 .overlay 宽度");
+    }
+  });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+
+  //改变whatsapp布局
+  document
+    .getElementById("app")
+    .setAttribute("style", "width: calc(100% - 309px);");
 }
 
 if (window.location.hostname.includes("web.whatsapp.com")) {
