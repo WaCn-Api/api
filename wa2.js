@@ -2049,1626 +2049,1626 @@ window._shadowRoot
   .querySelector("#sendBatchBtn")
   .addEventListener("click", () => 开始群发());
 
-//-------------------------------------------------------------------------------------------点赞功能-------------------------------------------------------------------------------------------
+// //-------------------------------------------------------------------------------------------点赞功能-------------------------------------------------------------------------------------------
 
+// //   window._shadowRoot
+// //   .querySelector("#reactionDrawer")
+// //   .setAttribute("style", "display: block;");
+
+// // ==================== 点赞模块（完整版） ====================
+// (() => {
+//   // 在点赞模块开始处添加这两个函数
+
+//   // 提取消息自身的文本，排除引用/回复块中的文字
+//   function extractMsgText(msgElement) {
+//     // WhatsApp 回复消息结构：
+//     //   [data-testid="quoted-message"]  ← 引用块（原句）
+//     //   [data-testid="selectable-text"] ← 本条消息正文
+//     // 如果直接 querySelector 会拿到引用块里的 selectable-text，导致误匹配。
+//     // 正确做法：先把引用块从查找范围内排除。
+
+//     // 克隆节点，移除引用块后再取文本（不影响真实 DOM）
+//     const clone = msgElement.cloneNode(true);
+//     clone
+//       .querySelectorAll(
+//         '[data-testid="quoted-message"], [data-testid="quoted-mention"]',
+//       )
+//       .forEach((el) => el.remove());
+
+//     const textElement = clone.querySelector('[data-testid="selectable-text"]');
+//     if (textElement) {
+//       return textElement.innerText || textElement.textContent || "";
+//     }
+//     return "";
+//   }
+
+//   // 同步群组列表：纯展示，不克隆 checkbox，避免 querySelectorAll 读到重复节点
+//   // 点赞时仍通过 获取已选群组() 读取主面板的真实选中状态
+//   function syncReactionGroupList() {
+//     const container = window._shadowRoot.getElementById("reactionGroupList");
+//     if (!container) return;
+
+//     const groups = 获取已选群组();
+//     if (groups.length === 0) {
+//       container.innerHTML =
+//         '<div style="padding: 8px; color: #999;">请先在主面板选择群组</div>';
+//       return;
+//     }
+
+//     container.innerHTML = groups
+//       .map(
+//         (g) => `
+//         <div style="padding:4px 6px;font-size:12px;display:flex;align-items:center;gap:6px;">
+//           <span style="color:#9c27b0;font-size:10px;">✓</span>
+//           <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${g.name}">${g.name}</span>
+//         </div>`,
+//       )
+//       .join("");
+//   }
+
+//   let reactionRunning = false;
+//   let reactionStopRequested = false;
+//   let selectedEmoji = "👍";
+//   let totalScrollAttempts = 0;
+//   let translateWasEnabled = false; // ✅ 新增这一行
+
+//   const reactionDrawer = window._shadowRoot.getElementById("reactionDrawer");
+//   const reactionOpenBtn = window._shadowRoot.getElementById(
+//     "reactionPanelToggleBtn",
+//   );
+//   const reactionCloseBtn =
+//     window._shadowRoot.getElementById("reactionCloseBtn");
+//   const reactionStartBtn =
+//     window._shadowRoot.getElementById("reactionStartBtn");
+//   const reactionStopBtn = window._shadowRoot.getElementById("reactionStopBtn");
+//   const reactionStatus = window._shadowRoot.getElementById("reactionStatus");
+//   const reactionGroupList =
+//     window._shadowRoot.getElementById("reactionGroupList");
+//   const selectedEmojiDisplay = window._shadowRoot.getElementById(
+//     "selectedEmojiDisplay",
+//   );
+//   const reactionKeyword = window._shadowRoot.getElementById("reactionKeyword");
+//   const reactionIndexRow =
+//     window._shadowRoot.getElementById("reactionIndexRow");
+
+//   // 打开/关闭面板
+//   reactionOpenBtn.addEventListener("click", () => {
+//     const isOpen = reactionDrawer.style.display === "flex";
+//     reactionDrawer.style.display = isOpen ? "none" : "flex";
+//     if (!isOpen) syncReactionGroupList();
+//   });
+
+//   reactionCloseBtn.addEventListener("click", () => {
+//     reactionDrawer.style.display = "none";
+//   });
+
+//   // 监听主面板选中变化（全选/反选/清空/单个勾选）及重新加载，点赞面板打开时自动刷新
+//   window._shadowRoot.addEventListener("contactsUpdated", () => {
+//     if (reactionDrawer.style.display === "flex") {
+//       syncReactionGroupList();
+//     }
+//   });
+
+//   // ==================== 自定义表情功能（直接使用输入框原始值） ====================
+
+//   const customEmojiInput =
+//     window._shadowRoot.getElementById("customEmojiInput");
+//   const customEmojiPreview =
+//     window._shadowRoot.getElementById("customEmojiPreview");
+//   const clearCustomEmojiBtn = window._shadowRoot.getElementById(
+//     "clearCustomEmojiBtn",
+//   );
+
+//   // 设置自定义表情（直接使用输入框的值）
+//   function setCustomEmoji() {
+//     const rawValue = customEmojiInput?.value.trim();
+//     if (rawValue && rawValue.length > 0) {
+//       selectedEmoji = rawValue;
+//       if (customEmojiPreview) customEmojiPreview.textContent = selectedEmoji;
+//       if (selectedEmojiDisplay)
+//         selectedEmojiDisplay.textContent = selectedEmoji;
+
+//       // 取消其他表情的高亮
+//       window._shadowRoot
+//         .querySelectorAll(".reaction-emoji-btn")
+//         .forEach((b) => {
+//           b.style.borderColor = "#eee";
+//         });
+
+//       setStatus(`✅ 已选择: ${selectedEmoji}`);
+//     }
+//   }
+
+//   // 输入时实时更新
+//   if (customEmojiInput) {
+//     customEmojiInput.addEventListener("input", () => {
+//       const val = customEmojiInput.value;
+//       if (customEmojiPreview) customEmojiPreview.textContent = val || "?";
+//       if (val && val.trim()) {
+//         setCustomEmoji();
+//       }
+//     });
+
+//     customEmojiInput.addEventListener("change", () => {
+//       if (customEmojiInput.value && customEmojiInput.value.trim()) {
+//         setCustomEmoji();
+//       }
+//     });
+//   }
+
+//   // 清空按钮
+//   if (clearCustomEmojiBtn) {
+//     clearCustomEmojiBtn.addEventListener("click", () => {
+//       if (customEmojiInput) customEmojiInput.value = "";
+//       if (customEmojiPreview) customEmojiPreview.textContent = "?";
+//       setStatus("📝 已清空");
+//     });
+//   }
+
+//   // 快捷表情点击
+//   window._shadowRoot.querySelectorAll(".quick-custom-emoji").forEach((el) => {
+//     el.addEventListener("click", () => {
+//       const emoji = el.getAttribute("data-emoji");
+//       if (emoji && customEmojiInput) {
+//         customEmojiInput.value = emoji;
+//         if (customEmojiPreview) customEmojiPreview.textContent = emoji;
+//         selectedEmoji = emoji;
+//         if (selectedEmojiDisplay) selectedEmojiDisplay.textContent = emoji;
+
+//         window._shadowRoot
+//           .querySelectorAll(".reaction-emoji-btn")
+//           .forEach((b) => {
+//             b.style.borderColor = "#eee";
+//           });
+
+//         setStatus(`✅ 已选择: ${selectedEmoji}`);
+//       }
+//     });
+//   });
+
+//   // Emoji 快捷按钮（原有的）
+//   window._shadowRoot.querySelectorAll(".reaction-emoji-btn").forEach((btn) => {
+//     btn.addEventListener("click", () => {
+//       window._shadowRoot
+//         .querySelectorAll(".reaction-emoji-btn")
+//         .forEach((b) => (b.style.borderColor = "#eee"));
+//       btn.style.borderColor = "#9c27b0";
+//       selectedEmoji = btn.dataset.emoji;
+//       if (selectedEmojiDisplay)
+//         selectedEmojiDisplay.textContent = selectedEmoji;
+//       // 同步到自定义输入框预览
+//       if (customEmojiPreview) customEmojiPreview.textContent = selectedEmoji;
+//       setStatus(`✅ 已选择: ${selectedEmoji}`);
+//     });
+//   });
+
+//   const firstEmojiBtn = window._shadowRoot.querySelector(".reaction-emoji-btn");
+//   if (firstEmojiBtn) firstEmojiBtn.style.borderColor = "#9c27b0";
+
+//   // 切换目标选项显示
 //   window._shadowRoot
-//   .querySelector("#reactionDrawer")
-//   .setAttribute("style", "display: block;");
-
-// ==================== 点赞模块（完整版） ====================
-(() => {
-  // 在点赞模块开始处添加这两个函数
-
-  // 提取消息自身的文本，排除引用/回复块中的文字
-  function extractMsgText(msgElement) {
-    // WhatsApp 回复消息结构：
-    //   [data-testid="quoted-message"]  ← 引用块（原句）
-    //   [data-testid="selectable-text"] ← 本条消息正文
-    // 如果直接 querySelector 会拿到引用块里的 selectable-text，导致误匹配。
-    // 正确做法：先把引用块从查找范围内排除。
-
-    // 克隆节点，移除引用块后再取文本（不影响真实 DOM）
-    const clone = msgElement.cloneNode(true);
-    clone
-      .querySelectorAll(
-        '[data-testid="quoted-message"], [data-testid="quoted-mention"]',
-      )
-      .forEach((el) => el.remove());
-
-    const textElement = clone.querySelector('[data-testid="selectable-text"]');
-    if (textElement) {
-      return textElement.innerText || textElement.textContent || "";
-    }
-    return "";
-  }
-
-  // 同步群组列表：纯展示，不克隆 checkbox，避免 querySelectorAll 读到重复节点
-  // 点赞时仍通过 获取已选群组() 读取主面板的真实选中状态
-  function syncReactionGroupList() {
-    const container = window._shadowRoot.getElementById("reactionGroupList");
-    if (!container) return;
-
-    const groups = 获取已选群组();
-    if (groups.length === 0) {
-      container.innerHTML =
-        '<div style="padding: 8px; color: #999;">请先在主面板选择群组</div>';
-      return;
-    }
-
-    container.innerHTML = groups
-      .map(
-        (g) => `
-        <div style="padding:4px 6px;font-size:12px;display:flex;align-items:center;gap:6px;">
-          <span style="color:#9c27b0;font-size:10px;">✓</span>
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${g.name}">${g.name}</span>
-        </div>`,
-      )
-      .join("");
-  }
-
-  let reactionRunning = false;
-  let reactionStopRequested = false;
-  let selectedEmoji = "👍";
-  let totalScrollAttempts = 0;
-  let translateWasEnabled = false; // ✅ 新增这一行
-
-  const reactionDrawer = window._shadowRoot.getElementById("reactionDrawer");
-  const reactionOpenBtn = window._shadowRoot.getElementById(
-    "reactionPanelToggleBtn",
-  );
-  const reactionCloseBtn =
-    window._shadowRoot.getElementById("reactionCloseBtn");
-  const reactionStartBtn =
-    window._shadowRoot.getElementById("reactionStartBtn");
-  const reactionStopBtn = window._shadowRoot.getElementById("reactionStopBtn");
-  const reactionStatus = window._shadowRoot.getElementById("reactionStatus");
-  const reactionGroupList =
-    window._shadowRoot.getElementById("reactionGroupList");
-  const selectedEmojiDisplay = window._shadowRoot.getElementById(
-    "selectedEmojiDisplay",
-  );
-  const reactionKeyword = window._shadowRoot.getElementById("reactionKeyword");
-  const reactionIndexRow =
-    window._shadowRoot.getElementById("reactionIndexRow");
-
-  // 打开/关闭面板
-  reactionOpenBtn.addEventListener("click", () => {
-    const isOpen = reactionDrawer.style.display === "flex";
-    reactionDrawer.style.display = isOpen ? "none" : "flex";
-    if (!isOpen) syncReactionGroupList();
-  });
-
-  reactionCloseBtn.addEventListener("click", () => {
-    reactionDrawer.style.display = "none";
-  });
-
-  // 监听主面板选中变化（全选/反选/清空/单个勾选）及重新加载，点赞面板打开时自动刷新
-  window._shadowRoot.addEventListener("contactsUpdated", () => {
-    if (reactionDrawer.style.display === "flex") {
-      syncReactionGroupList();
-    }
-  });
-
-  // ==================== 自定义表情功能（直接使用输入框原始值） ====================
-
-  const customEmojiInput =
-    window._shadowRoot.getElementById("customEmojiInput");
-  const customEmojiPreview =
-    window._shadowRoot.getElementById("customEmojiPreview");
-  const clearCustomEmojiBtn = window._shadowRoot.getElementById(
-    "clearCustomEmojiBtn",
-  );
-
-  // 设置自定义表情（直接使用输入框的值）
-  function setCustomEmoji() {
-    const rawValue = customEmojiInput?.value.trim();
-    if (rawValue && rawValue.length > 0) {
-      selectedEmoji = rawValue;
-      if (customEmojiPreview) customEmojiPreview.textContent = selectedEmoji;
-      if (selectedEmojiDisplay)
-        selectedEmojiDisplay.textContent = selectedEmoji;
-
-      // 取消其他表情的高亮
-      window._shadowRoot
-        .querySelectorAll(".reaction-emoji-btn")
-        .forEach((b) => {
-          b.style.borderColor = "#eee";
-        });
-
-      setStatus(`✅ 已选择: ${selectedEmoji}`);
-    }
-  }
-
-  // 输入时实时更新
-  if (customEmojiInput) {
-    customEmojiInput.addEventListener("input", () => {
-      const val = customEmojiInput.value;
-      if (customEmojiPreview) customEmojiPreview.textContent = val || "?";
-      if (val && val.trim()) {
-        setCustomEmoji();
-      }
-    });
-
-    customEmojiInput.addEventListener("change", () => {
-      if (customEmojiInput.value && customEmojiInput.value.trim()) {
-        setCustomEmoji();
-      }
-    });
-  }
-
-  // 清空按钮
-  if (clearCustomEmojiBtn) {
-    clearCustomEmojiBtn.addEventListener("click", () => {
-      if (customEmojiInput) customEmojiInput.value = "";
-      if (customEmojiPreview) customEmojiPreview.textContent = "?";
-      setStatus("📝 已清空");
-    });
-  }
-
-  // 快捷表情点击
-  window._shadowRoot.querySelectorAll(".quick-custom-emoji").forEach((el) => {
-    el.addEventListener("click", () => {
-      const emoji = el.getAttribute("data-emoji");
-      if (emoji && customEmojiInput) {
-        customEmojiInput.value = emoji;
-        if (customEmojiPreview) customEmojiPreview.textContent = emoji;
-        selectedEmoji = emoji;
-        if (selectedEmojiDisplay) selectedEmojiDisplay.textContent = emoji;
-
-        window._shadowRoot
-          .querySelectorAll(".reaction-emoji-btn")
-          .forEach((b) => {
-            b.style.borderColor = "#eee";
-          });
-
-        setStatus(`✅ 已选择: ${selectedEmoji}`);
-      }
-    });
-  });
-
-  // Emoji 快捷按钮（原有的）
-  window._shadowRoot.querySelectorAll(".reaction-emoji-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      window._shadowRoot
-        .querySelectorAll(".reaction-emoji-btn")
-        .forEach((b) => (b.style.borderColor = "#eee"));
-      btn.style.borderColor = "#9c27b0";
-      selectedEmoji = btn.dataset.emoji;
-      if (selectedEmojiDisplay)
-        selectedEmojiDisplay.textContent = selectedEmoji;
-      // 同步到自定义输入框预览
-      if (customEmojiPreview) customEmojiPreview.textContent = selectedEmoji;
-      setStatus(`✅ 已选择: ${selectedEmoji}`);
-    });
-  });
-
-  const firstEmojiBtn = window._shadowRoot.querySelector(".reaction-emoji-btn");
-  if (firstEmojiBtn) firstEmojiBtn.style.borderColor = "#9c27b0";
-
-  // 切换目标选项显示
-  window._shadowRoot
-    .querySelectorAll('input[name="reactionTarget"]')
-    .forEach((radio) => {
-      radio.addEventListener("change", () => {
-        if (reactionKeyword)
-          reactionKeyword.style.display =
-            radio.value === "keyword" ? "block" : "none";
-        if (reactionIndexRow)
-          reactionIndexRow.style.display =
-            radio.value === "index" ? "flex" : "none";
-      });
-    });
-
-  // ==================== 工具函数 ====================
-  function sleep(ms) {
-    return new Promise((r) => setTimeout(r, ms));
-  }
-
-  // 智能等待：每 pollMs 检查一次 condFn()，最多等 maxMs，条件满足立即返回
-  async function waitFor(condFn, maxMs = 2000, pollMs = 60) {
-    const deadline = Date.now() + maxMs;
-    while (Date.now() < deadline) {
-      const result = condFn();
-      if (result) return result;
-      await sleep(pollMs);
-    }
-    return null;
-  }
-
-  function setStatus(msg) {
-    if (reactionStatus) {
-      reactionStatus.textContent = msg;
-    }
-    console.log("[点赞]", msg);
-  }
-
-  // 将公共工具函数挂到 window，供其他模块（如回复模块）复用
-  window.sleep = sleep;
-  window.waitFor = waitFor;
-  window.getMessageScroller = getMessageScroller;
-  window.scrollToBottom = scrollToBottom;
-  window.scrollUpToLoadMessages = scrollUpToLoadMessages;
-  window.findTargetMessages = findTargetMessages;
-  window.extractMsgText = extractMsgText;
-
-  // ==================== 消息滚动和查找 ====================
-  function getMessageScroller() {
-    // 结构特征：包含消息元素 data-pre-plain-text 的可滚动容器
-    // 优先用 data-testid（稳定语义属性）
-    const byTestId = document.querySelector(
-      '[data-testid="conversation-panel-messages"]',
-    );
-    if (byTestId && byTestId.scrollHeight > byTestId.clientHeight)
-      return byTestId;
-
-    // 次选：#main 下 role="region" 的可滚动区
-    const byRole = document.querySelector('#main [role="region"]');
-    if (byRole && byRole.scrollHeight > byRole.clientHeight) return byRole;
-
-    // 兜底：找包含消息的最近可滚动祖先
-    const firstMsg = document.querySelector("[data-id]");
-    if (firstMsg) {
-      let el = firstMsg.parentElement;
-      while (el && el !== document.body) {
-        if (el.scrollHeight > el.clientHeight + 10) return el;
-        el = el.parentElement;
-      }
-    }
-    return null;
-  }
-
-  function getAllMessageElements() {
-    // ✅ 以 [data-id] 行为单位，只取已渲染的（有 selectable-text 的）
-    const rows = Array.from(document.querySelectorAll("[data-id]")).filter(
-      (row) => row.querySelector('[data-testid="selectable-text"]') !== null,
-    );
-    if (rows.length > 0) {
-      console.log(`✅ 找到 ${rows.length} 条已渲染消息`);
-    } else {
-      console.warn("⚠️ 未找到任何已渲染消息");
-    }
-    return rows;
-  }
-
-  async function scrollToBottom(scroller) {
-    if (!scroller) return;
-    let lastScrollTop = -1;
-    let attempts = 0;
-    while (attempts < 10) {
-      scroller.scrollTop = scroller.scrollHeight;
-      await sleep(400);
-      if (scroller.scrollTop === lastScrollTop) break;
-      lastScrollTop = scroller.scrollTop;
-      attempts++;
-    }
-  }
-
-  async function scrollUpToLoadMessages(scroller, maxScrolls = 50) {
-    if (!scroller) return;
-    let scrollCount = 0;
-    let noChangeCount = 0;
-    while (scrollCount < maxScrolls && !reactionStopRequested) {
-      const currentCount = document.querySelectorAll("[data-id]").length;
-      scroller.scrollTop = Math.max(0, scroller.scrollTop - 200);
-      await sleep(400);
-      const newCount = document.querySelectorAll("[data-id]").length;
-      if (newCount === currentCount) {
-        noChangeCount++;
-        if (noChangeCount >= 5) break;
-      } else {
-        noChangeCount = 0;
-      }
-      scrollCount++;
-    }
-  }
-
-  function findTargetMessages(targetType, keyword, index) {
-    // ✅ 以 [data-id] 行为单位——每行对应一条消息
-    // data-virtualized="false" 的才是实际渲染的（虚拟滚动中可见的）
-    const allRows = Array.from(document.querySelectorAll("[data-id]")).filter(
-      (row) => {
-        // 只要已经渲染的（不是 virtualized 占位）
-        return row.querySelector('[data-testid="selectable-text"]') !== null;
-      },
-    );
-
-    if (allRows.length === 0) {
-      console.log("[调试] 未找到任何已渲染消息行");
-      return [];
-    }
-
-    // 过滤掉系统消息（无文字内容）
-    const messagesArray = allRows.filter((row) => {
-      const text = extractMsgText(row);
-      return text.length > 0 && !text.includes("已将该群组的设置更改为");
-    });
-
-    console.log(`[调试] 总共找到 ${messagesArray.length} 条有效消息`);
-    if (messagesArray.length === 0) return [];
-
-    switch (targetType) {
-      case "last":
-        console.log("[调试] 返回最后一条消息");
-        return [messagesArray[messagesArray.length - 1]];
-
-      case "all":
-        console.log(`[调试] 返回所有 ${messagesArray.length} 条消息`);
-        return messagesArray;
-
-      case "keyword": {
-        console.log(`[调试] 搜索关键词: "${keyword}"`);
-        const matched = [];
-        const normKw = keyword.toLowerCase().replace(/[''']/g, "'");
-        for (let i = 0; i < messagesArray.length; i++) {
-          const text = extractMsgText(messagesArray[i]);
-          const normText = text.toLowerCase().replace(/[''']/g, "'");
-          console.log(
-            `[消息 ${i + 1}] 前120: ${JSON.stringify(text.substring(0, 120))}`,
-          );
-          if (normText.includes(normKw)) {
-            matched.push(messagesArray[i]);
-            console.log(`[调试] ✅ 匹配 [${i + 1}]`);
-          }
-        }
-        console.log(`[调试] 匹配到 ${matched.length} 条消息`);
-        return matched;
-      }
-
-      case "index": {
-        const absN = Math.abs(index);
-        const idx = messagesArray.length - absN;
-        if (idx >= 0 && idx < messagesArray.length) {
-          console.log(`[调试] 返回倒数第 ${absN} 条 (index: ${idx})`);
-          return [messagesArray[idx]];
-        }
-        console.log(
-          `[调试] 索引 ${index} 超出范围（共 ${messagesArray.length} 条）`,
-        );
-        return [];
-      }
-
-      default:
-        return [];
-    }
-  }
-
-  // ==================== 表情面板操作 ====================
-  function getEmojiPanelScroller() {
-    const emojiSpan = document.querySelector("[data-emoji]");
-    if (emojiSpan) {
-      let parent = emojiSpan.parentElement;
-      while (parent) {
-        if (parent.scrollHeight > parent.clientHeight) return parent;
-        parent = parent.parentElement;
-      }
-    }
-    const virtualList = document.querySelector(
-      '[style*="height"][style*="transform"]',
-    );
-    if (virtualList) {
-      let parent = virtualList.parentElement;
-      while (parent) {
-        const style = window.getComputedStyle(parent);
-        if (style.overflowY === "auto" || style.overflowY === "scroll")
-          return parent;
-        parent = parent.parentElement;
-      }
-    }
-    const containers = document.querySelectorAll('div[style*="overflow"]');
-    for (const el of containers) {
-      if (el.scrollHeight > el.clientHeight && el.querySelector("[data-emoji]"))
-        return el;
-    }
-    return null;
-  }
-
-  function getAllCategoryButtons() {
-    // 结构特征：表情面板的分类按钮都是 role="tab" 或带已知分类名的 button
-    // role="tab" 是最稳定的，其次是 aria-label/title 含分类关键词
-    const byTab = document.querySelectorAll(
-      '[role="tablist"] [role="tab"], [role="tab"][aria-label], [role="tab"][title]',
-    );
-    if (byTab.length > 0) return byTab;
-
-    // 次选：button 带 aria-label 含已知分类名（多语言）
-    return document.querySelectorAll(
-      'button[aria-label*="表情"], button[aria-label*="人物"], button[aria-label*="动物"],' +
-        'button[aria-label*="食物"], button[aria-label*="活动"], button[aria-label*="旅行"],' +
-        'button[aria-label*="物件"], button[aria-label*="符号"], button[aria-label*="旗帜"],' +
-        'button[aria-label*="Smileys"], button[aria-label*="People"], button[aria-label*="Animals"],' +
-        'button[title*="表情"], button[title*="人物"], button[title*="动物"]',
-    );
-  }
-
-  function findEmojiInCurrentView(targetEmoji) {
-    const allEmojis = document.querySelectorAll("[data-emoji]");
-    for (const span of allEmojis) {
-      if (span.getAttribute("data-emoji") !== targetEmoji) continue;
-      if (!span.offsetParent) continue;
-      const rect = span.getBoundingClientRect();
-      if (rect.top > 0 && rect.bottom < window.innerHeight) return span;
-    }
-    return null;
-  }
-
-  async function scrollAndFindInCurrentCategory(
-    targetEmoji,
-    categoryName = "",
-  ) {
-    const scroller = getEmojiPanelScroller();
-    if (!scroller) return null;
-    let found = findEmojiInCurrentView(targetEmoji);
-    if (found) return found;
-    let scrollCount = 0;
-    let lastScrollTop = -1;
-    let noChangeCount = 0;
-    const maxScrolls = 200;
-    const scrollStep = 120;
-    while (scrollCount < maxScrolls && !reactionStopRequested) {
-      scroller.scrollTop += scrollStep;
-      await sleep(100);
-      if (Math.abs(scroller.scrollTop - lastScrollTop) < 5) {
-        noChangeCount++;
-        if (noChangeCount >= 5) break;
-      } else {
-        noChangeCount = 0;
-      }
-      lastScrollTop = scroller.scrollTop;
-      found = findEmojiInCurrentView(targetEmoji);
-      if (found) {
-        totalScrollAttempts += scrollCount;
-        found.scrollIntoView({ block: "center", behavior: "auto" });
-        await sleep(200);
-        return found;
-      }
-      scrollCount++;
-    }
-    totalScrollAttempts += scrollCount;
-    return null;
-  }
-
-  async function findEmojiAcrossAllCategories(targetEmoji) {
-    const categoryButtons = getAllCategoryButtons();
-    const triedCategories = new Set();
-
-    // 先尝试在当前分类查找
-    let found = await scrollAndFindInCurrentCategory(targetEmoji, "当前");
-    if (found) return found;
-
-    for (let i = 0; i < categoryButtons.length; i++) {
-      if (reactionStopRequested) return null;
-      const btn = categoryButtons[i];
-      const label =
-        btn.getAttribute("aria-label") ||
-        btn.getAttribute("title") ||
-        btn.textContent?.trim() ||
-        `分类${i + 1}`;
-      if (triedCategories.has(label)) continue;
-      triedCategories.add(label);
-      if (label.includes("肤色") || label.includes("skin")) continue;
-      btn.click();
-      await sleep(600);
-      found = await scrollAndFindInCurrentCategory(targetEmoji, label);
-      if (found) return found;
-    }
-
-    // 如果没找到，滚动到顶部再试一次
-    const scroller = getEmojiPanelScroller();
-    if (scroller) {
-      scroller.scrollTop = 0;
-      await sleep(300);
-      for (let i = 0; i < categoryButtons.length; i++) {
-        if (reactionStopRequested) return null;
-        const btn = categoryButtons[i];
-        const label = btn.getAttribute("aria-label") || "";
-        if (label.includes("肤色")) continue;
-        btn.click();
-        await sleep(500);
-        found = await scrollAndFindInCurrentCategory(
-          targetEmoji,
-          `${label}(2)`,
-        );
-        if (found) return found;
-      }
-    }
-    return null;
-  }
-
-  // ==================== 肤色选择器处理 ====================
-
-  // 找到当前可见的肤色弹出面板
-  // 结构特征：role="application" 的浮层，直接包含 li[role="button"] + img[alt]，
-  // 且第一项 img alt 就是基础表情（无肤色），后5项含肤色修饰符
-  function getSkinTonePopup() {
-    for (const el of document.querySelectorAll('[role="application"]')) {
-      if (!el.offsetParent) continue;
-      const items = el.querySelectorAll('li[role="button"]');
-      if (items.length >= 2) {
-        // 确认是肤色面板：至少有一项 img alt 含肤色修饰符
-        for (const li of items) {
-          const alt = li.querySelector("img")?.getAttribute("alt") || "";
-          if (/[\u{1F3FB}-\u{1F3FF}]/u.test(alt)) return el;
-        }
-      }
-    }
-    return null;
-  }
-
-  function hasSkinTonePicker() {
-    return !!getSkinTonePopup();
-  }
-
-  // 肤色修饰符 → 列表索引（第0项是无肤色原版，第1-5是带肤色）
-  const SKIN_TONE_MAP = { "🏻": 1, "🏼": 2, "🏽": 3, "🏾": 4, "🏿": 5 };
-
-  function clickSkinToneInPopup(popup, targetEmoji) {
-    const items = popup.querySelectorAll('li[role="button"]');
-    if (!items.length) return false;
-
-    // 解析目标肤色修饰符
-    const skinMatch = targetEmoji.match(/[\u{1F3FB}-\u{1F3FF}]/u);
-    const skinToneIndex = skinMatch ? (SKIN_TONE_MAP[skinMatch[0]] ?? 0) : 0;
-
-    if (skinToneIndex > 0 && items[skinToneIndex]) {
-      // 点击对应肤色
-      console.log(`🎨 选择肤色 index=${skinToneIndex}`);
-      items[skinToneIndex].click();
-      return true;
-    }
-
-    // 无肤色需求 → 点第一项（原版，alt 不含肤色修饰）
-    items[0].click();
-    console.log(`🎨 选择默认肤色（无）`);
-    return true;
-  }
-
-  async function smartClickEmoji(emojiElement, targetEmoji) {
-    const emoji = emojiElement.getAttribute("data-emoji");
-    console.log(`🖱️ 点击表情: ${emoji}`);
-
-    emojiElement.click();
-    await sleep(150); // 给浏览器渲染时间
-
-    // 先检查：肤色面板是否已经出现
-    const skinPopup = getSkinTonePopup();
-    if (skinPopup) {
-      console.log("🎨 检测到肤色面板，准备选择...");
-      await sleep(100);
-      clickSkinToneInPopup(skinPopup, targetEmoji);
-      // 等肤色面板消失（最多等 1.5s）
-      await waitFor(() => !getSkinTonePopup(), 1500, 40);
-      return true;
-    }
-
-    // 没有肤色面板 → 等一会再检查一次（有时面板出现有延迟）
-    await sleep(300);
-    const skinPopup2 = getSkinTonePopup();
-    if (skinPopup2) {
-      console.log("🎨 延迟后检测到肤色面板，准备选择...");
-      clickSkinToneInPopup(skinPopup2, targetEmoji);
-      await waitFor(() => !getSkinTonePopup(), 1500, 40);
-      return true;
-    }
-
-    // 没有肤色面板 → 直接当成成功（WhatsApp 自动选了默认肤色）
-    return true;
-  }
-
-  async function reactToOneMessage(msgElement, targetEmoji) {
-    try {
-      // 找到真正需要 hover 的行元素（.focusable-list-item 或 data-id 容器）
-      const dataId =
-        msgElement.closest("[data-id]")?.getAttribute("data-id") || null;
-
-      const hoverTarget =
-        msgElement.closest(".focusable-list-item") ||
-        msgElement.closest("[data-id]") ||
-        msgElement;
-
-      hoverTarget.scrollIntoView({ behavior: "auto", block: "center" });
-
-      // ✅ 智能等待：DOM 稳定后重新查找元素（防虚拟列表回收旧引用点错消息）
-      let liveTarget = hoverTarget;
-      if (dataId) {
-        // 等元素稳定出现在 DOM 里（最多等 800ms，出现即停）
-        const fresh = await waitFor(
-          () => document.querySelector(`[data-id="${CSS.escape(dataId)}"]`),
-          800,
-          30,
-        );
-        if (fresh) {
-          liveTarget = fresh;
-          // 如果重建后不在视口，再滚一次，等它出现
-          const rect = fresh.getBoundingClientRect();
-          if (rect.top < 0 || rect.bottom > window.innerHeight) {
-            fresh.scrollIntoView({ behavior: "auto", block: "center" });
-            await waitFor(
-              () => {
-                const r = fresh.getBoundingClientRect();
-                return r.top >= 0 && r.bottom <= window.innerHeight
-                  ? true
-                  : null;
-              },
-              600,
-              30,
-            );
-          }
-        }
-      }
-
-      // 触发 hover，让 WhatsApp 显示操作按钮
-      const triggerHover = () => {
-        liveTarget.dispatchEvent(
-          new MouseEvent("mouseover", { bubbles: true }),
-        );
-        liveTarget.dispatchEvent(
-          new MouseEvent("mouseenter", { bubbles: true }),
-        );
-        liveTarget.dispatchEvent(
-          new MouseEvent("mousemove", { bubbles: true }),
-        );
-      };
-      triggerHover();
-
-      // ✅ 智能等待心情按钮，出现即操作；等不到就再 hover 一次再等
-      const MOOD_SEL =
-        '[aria-label="留下心情"], [aria-label="React to message"]';
-      let moodBtn = await waitFor(
-        () => document.querySelector(MOOD_SEL),
-        1200,
-        40,
-      );
-      if (!moodBtn) {
-        triggerHover();
-        moodBtn = await waitFor(
-          () => document.querySelector(MOOD_SEL),
-          800,
-          40,
-        );
-      }
-      if (!moodBtn) return false;
-
-      moodBtn.click();
-
-      // ✅ 等快捷表情面板，出现即操作
-      await waitFor(() => document.querySelector("[data-emoji]"), 1000, 40);
-
-      // 🔥 直接查找完整的带肤色表情
-      const quickEmojis = document.querySelectorAll("[data-emoji]");
-      for (let i = 0; i < quickEmojis.length; i++) {
-        const emoji = quickEmojis[i].getAttribute("data-emoji");
-        // 直接匹配完整表情（包括肤色）
-        if (emoji === targetEmoji) {
-          if (quickEmojis[i].offsetParent) {
-            return await smartClickEmoji(quickEmojis[i], targetEmoji);
-          }
-        }
-      }
-
-      // 如果没找到完整匹配，再尝试基础表情匹配（用于没有肤色的情况）
-      const baseEmoji = targetEmoji.replace(/[\u{1F3FB}-\u{1F3FF}]/u, "");
-      if (baseEmoji !== targetEmoji) {
-        for (let i = 0; i < quickEmojis.length; i++) {
-          const emoji = quickEmojis[i].getAttribute("data-emoji");
-          if (emoji === baseEmoji) {
-            if (quickEmojis[i].offsetParent) {
-              return await smartClickEmoji(quickEmojis[i], targetEmoji);
-            }
-          }
-        }
-      }
-
-      const moreBtn = document.querySelector(
-        '[aria-label="更多回应"], [aria-label="更多心情"]',
-      );
-      if (!moreBtn) {
-        // 在完整面板中查找带肤色的表情
-        const found = await findEmojiAcrossAllCategories(targetEmoji);
-        if (found) return await smartClickEmoji(found, targetEmoji);
-        // 如果没找到，再找基础表情
-        if (baseEmoji !== targetEmoji) {
-          const foundBase = await findEmojiAcrossAllCategories(baseEmoji);
-          if (foundBase) return await smartClickEmoji(foundBase, targetEmoji);
-        }
-        document.body.click();
-        return false;
-      }
-
-      moreBtn.click();
-      // 智能等待完整表情面板
-      await waitFor(() => document.querySelector('[role="tab"]'), 1500, 80);
-
-      // 优先查找完整的带肤色表情
-      let foundEmoji = await findEmojiAcrossAllCategories(targetEmoji);
-      if (!foundEmoji && baseEmoji !== targetEmoji) {
-        foundEmoji = await findEmojiAcrossAllCategories(baseEmoji);
-      }
-
-      if (foundEmoji) return await smartClickEmoji(foundEmoji, targetEmoji);
-
-      document.body.click();
-      return false;
-    } catch (error) {
-      console.error("点赞出错:", error);
-      return false;
-    }
-  }
-
-  // ==================== 群组点赞主流程 ====================
-  async function runReactionForGroup(
-    groupName,
-    emoji,
-    target,
-    keyword,
-    index,
-    delayMs,
-  ) {
-    setStatus(`${groupName}: 正在打开聊天...`);
-    const clicked = await 搜索并点击聊天(groupName);
-    if (!clicked) return;
-
-    // ✅ 智能等待聊天内容加载（等消息出现，而不是固定等 3 秒）
-    await waitFor(() => document.querySelector("[data-id]"), 4000, 80);
-
-    const scroller = getMessageScroller();
-    if (!scroller) return;
-
-    await scrollToBottom(scroller);
-    // ✅ 等滚动完成后消息容器稳定
-    await waitFor(() => document.querySelector("[data-id]"), 1000, 40);
-
-    // 如果是关键词模式，边滚动边查找，找到即停
-    if (target === "keyword" && keyword) {
-      setStatus(`${groupName}: 正在搜索关键词 "${keyword}"...`);
-
-      // 用 data-id 去重，防止滚动过程中同一条消息被重复收集
-      const seenIds = new Set();
-
-      function collectUniqueMatches() {
-        const results = findTargetMessages(target, keyword, index);
-        const fresh = [];
-        for (const el of results) {
-          const id = el.getAttribute("data-id") || el.dataset.id;
-          if (id && seenIds.has(id)) continue;
-          if (id) seenIds.add(id);
-          fresh.push(el);
-        }
-        return fresh;
-      }
-
-      let foundMessages = null;
-      // 先在当前已加载的消息里找一次（最新消息往往就在视口内）
-      const quickCheck = collectUniqueMatches();
-      if (quickCheck.length > 0) {
-        foundMessages = quickCheck;
-        setStatus(`${groupName}: 找到 ${foundMessages.length} 条匹配消息`);
-      }
-
-      if (!foundMessages) {
-        // 向上滚动加载历史消息，智能等待懒加载完成
-        const SCROLL_STEP = 1200;
-        const MAX_SCROLLS = 400;
-        const LOAD_WAIT = 1500;
-        const STABLE_THRESHOLD = 4; // 消息数连续N次不增加 → 到顶了
-
-        let scrollCount = 0;
-        let stableCount = 0;
-        let lastMsgCount = document.querySelectorAll("[data-id]").length;
-
-        while (
-          scrollCount < MAX_SCROLLS &&
-          !reactionStopRequested &&
-          !foundMessages
-        ) {
-          const prevTop = scroller.scrollTop;
-          scroller.scrollTop = Math.max(0, scroller.scrollTop - SCROLL_STEP);
-
-          // 已经到顶了
-          if (scroller.scrollTop === 0 && prevTop === 0) break;
-
-          // 等待懒加载：轮询消息数，稳定后再匹配（最多等 LOAD_WAIT ms）
-          await waitFor(
-            () => {
-              const cur = document.querySelectorAll("[data-id]").length;
-              return cur > lastMsgCount ? cur : null;
-            },
-            LOAD_WAIT,
-            80,
-          );
-
-          const newMsgCount = document.querySelectorAll("[data-id]").length;
-          if (newMsgCount === lastMsgCount) {
-            stableCount++;
-            if (stableCount >= STABLE_THRESHOLD) break;
-          } else {
-            stableCount = 0;
-            lastMsgCount = newMsgCount;
-          }
-
-          setStatus(
-            `${groupName}: 搜索中... 已加载 ${newMsgCount} 条 (第${scrollCount + 1}屏)`,
-          );
-          const newMatches = collectUniqueMatches();
-          if (newMatches.length > 0) {
-            foundMessages = newMatches;
-            setStatus(`${groupName}: 找到 ${foundMessages.length} 条匹配消息`);
-            break;
-          }
-
-          scrollCount++;
-        }
-      }
-
-      if (!foundMessages || foundMessages.length === 0) {
-        setStatus(`${groupName}: 未找到包含 "${keyword}" 的消息`);
-        return;
-      }
-
-      // 点赞操作
-      for (let i = 0; i < foundMessages.length; i++) {
-        if (reactionStopRequested) break;
-        setStatus(`${groupName}: 点赞 ${i + 1}/${foundMessages.length}`);
-        await reactToOneMessage(foundMessages[i], emoji);
-        if (i < foundMessages.length - 1) await sleep(delayMs);
-      }
-      return;
-    }
-
-    // 其他模式保持原逻辑
-    // all 模式需要加载所有历史消息；last/index 模式只需最新消息，scrollToBottom 已够
-    if (target === "all") {
-      await scrollUpToLoadMessages(scroller, 40);
-    }
-
-    const targetMessages = findTargetMessages(target, keyword, index);
-    if (targetMessages.length === 0) {
-      setStatus(`${groupName}: 未找到目标消息`);
-      return;
-    }
-
-    setStatus(`${groupName}: 找到 ${targetMessages.length} 条消息`);
-    for (let i = 0; i < targetMessages.length; i++) {
-      if (reactionStopRequested) break;
-      setStatus(`${groupName}: 点赞 ${i + 1}/${targetMessages.length}`);
-      await reactToOneMessage(targetMessages[i], emoji);
-      if (i < targetMessages.length - 1) await sleep(delayMs);
-    }
-  }
-
-  // ==================== 翻译开关辅助函数 ====================
-  function getTranslateBtn() {
-    return window._shadowRoot.getElementById("translateToggleBtn");
-  }
-
-  function isTranslateEnabled() {
-    const btn = getTranslateBtn();
-    return btn && btn.style.background === "rgb(217, 48, 37)";
-  }
-
-  function restoreTranslateIfNeeded() {
-    if (!translateWasEnabled) return;
-    const btn = getTranslateBtn();
-    if (btn && btn.style.background !== "rgb(217, 48, 37)") {
-      btn.click();
-      console.log("[点赞] 已恢复自动翻译");
-    }
-    translateWasEnabled = false;
-  }
-
-  // ==================== 开始/停止 ====================
-  reactionStartBtn.addEventListener("click", async () => {
-    // 如果自动翻译开启，先关闭并记录状态
-    const translateBtn = getTranslateBtn();
-    console.log("[调试] translateBtn 元素:", translateBtn);
-    if (translateBtn) {
-      console.log("[调试] translateBtn 背景色:", translateBtn.style.background);
-    }
-    translateWasEnabled = isTranslateEnabled();
-    console.log("[调试] translateWasEnabled:", translateWasEnabled);
-    if (translateWasEnabled) {
-      translateBtn.click();
-      console.log("[点赞] 已关闭自动翻译");
-    }
-
-    const selectedGroups = 获取已选群组();
-    if (selectedGroups.length === 0) {
-      setStatus("❌ 请先选择群组");
-      return;
-    }
-    const targetType =
-      window._shadowRoot.querySelector('input[name="reactionTarget"]:checked')
-        ?.value || "last";
-    const keyword =
-      window._shadowRoot.getElementById("reactionKeyword")?.value.trim() || "";
-    const index =
-      parseInt(window._shadowRoot.getElementById("reactionIndex")?.value) || 1;
-    const delayMs =
-      (parseInt(window._shadowRoot.getElementById("reactionDelay")?.value) ||
-        3) * 1000;
-    if (targetType === "keyword" && !keyword) {
-      setStatus("❌ 请输入关键词");
-      return;
-    }
-    reactionRunning = true;
-    reactionStopRequested = false;
-    reactionStartBtn.style.display = "none";
-    reactionStopBtn.style.display = "block";
-    totalScrollAttempts = 0;
-    let totalGroups = 0;
-    for (let i = 0; i < selectedGroups.length; i++) {
-      if (reactionStopRequested) break;
-
-      const group = selectedGroups[i];
-      const groupName = group.name;
-
-      setStatus(`[${i + 1}/${selectedGroups.length}] ${groupName}`);
-      await runReactionForGroup(
-        groupName,
-        selectedEmoji,
-        targetType,
-        keyword,
-        index,
-        delayMs,
-      );
-      totalGroups++;
-      if (i < selectedGroups.length - 1 && !reactionStopRequested) {
-        await sleep(2000);
-      }
-    }
-    reactionRunning = false;
-    reactionStartBtn.style.display = "block";
-    reactionStopBtn.style.display = "none";
-
-    restoreTranslateIfNeeded();
-
-    if (reactionStopRequested) {
-      setStatus(`⏹ 已停止。完成 ${totalGroups} 个群组`);
-    } else {
-      setStatus(`🎉 完成！共 ${totalGroups} 个群组`);
-    }
-  });
-
-  reactionStopBtn.addEventListener("click", () => {
-    reactionStopRequested = true;
-    setStatus("⏹ 正在停止...");
-    restoreTranslateIfNeeded();
-  });
-})();
-
-// ==================== 回复模块 ====================
-(function () {
-  let replyRunning = false;
-  let replyStopRequested = false;
-
-  const replyDrawer = window._shadowRoot.getElementById("replyDrawer");
-  const replyOpenBtn = window._shadowRoot.getElementById("replyPanelToggleBtn");
-  const replyCloseBtn = window._shadowRoot.getElementById("replyCloseBtn");
-  const replyStartBtn = window._shadowRoot.getElementById("replyStartBtn");
-  const replyStopBtn = window._shadowRoot.getElementById("replyStopBtn");
-  const replyStatusEl = window._shadowRoot.getElementById("replyStatus");
-
-  function setReplyStatus(msg) {
-    if (replyStatusEl) replyStatusEl.textContent = msg;
-    console.log("[回复]", msg);
-  }
-
-  // ── 群组列表同步展示（与点赞模块同一套 contactsUpdated 事件）──
-  function syncReplyGroupList() {
-    const container = window._shadowRoot.getElementById("replyGroupList");
-    if (!container) return;
-    const groups = 获取已选群组();
-    if (groups.length === 0) {
-      container.innerHTML =
-        '<div style="padding:8px;color:#999;">请先在主面板选择群组</div>';
-      return;
-    }
-    container.innerHTML = groups
-      .map(
-        (g) => `
-        <div style="padding:4px 6px;font-size:12px;display:flex;align-items:center;gap:6px;">
-          <span style="color:#00897b;font-size:10px;">✓</span>
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${g.name}">${g.name}</span>
-        </div>`,
-      )
-      .join("");
-  }
-
-  // ── 面板开关 ──
-  // 刷新内容预览（读主面板输入框 + #preview 图片 + 发送模式）
-  function syncReplyContentPreview() {
-    if (replyDrawer.style.display !== "flex") return;
-
-    const imgPreviewRow = window._shadowRoot.getElementById("replyImgPreview");
-    const imgThumb = window._shadowRoot.getElementById("replyImgThumb");
-    const textPreviewEl = window._shadowRoot.getElementById("replyTextPreview");
-    const modePreviewEl = window._shadowRoot.getElementById("replyModePreview");
-    if (!textPreviewEl) return;
-
-    const text = window._shadowRoot.getElementById("messageInput")?.value || "";
-    // 直接读主面板 #preview 的 src（FileReader 已经处理好了）
-    const imgSrc = window._shadowRoot.getElementById("preview")?.src || "";
-    const hasImg =
-      imgSrc && !imgSrc.endsWith("#") && imgSrc !== window.location.href;
-    const mode = 获取发送模式() || "default";
-
-    const modeLabels = {
-      default: "默认模式",
-      imageAndText: "图文同发",
-      LeftimageAndText: "先图后文",
-      TextAndimage: "先文后图",
-      textOnly: "仅文本",
-      imageOnly: "仅图片",
-    };
-
-    // 图片缩略图
-    if (imgPreviewRow && imgThumb) {
-      if (hasImg) {
-        imgThumb.src = imgSrc;
-        imgPreviewRow.style.display = "block";
-      } else {
-        imgThumb.src = "";
-        imgPreviewRow.style.display = "none";
-      }
-    }
-
-    // 文本
-    if (!text && !hasImg) {
-      textPreviewEl.textContent = "（主面板暂无内容）";
-      textPreviewEl.style.color = "#aaa";
-    } else if (text) {
-      textPreviewEl.textContent =
-        text.length > 80 ? text.slice(0, 80) + "…" : text;
-      textPreviewEl.style.color = "#333";
-    } else {
-      textPreviewEl.textContent = "";
-    }
-
-    // 模式标签
-    if (modePreviewEl) {
-      modePreviewEl.textContent = `发送模式：${modeLabels[mode] || mode}`;
-    }
-  }
-
-  replyOpenBtn?.addEventListener("click", () => {
-    const isOpen = replyDrawer.style.display === "flex";
-    replyDrawer.style.display = isOpen ? "none" : "flex";
-    if (!isOpen) {
-      syncReplyGroupList();
-      syncReplyContentPreview();
-    }
-  });
-  replyCloseBtn?.addEventListener("click", () => {
-    replyDrawer.style.display = "none";
-  });
-
-  // 监听主面板输入框变化，实时刷新预览
-  window._shadowRoot
-    .getElementById("messageInput")
-    ?.addEventListener("input", syncReplyContentPreview);
-  // 监听发送模式切换
-  window._shadowRoot
-    .querySelectorAll('input[name="sendOption"]')
-    .forEach((r) => r.addEventListener("change", syncReplyContentPreview));
-  // 监听图片选择（change 后 #preview src 是异步更新的，用 MutationObserver 最准确）
-  const previewImg = window._shadowRoot.getElementById("preview");
-  if (previewImg) {
-    new MutationObserver(syncReplyContentPreview).observe(previewImg, {
-      attributes: true,
-      attributeFilter: ["src"],
-    });
-  }
-  // 清空按钮（src 置空由 MutationObserver 捕获，这里保留一个兜底）
-  window._shadowRoot
-    .querySelector("#clear-btn")
-    ?.addEventListener("click", () => setTimeout(syncReplyContentPreview, 80));
-
-  // 监听主面板选中变化，打开时实时刷新
-  window._shadowRoot.addEventListener("contactsUpdated", () => {
-    if (replyDrawer.style.display === "flex") syncReplyGroupList();
-  });
-
-  // ── 目标选择联动：关键词输入框 / 第N条行 显隐 ──
-  replyDrawer
-    ?.querySelectorAll('input[name="replyTarget"]')
-    .forEach((radio) => {
-      radio.addEventListener("change", () => {
-        const kw = window._shadowRoot.getElementById("replyKeyword");
-        const idxRow = window._shadowRoot.getElementById("replyIndexRow");
-        if (kw) kw.style.display = radio.value === "keyword" ? "block" : "none";
-        if (idxRow)
-          idxRow.style.display = radio.value === "index" ? "flex" : "none";
-      });
-    });
-
-  // ── 触发 WhatsApp 回复操作 ──
-  // 复用点赞模块已有的 waitFor / sleep（定义在同一作用域外层，全局可用）
-  // 输入框区域的回复预览 selector（footer 里，不是消息里的 quoted-message）
-  const REPLY_PREVIEW_SEL =
-    'footer [data-testid="quoted-message"], [data-testid="reply-preview"], [role="complementary"] [data-testid="quoted-message"]';
-
-  // payload = { text, imgBase64, mode }
-  async function replyToOneMessage(msgElement, payload) {
-    try {
-      const dataId =
-        msgElement.closest("[data-id]")?.getAttribute("data-id") || null;
-      const hoverTarget =
-        msgElement.closest(".focusable-list-item") ||
-        msgElement.closest("[data-id]") ||
-        msgElement;
-
-      hoverTarget.scrollIntoView({ behavior: "auto", block: "center" });
-
-      // 重新从 DOM 取最新引用（防虚拟列表回收）
-      let liveTarget = hoverTarget;
-      if (dataId) {
-        const fresh = await window.waitFor(
-          () => document.querySelector(`[data-id="${CSS.escape(dataId)}"]`),
-          800,
-          30,
-        );
-        if (fresh) {
-          liveTarget = fresh;
-          const rect = fresh.getBoundingClientRect();
-          if (rect.top < 0 || rect.bottom > window.innerHeight) {
-            fresh.scrollIntoView({ behavior: "auto", block: "center" });
-            await window.waitFor(
-              () => {
-                const r = fresh.getBoundingClientRect();
-                return r.top >= 0 && r.bottom <= window.innerHeight
-                  ? true
-                  : null;
-              },
-              600,
-              30,
-            );
-          }
-        }
-      }
-
-      // ── 方式1：双击消息内容区触发回复（最可靠，与手势一致）──
-      // WhatsApp 对 [data-testid="msg-container"] 内容区双击会直接进入回复模式
-      const msgContainer =
-        liveTarget.querySelector('[data-testid="msg-container"]') || liveTarget;
-      const rect = msgContainer.getBoundingClientRect();
-      const clickX = rect.left + rect.width / 2;
-      const clickY = rect.top + rect.height / 2;
-
-      const dblClickOpts = {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-        clientX: clickX,
-        clientY: clickY,
-      };
-
-      const triggerDblClick = () => {
-        msgContainer.dispatchEvent(new MouseEvent("mousedown", dblClickOpts));
-        msgContainer.dispatchEvent(new MouseEvent("mouseup", dblClickOpts));
-        msgContainer.dispatchEvent(new MouseEvent("click", dblClickOpts));
-        msgContainer.dispatchEvent(new MouseEvent("mousedown", dblClickOpts));
-        msgContainer.dispatchEvent(new MouseEvent("mouseup", dblClickOpts));
-        msgContainer.dispatchEvent(new MouseEvent("click", dblClickOpts));
-        msgContainer.dispatchEvent(new MouseEvent("dblclick", dblClickOpts));
-      };
-
-      triggerDblClick();
-
-      // 等待 footer 里的引用预览出现
-      let replyPreview = await window.waitFor(
-        () => document.querySelector(REPLY_PREVIEW_SEL),
-        1000,
-        40,
-      );
-
-      // ── 方式2：双击没触发，改用 hover → 点回复按钮 ──
-      if (!replyPreview) {
-        console.log("[回复] 双击未触发，尝试 hover 按钮...");
-
-        const triggerHover = () => {
-          liveTarget.dispatchEvent(
-            new MouseEvent("mouseover", { bubbles: true }),
-          );
-          liveTarget.dispatchEvent(
-            new MouseEvent("mouseenter", { bubbles: true }),
-          );
-          liveTarget.dispatchEvent(
-            new MouseEvent("mousemove", { bubbles: true }),
-          );
-        };
-        triggerHover();
-
-        // WhatsApp 中文：回复；英文：Reply
-        const REPLY_BTN_SEL = '[aria-label="回复"], [aria-label="Reply"]';
-        let replyBtn = await window.waitFor(
-          () => document.querySelector(REPLY_BTN_SEL),
-          1200,
-          40,
-        );
-        if (!replyBtn) {
-          triggerHover();
-          replyBtn = await window.waitFor(
-            () => document.querySelector(REPLY_BTN_SEL),
-            800,
-            40,
-          );
-        }
-
-        // 方式3：回复按钮也没有，打开"..."菜单找
-        if (!replyBtn) {
-          console.log("[回复] hover 按钮未出现，尝试更多菜单...");
-          const moreBtn = document.querySelector(
-            '[aria-label="更多选项"], [aria-label="More options"]',
-          );
-          if (moreBtn) {
-            moreBtn.click();
-            replyBtn = await window.waitFor(
-              () => document.querySelector(REPLY_BTN_SEL),
-              800,
-              40,
-            );
-          }
-        }
-
-        if (!replyBtn) {
-          console.warn("[回复] 三种方式均未找到回复入口，跳过此条");
-          return false;
-        }
-
-        replyBtn.click();
-        replyPreview = await window.waitFor(
-          () => document.querySelector(REPLY_PREVIEW_SEL),
-          1500,
-          40,
-        );
-      }
-
-      if (!replyPreview) {
-        console.warn("[回复] footer 引用预览未出现，触发失败");
-        return false;
-      }
-
-      const { text, imgBase64, mode } = payload;
-
-      // ── 底层：在引用已激活状态下粘贴图片发送（第1条，带引用）──
-      async function pasteAndSendImage(captionText) {
-        const input = 群发模块.getInputDom();
-        if (!input || !imgBase64) return false;
-        input.focus();
-        input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-        const blob = 群发模块.base64转Blob(imgBase64);
-        const dt = new DataTransfer();
-        dt.items.add(new File([blob], "image.png", { type: blob.type }));
-        input.dispatchEvent(
-          new ClipboardEvent("paste", {
-            clipboardData: dt,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        // 等图片预览弹窗出现
-        await window.waitFor(
-          () => document.querySelector('[data-testid="media-editor"]'),
-          2000,
-          50,
-        );
-        if (captionText) {
-          const captionBox = document.querySelector(
-            '[data-testid="media-caption-input-container"] [contenteditable]',
-          );
-          if (captionBox) await 模拟真实输入(captionText, captionBox);
-        }
-        await 点击文本带图片发送按钮();
-        await window.sleep(300);
-        return true;
-      }
-
-      // ── 底层：在引用已激活状态下输入文本并发送（带引用）──
-      async function sendTextWithReply(sendText) {
-        const inputBox = await 等待目标出现(() =>
-          document.querySelector(
-            '[data-testid="conversation-compose-box-input"]',
-          ),
-        );
-        if (!inputBox || !sendText) return false;
-        await 模拟真实输入(sendText, inputBox);
-        await window.sleep(200);
-        inputBox.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            bubbles: true,
-          }),
-        );
-        // 等引用预览消失确认发送完成
-        await window.waitFor(
-          () => !document.querySelector(REPLY_PREVIEW_SEL),
-          2500,
-          60,
-        );
-        await window.sleep(300);
-        return true;
-      }
-
-      // ── 底层：不带引用直接发文本（第2条）──
-      async function sendTextPlain(sendText) {
-        const inputBox = await 等待目标出现(() =>
-          document.querySelector(
-            '[data-testid="conversation-compose-box-input"]',
-          ),
-        );
-        if (!inputBox || !sendText) return false;
-        await 模拟真实输入(sendText, inputBox);
-        await window.sleep(200);
-        inputBox.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            bubbles: true,
-          }),
-        );
-        await window.sleep(500);
-        return true;
-      }
-
-      // ── 发送模式决定第1条（带引用）是图还是文 ──
-      switch (mode) {
-        case "textOnly":
-        case "default":
-          // 第1条（带引用）：文本
-          await sendTextWithReply(text);
-          break;
-
-        case "imageOnly":
-          // 第1条（带引用）：图片
-          await pasteAndSendImage("");
-          break;
-
-        case "imageAndText":
-          // 第1条（带引用）：图片 + 说明文字同发
-          await pasteAndSendImage(text);
-          break;
-
-        case "LeftimageAndText":
-          // 先图后文
-          // 第1条（带引用）：图片
-          await pasteAndSendImage("");
-          // 第2条（不带引用）：文本
-          await sendTextPlain(text);
-          break;
-
-        case "TextAndimage":
-          // 先文后图
-          // 第1条（带引用）：文本
-          await sendTextWithReply(text);
-          // 第2条（不带引用）：图片
-          await pasteAndSendImage("");
-          break;
-
-        default:
-          await sendTextWithReply(text);
-      }
-
-      return true;
-    } catch (err) {
-      console.error("[回复] 出错:", err);
-      return false;
-    }
-  }
-
-  // ── 单个群组回复主流程（复用点赞模块的 findTargetMessages 搜索逻辑）──
-  async function runReplyForGroup(
-    groupName,
-    payload,
-    target,
-    keyword,
-    index,
-    delayMs,
-  ) {
-    setReplyStatus(`${groupName}: 正在打开聊天...`);
-    const clicked = await 搜索并点击聊天(groupName);
-    if (!clicked) return;
-
-    await window.waitFor(() => document.querySelector("[data-id]"), 4000, 80);
-
-    const scroller = window.getMessageScroller();
-    if (!scroller) return;
-
-    await window.scrollToBottom(scroller);
-    await window.waitFor(() => document.querySelector("[data-id]"), 1000, 40);
-
-    let targetMessages = [];
-
-    if (target === "keyword" && keyword) {
-      setReplyStatus(`${groupName}: 正在搜索关键词 "${keyword}"...`);
-      const seenIds = new Set();
-
-      function collectUnique() {
-        const results = window.findTargetMessages(target, keyword, index);
-        const fresh = [];
-        for (const el of results) {
-          const id = el.getAttribute("data-id") || el.dataset.id;
-          if (id && seenIds.has(id)) continue;
-          if (id) seenIds.add(id);
-          fresh.push(el);
-        }
-        return fresh;
-      }
-
-      const quickCheck = collectUnique();
-      if (quickCheck.length > 0) {
-        targetMessages = quickCheck;
-        setReplyStatus(
-          `${groupName}: 找到 ${targetMessages.length} 条匹配消息`,
-        );
-      } else {
-        const SCROLL_STEP = 1200,
-          MAX_SCROLLS = 400,
-          LOAD_WAIT = 1500,
-          STABLE_THRESHOLD = 4;
-        let scrollCount = 0,
-          stableCount = 0;
-        let lastMsgCount = document.querySelectorAll("[data-id]").length;
-
-        while (
-          scrollCount < MAX_SCROLLS &&
-          !replyStopRequested &&
-          !targetMessages.length
-        ) {
-          const prevTop = scroller.scrollTop;
-          scroller.scrollTop = Math.max(0, scroller.scrollTop - SCROLL_STEP);
-          if (scroller.scrollTop === 0 && prevTop === 0) break;
-
-          await window.waitFor(
-            () => {
-              const cur = document.querySelectorAll("[data-id]").length;
-              return cur > lastMsgCount ? cur : null;
-            },
-            LOAD_WAIT,
-            80,
-          );
-
-          const newMsgCount = document.querySelectorAll("[data-id]").length;
-          if (newMsgCount === lastMsgCount) {
-            if (++stableCount >= STABLE_THRESHOLD) break;
-          } else {
-            stableCount = 0;
-            lastMsgCount = newMsgCount;
-          }
-
-          setReplyStatus(
-            `${groupName}: 搜索中... 已加载 ${newMsgCount} 条 (第${scrollCount + 1}屏)`,
-          );
-          const matches = collectUnique();
-          if (matches.length > 0) {
-            targetMessages = matches;
-            setReplyStatus(
-              `${groupName}: 找到 ${targetMessages.length} 条匹配消息`,
-            );
-          }
-          scrollCount++;
-        }
-      }
-
-      if (!targetMessages.length) {
-        setReplyStatus(`${groupName}: 未找到包含 "${keyword}" 的消息`);
-        return;
-      }
-    } else {
-      if (target === "all") await window.scrollUpToLoadMessages(scroller, 40);
-      targetMessages = window.findTargetMessages(target, keyword, index);
-      if (!targetMessages.length) {
-        setReplyStatus(`${groupName}: 未找到目标消息`);
-        return;
-      }
-    }
-
-    setReplyStatus(
-      `${groupName}: 找到 ${targetMessages.length} 条消息，开始回复...`,
-    );
-    for (let i = 0; i < targetMessages.length; i++) {
-      if (replyStopRequested) break;
-      setReplyStatus(`${groupName}: 回复 ${i + 1}/${targetMessages.length}`);
-      await replyToOneMessage(targetMessages[i], payload);
-      if (i < targetMessages.length - 1) await window.sleep(delayMs);
-    }
-  }
-
-  // ── 开始按钮 ──
-  replyStartBtn?.addEventListener("click", async () => {
-    const selectedGroups = 获取已选群组();
-    if (!selectedGroups.length) {
-      setReplyStatus("❌ 请先选择群组");
-      return;
-    }
-
-    // 读取主面板内容
-    const text = window._shadowRoot.getElementById("messageInput")?.value || "";
-    const imgBase64 = await 获取已选图片Base64();
-    const mode = 获取发送模式() || "default";
-
-    // 校验：根据模式判断是否有有效内容
-    const needText = [
-      "default",
-      "textOnly",
-      "imageAndText",
-      "LeftimageAndText",
-      "TextAndimage",
-    ].includes(mode);
-    const needImg = [
-      "imageOnly",
-      "imageAndText",
-      "LeftimageAndText",
-      "TextAndimage",
-    ].includes(mode);
-    if (needText && !text && mode !== "default") {
-      setReplyStatus("❌ 主面板文本内容为空");
-      return;
-    }
-    if (needImg && !imgBase64) {
-      setReplyStatus("❌ 主面板未选择图片");
-      return;
-    }
-    if (mode === "default" && !text && !imgBase64) {
-      setReplyStatus("❌ 主面板无内容");
-      return;
-    }
-
-    const payload = { text, imgBase64, mode };
-
-    const target =
-      window._shadowRoot.querySelector('input[name="replyTarget"]:checked')
-        ?.value || "last";
-    const keyword =
-      window._shadowRoot.getElementById("replyKeyword")?.value.trim() || "";
-    const index =
-      parseInt(window._shadowRoot.getElementById("replyIndex")?.value) || 1;
-    const delayMs =
-      (parseInt(window._shadowRoot.getElementById("replyDelay")?.value) || 1) *
-      1000;
-
-    if (target === "keyword" && !keyword) {
-      setReplyStatus("❌ 请输入关键词");
-      return;
-    }
-
-    replyRunning = true;
-    replyStopRequested = false;
-    replyStartBtn.style.display = "none";
-    replyStopBtn.style.display = "block";
-
-    let totalGroups = 0;
-    for (let i = 0; i < selectedGroups.length; i++) {
-      if (replyStopRequested) break;
-      const group = selectedGroups[i];
-      setReplyStatus(`[${i + 1}/${selectedGroups.length}] ${group.name}`);
-      await runReplyForGroup(
-        group.name,
-        payload,
-        target,
-        keyword,
-        index,
-        delayMs,
-      );
-      totalGroups++;
-      if (i < selectedGroups.length - 1 && !replyStopRequested)
-        await window.sleep(2000);
-    }
-
-    replyRunning = false;
-    replyStartBtn.style.display = "block";
-    replyStopBtn.style.display = "none";
-    setReplyStatus(
-      replyStopRequested
-        ? `⏹ 已停止。完成 ${totalGroups} 个群组`
-        : `🎉 完成！共 ${totalGroups} 个群组`,
-    );
-  });
-
-  // ── 停止按钮 ──
-  replyStopBtn?.addEventListener("click", () => {
-    replyStopRequested = true;
-    setReplyStatus("⏹ 正在停止...");
-  });
-})();
+//     .querySelectorAll('input[name="reactionTarget"]')
+//     .forEach((radio) => {
+//       radio.addEventListener("change", () => {
+//         if (reactionKeyword)
+//           reactionKeyword.style.display =
+//             radio.value === "keyword" ? "block" : "none";
+//         if (reactionIndexRow)
+//           reactionIndexRow.style.display =
+//             radio.value === "index" ? "flex" : "none";
+//       });
+//     });
+
+//   // ==================== 工具函数 ====================
+//   function sleep(ms) {
+//     return new Promise((r) => setTimeout(r, ms));
+//   }
+
+//   // 智能等待：每 pollMs 检查一次 condFn()，最多等 maxMs，条件满足立即返回
+//   async function waitFor(condFn, maxMs = 2000, pollMs = 60) {
+//     const deadline = Date.now() + maxMs;
+//     while (Date.now() < deadline) {
+//       const result = condFn();
+//       if (result) return result;
+//       await sleep(pollMs);
+//     }
+//     return null;
+//   }
+
+//   function setStatus(msg) {
+//     if (reactionStatus) {
+//       reactionStatus.textContent = msg;
+//     }
+//     console.log("[点赞]", msg);
+//   }
+
+//   // 将公共工具函数挂到 window，供其他模块（如回复模块）复用
+//   window.sleep = sleep;
+//   window.waitFor = waitFor;
+//   window.getMessageScroller = getMessageScroller;
+//   window.scrollToBottom = scrollToBottom;
+//   window.scrollUpToLoadMessages = scrollUpToLoadMessages;
+//   window.findTargetMessages = findTargetMessages;
+//   window.extractMsgText = extractMsgText;
+
+//   // ==================== 消息滚动和查找 ====================
+//   function getMessageScroller() {
+//     // 结构特征：包含消息元素 data-pre-plain-text 的可滚动容器
+//     // 优先用 data-testid（稳定语义属性）
+//     const byTestId = document.querySelector(
+//       '[data-testid="conversation-panel-messages"]',
+//     );
+//     if (byTestId && byTestId.scrollHeight > byTestId.clientHeight)
+//       return byTestId;
+
+//     // 次选：#main 下 role="region" 的可滚动区
+//     const byRole = document.querySelector('#main [role="region"]');
+//     if (byRole && byRole.scrollHeight > byRole.clientHeight) return byRole;
+
+//     // 兜底：找包含消息的最近可滚动祖先
+//     const firstMsg = document.querySelector("[data-id]");
+//     if (firstMsg) {
+//       let el = firstMsg.parentElement;
+//       while (el && el !== document.body) {
+//         if (el.scrollHeight > el.clientHeight + 10) return el;
+//         el = el.parentElement;
+//       }
+//     }
+//     return null;
+//   }
+
+//   function getAllMessageElements() {
+//     // ✅ 以 [data-id] 行为单位，只取已渲染的（有 selectable-text 的）
+//     const rows = Array.from(document.querySelectorAll("[data-id]")).filter(
+//       (row) => row.querySelector('[data-testid="selectable-text"]') !== null,
+//     );
+//     if (rows.length > 0) {
+//       console.log(`✅ 找到 ${rows.length} 条已渲染消息`);
+//     } else {
+//       console.warn("⚠️ 未找到任何已渲染消息");
+//     }
+//     return rows;
+//   }
+
+//   async function scrollToBottom(scroller) {
+//     if (!scroller) return;
+//     let lastScrollTop = -1;
+//     let attempts = 0;
+//     while (attempts < 10) {
+//       scroller.scrollTop = scroller.scrollHeight;
+//       await sleep(400);
+//       if (scroller.scrollTop === lastScrollTop) break;
+//       lastScrollTop = scroller.scrollTop;
+//       attempts++;
+//     }
+//   }
+
+//   async function scrollUpToLoadMessages(scroller, maxScrolls = 50) {
+//     if (!scroller) return;
+//     let scrollCount = 0;
+//     let noChangeCount = 0;
+//     while (scrollCount < maxScrolls && !reactionStopRequested) {
+//       const currentCount = document.querySelectorAll("[data-id]").length;
+//       scroller.scrollTop = Math.max(0, scroller.scrollTop - 200);
+//       await sleep(400);
+//       const newCount = document.querySelectorAll("[data-id]").length;
+//       if (newCount === currentCount) {
+//         noChangeCount++;
+//         if (noChangeCount >= 5) break;
+//       } else {
+//         noChangeCount = 0;
+//       }
+//       scrollCount++;
+//     }
+//   }
+
+//   function findTargetMessages(targetType, keyword, index) {
+//     // ✅ 以 [data-id] 行为单位——每行对应一条消息
+//     // data-virtualized="false" 的才是实际渲染的（虚拟滚动中可见的）
+//     const allRows = Array.from(document.querySelectorAll("[data-id]")).filter(
+//       (row) => {
+//         // 只要已经渲染的（不是 virtualized 占位）
+//         return row.querySelector('[data-testid="selectable-text"]') !== null;
+//       },
+//     );
+
+//     if (allRows.length === 0) {
+//       console.log("[调试] 未找到任何已渲染消息行");
+//       return [];
+//     }
+
+//     // 过滤掉系统消息（无文字内容）
+//     const messagesArray = allRows.filter((row) => {
+//       const text = extractMsgText(row);
+//       return text.length > 0 && !text.includes("已将该群组的设置更改为");
+//     });
+
+//     console.log(`[调试] 总共找到 ${messagesArray.length} 条有效消息`);
+//     if (messagesArray.length === 0) return [];
+
+//     switch (targetType) {
+//       case "last":
+//         console.log("[调试] 返回最后一条消息");
+//         return [messagesArray[messagesArray.length - 1]];
+
+//       case "all":
+//         console.log(`[调试] 返回所有 ${messagesArray.length} 条消息`);
+//         return messagesArray;
+
+//       case "keyword": {
+//         console.log(`[调试] 搜索关键词: "${keyword}"`);
+//         const matched = [];
+//         const normKw = keyword.toLowerCase().replace(/[''']/g, "'");
+//         for (let i = 0; i < messagesArray.length; i++) {
+//           const text = extractMsgText(messagesArray[i]);
+//           const normText = text.toLowerCase().replace(/[''']/g, "'");
+//           console.log(
+//             `[消息 ${i + 1}] 前120: ${JSON.stringify(text.substring(0, 120))}`,
+//           );
+//           if (normText.includes(normKw)) {
+//             matched.push(messagesArray[i]);
+//             console.log(`[调试] ✅ 匹配 [${i + 1}]`);
+//           }
+//         }
+//         console.log(`[调试] 匹配到 ${matched.length} 条消息`);
+//         return matched;
+//       }
+
+//       case "index": {
+//         const absN = Math.abs(index);
+//         const idx = messagesArray.length - absN;
+//         if (idx >= 0 && idx < messagesArray.length) {
+//           console.log(`[调试] 返回倒数第 ${absN} 条 (index: ${idx})`);
+//           return [messagesArray[idx]];
+//         }
+//         console.log(
+//           `[调试] 索引 ${index} 超出范围（共 ${messagesArray.length} 条）`,
+//         );
+//         return [];
+//       }
+
+//       default:
+//         return [];
+//     }
+//   }
+
+//   // ==================== 表情面板操作 ====================
+//   function getEmojiPanelScroller() {
+//     const emojiSpan = document.querySelector("[data-emoji]");
+//     if (emojiSpan) {
+//       let parent = emojiSpan.parentElement;
+//       while (parent) {
+//         if (parent.scrollHeight > parent.clientHeight) return parent;
+//         parent = parent.parentElement;
+//       }
+//     }
+//     const virtualList = document.querySelector(
+//       '[style*="height"][style*="transform"]',
+//     );
+//     if (virtualList) {
+//       let parent = virtualList.parentElement;
+//       while (parent) {
+//         const style = window.getComputedStyle(parent);
+//         if (style.overflowY === "auto" || style.overflowY === "scroll")
+//           return parent;
+//         parent = parent.parentElement;
+//       }
+//     }
+//     const containers = document.querySelectorAll('div[style*="overflow"]');
+//     for (const el of containers) {
+//       if (el.scrollHeight > el.clientHeight && el.querySelector("[data-emoji]"))
+//         return el;
+//     }
+//     return null;
+//   }
+
+//   function getAllCategoryButtons() {
+//     // 结构特征：表情面板的分类按钮都是 role="tab" 或带已知分类名的 button
+//     // role="tab" 是最稳定的，其次是 aria-label/title 含分类关键词
+//     const byTab = document.querySelectorAll(
+//       '[role="tablist"] [role="tab"], [role="tab"][aria-label], [role="tab"][title]',
+//     );
+//     if (byTab.length > 0) return byTab;
+
+//     // 次选：button 带 aria-label 含已知分类名（多语言）
+//     return document.querySelectorAll(
+//       'button[aria-label*="表情"], button[aria-label*="人物"], button[aria-label*="动物"],' +
+//         'button[aria-label*="食物"], button[aria-label*="活动"], button[aria-label*="旅行"],' +
+//         'button[aria-label*="物件"], button[aria-label*="符号"], button[aria-label*="旗帜"],' +
+//         'button[aria-label*="Smileys"], button[aria-label*="People"], button[aria-label*="Animals"],' +
+//         'button[title*="表情"], button[title*="人物"], button[title*="动物"]',
+//     );
+//   }
+
+//   function findEmojiInCurrentView(targetEmoji) {
+//     const allEmojis = document.querySelectorAll("[data-emoji]");
+//     for (const span of allEmojis) {
+//       if (span.getAttribute("data-emoji") !== targetEmoji) continue;
+//       if (!span.offsetParent) continue;
+//       const rect = span.getBoundingClientRect();
+//       if (rect.top > 0 && rect.bottom < window.innerHeight) return span;
+//     }
+//     return null;
+//   }
+
+//   async function scrollAndFindInCurrentCategory(
+//     targetEmoji,
+//     categoryName = "",
+//   ) {
+//     const scroller = getEmojiPanelScroller();
+//     if (!scroller) return null;
+//     let found = findEmojiInCurrentView(targetEmoji);
+//     if (found) return found;
+//     let scrollCount = 0;
+//     let lastScrollTop = -1;
+//     let noChangeCount = 0;
+//     const maxScrolls = 200;
+//     const scrollStep = 120;
+//     while (scrollCount < maxScrolls && !reactionStopRequested) {
+//       scroller.scrollTop += scrollStep;
+//       await sleep(100);
+//       if (Math.abs(scroller.scrollTop - lastScrollTop) < 5) {
+//         noChangeCount++;
+//         if (noChangeCount >= 5) break;
+//       } else {
+//         noChangeCount = 0;
+//       }
+//       lastScrollTop = scroller.scrollTop;
+//       found = findEmojiInCurrentView(targetEmoji);
+//       if (found) {
+//         totalScrollAttempts += scrollCount;
+//         found.scrollIntoView({ block: "center", behavior: "auto" });
+//         await sleep(200);
+//         return found;
+//       }
+//       scrollCount++;
+//     }
+//     totalScrollAttempts += scrollCount;
+//     return null;
+//   }
+
+//   async function findEmojiAcrossAllCategories(targetEmoji) {
+//     const categoryButtons = getAllCategoryButtons();
+//     const triedCategories = new Set();
+
+//     // 先尝试在当前分类查找
+//     let found = await scrollAndFindInCurrentCategory(targetEmoji, "当前");
+//     if (found) return found;
+
+//     for (let i = 0; i < categoryButtons.length; i++) {
+//       if (reactionStopRequested) return null;
+//       const btn = categoryButtons[i];
+//       const label =
+//         btn.getAttribute("aria-label") ||
+//         btn.getAttribute("title") ||
+//         btn.textContent?.trim() ||
+//         `分类${i + 1}`;
+//       if (triedCategories.has(label)) continue;
+//       triedCategories.add(label);
+//       if (label.includes("肤色") || label.includes("skin")) continue;
+//       btn.click();
+//       await sleep(600);
+//       found = await scrollAndFindInCurrentCategory(targetEmoji, label);
+//       if (found) return found;
+//     }
+
+//     // 如果没找到，滚动到顶部再试一次
+//     const scroller = getEmojiPanelScroller();
+//     if (scroller) {
+//       scroller.scrollTop = 0;
+//       await sleep(300);
+//       for (let i = 0; i < categoryButtons.length; i++) {
+//         if (reactionStopRequested) return null;
+//         const btn = categoryButtons[i];
+//         const label = btn.getAttribute("aria-label") || "";
+//         if (label.includes("肤色")) continue;
+//         btn.click();
+//         await sleep(500);
+//         found = await scrollAndFindInCurrentCategory(
+//           targetEmoji,
+//           `${label}(2)`,
+//         );
+//         if (found) return found;
+//       }
+//     }
+//     return null;
+//   }
+
+//   // ==================== 肤色选择器处理 ====================
+
+//   // 找到当前可见的肤色弹出面板
+//   // 结构特征：role="application" 的浮层，直接包含 li[role="button"] + img[alt]，
+//   // 且第一项 img alt 就是基础表情（无肤色），后5项含肤色修饰符
+//   function getSkinTonePopup() {
+//     for (const el of document.querySelectorAll('[role="application"]')) {
+//       if (!el.offsetParent) continue;
+//       const items = el.querySelectorAll('li[role="button"]');
+//       if (items.length >= 2) {
+//         // 确认是肤色面板：至少有一项 img alt 含肤色修饰符
+//         for (const li of items) {
+//           const alt = li.querySelector("img")?.getAttribute("alt") || "";
+//           if (/[\u{1F3FB}-\u{1F3FF}]/u.test(alt)) return el;
+//         }
+//       }
+//     }
+//     return null;
+//   }
+
+//   function hasSkinTonePicker() {
+//     return !!getSkinTonePopup();
+//   }
+
+//   // 肤色修饰符 → 列表索引（第0项是无肤色原版，第1-5是带肤色）
+//   const SKIN_TONE_MAP = { "🏻": 1, "🏼": 2, "🏽": 3, "🏾": 4, "🏿": 5 };
+
+//   function clickSkinToneInPopup(popup, targetEmoji) {
+//     const items = popup.querySelectorAll('li[role="button"]');
+//     if (!items.length) return false;
+
+//     // 解析目标肤色修饰符
+//     const skinMatch = targetEmoji.match(/[\u{1F3FB}-\u{1F3FF}]/u);
+//     const skinToneIndex = skinMatch ? (SKIN_TONE_MAP[skinMatch[0]] ?? 0) : 0;
+
+//     if (skinToneIndex > 0 && items[skinToneIndex]) {
+//       // 点击对应肤色
+//       console.log(`🎨 选择肤色 index=${skinToneIndex}`);
+//       items[skinToneIndex].click();
+//       return true;
+//     }
+
+//     // 无肤色需求 → 点第一项（原版，alt 不含肤色修饰）
+//     items[0].click();
+//     console.log(`🎨 选择默认肤色（无）`);
+//     return true;
+//   }
+
+//   async function smartClickEmoji(emojiElement, targetEmoji) {
+//     const emoji = emojiElement.getAttribute("data-emoji");
+//     console.log(`🖱️ 点击表情: ${emoji}`);
+
+//     emojiElement.click();
+//     await sleep(150); // 给浏览器渲染时间
+
+//     // 先检查：肤色面板是否已经出现
+//     const skinPopup = getSkinTonePopup();
+//     if (skinPopup) {
+//       console.log("🎨 检测到肤色面板，准备选择...");
+//       await sleep(100);
+//       clickSkinToneInPopup(skinPopup, targetEmoji);
+//       // 等肤色面板消失（最多等 1.5s）
+//       await waitFor(() => !getSkinTonePopup(), 1500, 40);
+//       return true;
+//     }
+
+//     // 没有肤色面板 → 等一会再检查一次（有时面板出现有延迟）
+//     await sleep(300);
+//     const skinPopup2 = getSkinTonePopup();
+//     if (skinPopup2) {
+//       console.log("🎨 延迟后检测到肤色面板，准备选择...");
+//       clickSkinToneInPopup(skinPopup2, targetEmoji);
+//       await waitFor(() => !getSkinTonePopup(), 1500, 40);
+//       return true;
+//     }
+
+//     // 没有肤色面板 → 直接当成成功（WhatsApp 自动选了默认肤色）
+//     return true;
+//   }
+
+//   async function reactToOneMessage(msgElement, targetEmoji) {
+//     try {
+//       // 找到真正需要 hover 的行元素（.focusable-list-item 或 data-id 容器）
+//       const dataId =
+//         msgElement.closest("[data-id]")?.getAttribute("data-id") || null;
+
+//       const hoverTarget =
+//         msgElement.closest(".focusable-list-item") ||
+//         msgElement.closest("[data-id]") ||
+//         msgElement;
+
+//       hoverTarget.scrollIntoView({ behavior: "auto", block: "center" });
+
+//       // ✅ 智能等待：DOM 稳定后重新查找元素（防虚拟列表回收旧引用点错消息）
+//       let liveTarget = hoverTarget;
+//       if (dataId) {
+//         // 等元素稳定出现在 DOM 里（最多等 800ms，出现即停）
+//         const fresh = await waitFor(
+//           () => document.querySelector(`[data-id="${CSS.escape(dataId)}"]`),
+//           800,
+//           30,
+//         );
+//         if (fresh) {
+//           liveTarget = fresh;
+//           // 如果重建后不在视口，再滚一次，等它出现
+//           const rect = fresh.getBoundingClientRect();
+//           if (rect.top < 0 || rect.bottom > window.innerHeight) {
+//             fresh.scrollIntoView({ behavior: "auto", block: "center" });
+//             await waitFor(
+//               () => {
+//                 const r = fresh.getBoundingClientRect();
+//                 return r.top >= 0 && r.bottom <= window.innerHeight
+//                   ? true
+//                   : null;
+//               },
+//               600,
+//               30,
+//             );
+//           }
+//         }
+//       }
+
+//       // 触发 hover，让 WhatsApp 显示操作按钮
+//       const triggerHover = () => {
+//         liveTarget.dispatchEvent(
+//           new MouseEvent("mouseover", { bubbles: true }),
+//         );
+//         liveTarget.dispatchEvent(
+//           new MouseEvent("mouseenter", { bubbles: true }),
+//         );
+//         liveTarget.dispatchEvent(
+//           new MouseEvent("mousemove", { bubbles: true }),
+//         );
+//       };
+//       triggerHover();
+
+//       // ✅ 智能等待心情按钮，出现即操作；等不到就再 hover 一次再等
+//       const MOOD_SEL =
+//         '[aria-label="留下心情"], [aria-label="React to message"]';
+//       let moodBtn = await waitFor(
+//         () => document.querySelector(MOOD_SEL),
+//         1200,
+//         40,
+//       );
+//       if (!moodBtn) {
+//         triggerHover();
+//         moodBtn = await waitFor(
+//           () => document.querySelector(MOOD_SEL),
+//           800,
+//           40,
+//         );
+//       }
+//       if (!moodBtn) return false;
+
+//       moodBtn.click();
+
+//       // ✅ 等快捷表情面板，出现即操作
+//       await waitFor(() => document.querySelector("[data-emoji]"), 1000, 40);
+
+//       // 🔥 直接查找完整的带肤色表情
+//       const quickEmojis = document.querySelectorAll("[data-emoji]");
+//       for (let i = 0; i < quickEmojis.length; i++) {
+//         const emoji = quickEmojis[i].getAttribute("data-emoji");
+//         // 直接匹配完整表情（包括肤色）
+//         if (emoji === targetEmoji) {
+//           if (quickEmojis[i].offsetParent) {
+//             return await smartClickEmoji(quickEmojis[i], targetEmoji);
+//           }
+//         }
+//       }
+
+//       // 如果没找到完整匹配，再尝试基础表情匹配（用于没有肤色的情况）
+//       const baseEmoji = targetEmoji.replace(/[\u{1F3FB}-\u{1F3FF}]/u, "");
+//       if (baseEmoji !== targetEmoji) {
+//         for (let i = 0; i < quickEmojis.length; i++) {
+//           const emoji = quickEmojis[i].getAttribute("data-emoji");
+//           if (emoji === baseEmoji) {
+//             if (quickEmojis[i].offsetParent) {
+//               return await smartClickEmoji(quickEmojis[i], targetEmoji);
+//             }
+//           }
+//         }
+//       }
+
+//       const moreBtn = document.querySelector(
+//         '[aria-label="更多回应"], [aria-label="更多心情"]',
+//       );
+//       if (!moreBtn) {
+//         // 在完整面板中查找带肤色的表情
+//         const found = await findEmojiAcrossAllCategories(targetEmoji);
+//         if (found) return await smartClickEmoji(found, targetEmoji);
+//         // 如果没找到，再找基础表情
+//         if (baseEmoji !== targetEmoji) {
+//           const foundBase = await findEmojiAcrossAllCategories(baseEmoji);
+//           if (foundBase) return await smartClickEmoji(foundBase, targetEmoji);
+//         }
+//         document.body.click();
+//         return false;
+//       }
+
+//       moreBtn.click();
+//       // 智能等待完整表情面板
+//       await waitFor(() => document.querySelector('[role="tab"]'), 1500, 80);
+
+//       // 优先查找完整的带肤色表情
+//       let foundEmoji = await findEmojiAcrossAllCategories(targetEmoji);
+//       if (!foundEmoji && baseEmoji !== targetEmoji) {
+//         foundEmoji = await findEmojiAcrossAllCategories(baseEmoji);
+//       }
+
+//       if (foundEmoji) return await smartClickEmoji(foundEmoji, targetEmoji);
+
+//       document.body.click();
+//       return false;
+//     } catch (error) {
+//       console.error("点赞出错:", error);
+//       return false;
+//     }
+//   }
+
+//   // ==================== 群组点赞主流程 ====================
+//   async function runReactionForGroup(
+//     groupName,
+//     emoji,
+//     target,
+//     keyword,
+//     index,
+//     delayMs,
+//   ) {
+//     setStatus(`${groupName}: 正在打开聊天...`);
+//     const clicked = await 搜索并点击聊天(groupName);
+//     if (!clicked) return;
+
+//     // ✅ 智能等待聊天内容加载（等消息出现，而不是固定等 3 秒）
+//     await waitFor(() => document.querySelector("[data-id]"), 4000, 80);
+
+//     const scroller = getMessageScroller();
+//     if (!scroller) return;
+
+//     await scrollToBottom(scroller);
+//     // ✅ 等滚动完成后消息容器稳定
+//     await waitFor(() => document.querySelector("[data-id]"), 1000, 40);
+
+//     // 如果是关键词模式，边滚动边查找，找到即停
+//     if (target === "keyword" && keyword) {
+//       setStatus(`${groupName}: 正在搜索关键词 "${keyword}"...`);
+
+//       // 用 data-id 去重，防止滚动过程中同一条消息被重复收集
+//       const seenIds = new Set();
+
+//       function collectUniqueMatches() {
+//         const results = findTargetMessages(target, keyword, index);
+//         const fresh = [];
+//         for (const el of results) {
+//           const id = el.getAttribute("data-id") || el.dataset.id;
+//           if (id && seenIds.has(id)) continue;
+//           if (id) seenIds.add(id);
+//           fresh.push(el);
+//         }
+//         return fresh;
+//       }
+
+//       let foundMessages = null;
+//       // 先在当前已加载的消息里找一次（最新消息往往就在视口内）
+//       const quickCheck = collectUniqueMatches();
+//       if (quickCheck.length > 0) {
+//         foundMessages = quickCheck;
+//         setStatus(`${groupName}: 找到 ${foundMessages.length} 条匹配消息`);
+//       }
+
+//       if (!foundMessages) {
+//         // 向上滚动加载历史消息，智能等待懒加载完成
+//         const SCROLL_STEP = 1200;
+//         const MAX_SCROLLS = 400;
+//         const LOAD_WAIT = 1500;
+//         const STABLE_THRESHOLD = 4; // 消息数连续N次不增加 → 到顶了
+
+//         let scrollCount = 0;
+//         let stableCount = 0;
+//         let lastMsgCount = document.querySelectorAll("[data-id]").length;
+
+//         while (
+//           scrollCount < MAX_SCROLLS &&
+//           !reactionStopRequested &&
+//           !foundMessages
+//         ) {
+//           const prevTop = scroller.scrollTop;
+//           scroller.scrollTop = Math.max(0, scroller.scrollTop - SCROLL_STEP);
+
+//           // 已经到顶了
+//           if (scroller.scrollTop === 0 && prevTop === 0) break;
+
+//           // 等待懒加载：轮询消息数，稳定后再匹配（最多等 LOAD_WAIT ms）
+//           await waitFor(
+//             () => {
+//               const cur = document.querySelectorAll("[data-id]").length;
+//               return cur > lastMsgCount ? cur : null;
+//             },
+//             LOAD_WAIT,
+//             80,
+//           );
+
+//           const newMsgCount = document.querySelectorAll("[data-id]").length;
+//           if (newMsgCount === lastMsgCount) {
+//             stableCount++;
+//             if (stableCount >= STABLE_THRESHOLD) break;
+//           } else {
+//             stableCount = 0;
+//             lastMsgCount = newMsgCount;
+//           }
+
+//           setStatus(
+//             `${groupName}: 搜索中... 已加载 ${newMsgCount} 条 (第${scrollCount + 1}屏)`,
+//           );
+//           const newMatches = collectUniqueMatches();
+//           if (newMatches.length > 0) {
+//             foundMessages = newMatches;
+//             setStatus(`${groupName}: 找到 ${foundMessages.length} 条匹配消息`);
+//             break;
+//           }
+
+//           scrollCount++;
+//         }
+//       }
+
+//       if (!foundMessages || foundMessages.length === 0) {
+//         setStatus(`${groupName}: 未找到包含 "${keyword}" 的消息`);
+//         return;
+//       }
+
+//       // 点赞操作
+//       for (let i = 0; i < foundMessages.length; i++) {
+//         if (reactionStopRequested) break;
+//         setStatus(`${groupName}: 点赞 ${i + 1}/${foundMessages.length}`);
+//         await reactToOneMessage(foundMessages[i], emoji);
+//         if (i < foundMessages.length - 1) await sleep(delayMs);
+//       }
+//       return;
+//     }
+
+//     // 其他模式保持原逻辑
+//     // all 模式需要加载所有历史消息；last/index 模式只需最新消息，scrollToBottom 已够
+//     if (target === "all") {
+//       await scrollUpToLoadMessages(scroller, 40);
+//     }
+
+//     const targetMessages = findTargetMessages(target, keyword, index);
+//     if (targetMessages.length === 0) {
+//       setStatus(`${groupName}: 未找到目标消息`);
+//       return;
+//     }
+
+//     setStatus(`${groupName}: 找到 ${targetMessages.length} 条消息`);
+//     for (let i = 0; i < targetMessages.length; i++) {
+//       if (reactionStopRequested) break;
+//       setStatus(`${groupName}: 点赞 ${i + 1}/${targetMessages.length}`);
+//       await reactToOneMessage(targetMessages[i], emoji);
+//       if (i < targetMessages.length - 1) await sleep(delayMs);
+//     }
+//   }
+
+//   // ==================== 翻译开关辅助函数 ====================
+//   function getTranslateBtn() {
+//     return window._shadowRoot.getElementById("translateToggleBtn");
+//   }
+
+//   function isTranslateEnabled() {
+//     const btn = getTranslateBtn();
+//     return btn && btn.style.background === "rgb(217, 48, 37)";
+//   }
+
+//   function restoreTranslateIfNeeded() {
+//     if (!translateWasEnabled) return;
+//     const btn = getTranslateBtn();
+//     if (btn && btn.style.background !== "rgb(217, 48, 37)") {
+//       btn.click();
+//       console.log("[点赞] 已恢复自动翻译");
+//     }
+//     translateWasEnabled = false;
+//   }
+
+//   // ==================== 开始/停止 ====================
+//   reactionStartBtn.addEventListener("click", async () => {
+//     // 如果自动翻译开启，先关闭并记录状态
+//     const translateBtn = getTranslateBtn();
+//     console.log("[调试] translateBtn 元素:", translateBtn);
+//     if (translateBtn) {
+//       console.log("[调试] translateBtn 背景色:", translateBtn.style.background);
+//     }
+//     translateWasEnabled = isTranslateEnabled();
+//     console.log("[调试] translateWasEnabled:", translateWasEnabled);
+//     if (translateWasEnabled) {
+//       translateBtn.click();
+//       console.log("[点赞] 已关闭自动翻译");
+//     }
+
+//     const selectedGroups = 获取已选群组();
+//     if (selectedGroups.length === 0) {
+//       setStatus("❌ 请先选择群组");
+//       return;
+//     }
+//     const targetType =
+//       window._shadowRoot.querySelector('input[name="reactionTarget"]:checked')
+//         ?.value || "last";
+//     const keyword =
+//       window._shadowRoot.getElementById("reactionKeyword")?.value.trim() || "";
+//     const index =
+//       parseInt(window._shadowRoot.getElementById("reactionIndex")?.value) || 1;
+//     const delayMs =
+//       (parseInt(window._shadowRoot.getElementById("reactionDelay")?.value) ||
+//         3) * 1000;
+//     if (targetType === "keyword" && !keyword) {
+//       setStatus("❌ 请输入关键词");
+//       return;
+//     }
+//     reactionRunning = true;
+//     reactionStopRequested = false;
+//     reactionStartBtn.style.display = "none";
+//     reactionStopBtn.style.display = "block";
+//     totalScrollAttempts = 0;
+//     let totalGroups = 0;
+//     for (let i = 0; i < selectedGroups.length; i++) {
+//       if (reactionStopRequested) break;
+
+//       const group = selectedGroups[i];
+//       const groupName = group.name;
+
+//       setStatus(`[${i + 1}/${selectedGroups.length}] ${groupName}`);
+//       await runReactionForGroup(
+//         groupName,
+//         selectedEmoji,
+//         targetType,
+//         keyword,
+//         index,
+//         delayMs,
+//       );
+//       totalGroups++;
+//       if (i < selectedGroups.length - 1 && !reactionStopRequested) {
+//         await sleep(2000);
+//       }
+//     }
+//     reactionRunning = false;
+//     reactionStartBtn.style.display = "block";
+//     reactionStopBtn.style.display = "none";
+
+//     restoreTranslateIfNeeded();
+
+//     if (reactionStopRequested) {
+//       setStatus(`⏹ 已停止。完成 ${totalGroups} 个群组`);
+//     } else {
+//       setStatus(`🎉 完成！共 ${totalGroups} 个群组`);
+//     }
+//   });
+
+//   reactionStopBtn.addEventListener("click", () => {
+//     reactionStopRequested = true;
+//     setStatus("⏹ 正在停止...");
+//     restoreTranslateIfNeeded();
+//   });
+// })();
+
+// // ==================== 回复模块 ====================
+// (function () {
+//   let replyRunning = false;
+//   let replyStopRequested = false;
+
+//   const replyDrawer = window._shadowRoot.getElementById("replyDrawer");
+//   const replyOpenBtn = window._shadowRoot.getElementById("replyPanelToggleBtn");
+//   const replyCloseBtn = window._shadowRoot.getElementById("replyCloseBtn");
+//   const replyStartBtn = window._shadowRoot.getElementById("replyStartBtn");
+//   const replyStopBtn = window._shadowRoot.getElementById("replyStopBtn");
+//   const replyStatusEl = window._shadowRoot.getElementById("replyStatus");
+
+//   function setReplyStatus(msg) {
+//     if (replyStatusEl) replyStatusEl.textContent = msg;
+//     console.log("[回复]", msg);
+//   }
+
+//   // ── 群组列表同步展示（与点赞模块同一套 contactsUpdated 事件）──
+//   function syncReplyGroupList() {
+//     const container = window._shadowRoot.getElementById("replyGroupList");
+//     if (!container) return;
+//     const groups = 获取已选群组();
+//     if (groups.length === 0) {
+//       container.innerHTML =
+//         '<div style="padding:8px;color:#999;">请先在主面板选择群组</div>';
+//       return;
+//     }
+//     container.innerHTML = groups
+//       .map(
+//         (g) => `
+//         <div style="padding:4px 6px;font-size:12px;display:flex;align-items:center;gap:6px;">
+//           <span style="color:#00897b;font-size:10px;">✓</span>
+//           <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${g.name}">${g.name}</span>
+//         </div>`,
+//       )
+//       .join("");
+//   }
+
+//   // ── 面板开关 ──
+//   // 刷新内容预览（读主面板输入框 + #preview 图片 + 发送模式）
+//   function syncReplyContentPreview() {
+//     if (replyDrawer.style.display !== "flex") return;
+
+//     const imgPreviewRow = window._shadowRoot.getElementById("replyImgPreview");
+//     const imgThumb = window._shadowRoot.getElementById("replyImgThumb");
+//     const textPreviewEl = window._shadowRoot.getElementById("replyTextPreview");
+//     const modePreviewEl = window._shadowRoot.getElementById("replyModePreview");
+//     if (!textPreviewEl) return;
+
+//     const text = window._shadowRoot.getElementById("messageInput")?.value || "";
+//     // 直接读主面板 #preview 的 src（FileReader 已经处理好了）
+//     const imgSrc = window._shadowRoot.getElementById("preview")?.src || "";
+//     const hasImg =
+//       imgSrc && !imgSrc.endsWith("#") && imgSrc !== window.location.href;
+//     const mode = 获取发送模式() || "default";
+
+//     const modeLabels = {
+//       default: "默认模式",
+//       imageAndText: "图文同发",
+//       LeftimageAndText: "先图后文",
+//       TextAndimage: "先文后图",
+//       textOnly: "仅文本",
+//       imageOnly: "仅图片",
+//     };
+
+//     // 图片缩略图
+//     if (imgPreviewRow && imgThumb) {
+//       if (hasImg) {
+//         imgThumb.src = imgSrc;
+//         imgPreviewRow.style.display = "block";
+//       } else {
+//         imgThumb.src = "";
+//         imgPreviewRow.style.display = "none";
+//       }
+//     }
+
+//     // 文本
+//     if (!text && !hasImg) {
+//       textPreviewEl.textContent = "（主面板暂无内容）";
+//       textPreviewEl.style.color = "#aaa";
+//     } else if (text) {
+//       textPreviewEl.textContent =
+//         text.length > 80 ? text.slice(0, 80) + "…" : text;
+//       textPreviewEl.style.color = "#333";
+//     } else {
+//       textPreviewEl.textContent = "";
+//     }
+
+//     // 模式标签
+//     if (modePreviewEl) {
+//       modePreviewEl.textContent = `发送模式：${modeLabels[mode] || mode}`;
+//     }
+//   }
+
+//   replyOpenBtn?.addEventListener("click", () => {
+//     const isOpen = replyDrawer.style.display === "flex";
+//     replyDrawer.style.display = isOpen ? "none" : "flex";
+//     if (!isOpen) {
+//       syncReplyGroupList();
+//       syncReplyContentPreview();
+//     }
+//   });
+//   replyCloseBtn?.addEventListener("click", () => {
+//     replyDrawer.style.display = "none";
+//   });
+
+//   // 监听主面板输入框变化，实时刷新预览
+//   window._shadowRoot
+//     .getElementById("messageInput")
+//     ?.addEventListener("input", syncReplyContentPreview);
+//   // 监听发送模式切换
+//   window._shadowRoot
+//     .querySelectorAll('input[name="sendOption"]')
+//     .forEach((r) => r.addEventListener("change", syncReplyContentPreview));
+//   // 监听图片选择（change 后 #preview src 是异步更新的，用 MutationObserver 最准确）
+//   const previewImg = window._shadowRoot.getElementById("preview");
+//   if (previewImg) {
+//     new MutationObserver(syncReplyContentPreview).observe(previewImg, {
+//       attributes: true,
+//       attributeFilter: ["src"],
+//     });
+//   }
+//   // 清空按钮（src 置空由 MutationObserver 捕获，这里保留一个兜底）
+//   window._shadowRoot
+//     .querySelector("#clear-btn")
+//     ?.addEventListener("click", () => setTimeout(syncReplyContentPreview, 80));
+
+//   // 监听主面板选中变化，打开时实时刷新
+//   window._shadowRoot.addEventListener("contactsUpdated", () => {
+//     if (replyDrawer.style.display === "flex") syncReplyGroupList();
+//   });
+
+//   // ── 目标选择联动：关键词输入框 / 第N条行 显隐 ──
+//   replyDrawer
+//     ?.querySelectorAll('input[name="replyTarget"]')
+//     .forEach((radio) => {
+//       radio.addEventListener("change", () => {
+//         const kw = window._shadowRoot.getElementById("replyKeyword");
+//         const idxRow = window._shadowRoot.getElementById("replyIndexRow");
+//         if (kw) kw.style.display = radio.value === "keyword" ? "block" : "none";
+//         if (idxRow)
+//           idxRow.style.display = radio.value === "index" ? "flex" : "none";
+//       });
+//     });
+
+//   // ── 触发 WhatsApp 回复操作 ──
+//   // 复用点赞模块已有的 waitFor / sleep（定义在同一作用域外层，全局可用）
+//   // 输入框区域的回复预览 selector（footer 里，不是消息里的 quoted-message）
+//   const REPLY_PREVIEW_SEL =
+//     'footer [data-testid="quoted-message"], [data-testid="reply-preview"], [role="complementary"] [data-testid="quoted-message"]';
+
+//   // payload = { text, imgBase64, mode }
+//   async function replyToOneMessage(msgElement, payload) {
+//     try {
+//       const dataId =
+//         msgElement.closest("[data-id]")?.getAttribute("data-id") || null;
+//       const hoverTarget =
+//         msgElement.closest(".focusable-list-item") ||
+//         msgElement.closest("[data-id]") ||
+//         msgElement;
+
+//       hoverTarget.scrollIntoView({ behavior: "auto", block: "center" });
+
+//       // 重新从 DOM 取最新引用（防虚拟列表回收）
+//       let liveTarget = hoverTarget;
+//       if (dataId) {
+//         const fresh = await window.waitFor(
+//           () => document.querySelector(`[data-id="${CSS.escape(dataId)}"]`),
+//           800,
+//           30,
+//         );
+//         if (fresh) {
+//           liveTarget = fresh;
+//           const rect = fresh.getBoundingClientRect();
+//           if (rect.top < 0 || rect.bottom > window.innerHeight) {
+//             fresh.scrollIntoView({ behavior: "auto", block: "center" });
+//             await window.waitFor(
+//               () => {
+//                 const r = fresh.getBoundingClientRect();
+//                 return r.top >= 0 && r.bottom <= window.innerHeight
+//                   ? true
+//                   : null;
+//               },
+//               600,
+//               30,
+//             );
+//           }
+//         }
+//       }
+
+//       // ── 方式1：双击消息内容区触发回复（最可靠，与手势一致）──
+//       // WhatsApp 对 [data-testid="msg-container"] 内容区双击会直接进入回复模式
+//       const msgContainer =
+//         liveTarget.querySelector('[data-testid="msg-container"]') || liveTarget;
+//       const rect = msgContainer.getBoundingClientRect();
+//       const clickX = rect.left + rect.width / 2;
+//       const clickY = rect.top + rect.height / 2;
+
+//       const dblClickOpts = {
+//         bubbles: true,
+//         cancelable: true,
+//         view: window,
+//         clientX: clickX,
+//         clientY: clickY,
+//       };
+
+//       const triggerDblClick = () => {
+//         msgContainer.dispatchEvent(new MouseEvent("mousedown", dblClickOpts));
+//         msgContainer.dispatchEvent(new MouseEvent("mouseup", dblClickOpts));
+//         msgContainer.dispatchEvent(new MouseEvent("click", dblClickOpts));
+//         msgContainer.dispatchEvent(new MouseEvent("mousedown", dblClickOpts));
+//         msgContainer.dispatchEvent(new MouseEvent("mouseup", dblClickOpts));
+//         msgContainer.dispatchEvent(new MouseEvent("click", dblClickOpts));
+//         msgContainer.dispatchEvent(new MouseEvent("dblclick", dblClickOpts));
+//       };
+
+//       triggerDblClick();
+
+//       // 等待 footer 里的引用预览出现
+//       let replyPreview = await window.waitFor(
+//         () => document.querySelector(REPLY_PREVIEW_SEL),
+//         1000,
+//         40,
+//       );
+
+//       // ── 方式2：双击没触发，改用 hover → 点回复按钮 ──
+//       if (!replyPreview) {
+//         console.log("[回复] 双击未触发，尝试 hover 按钮...");
+
+//         const triggerHover = () => {
+//           liveTarget.dispatchEvent(
+//             new MouseEvent("mouseover", { bubbles: true }),
+//           );
+//           liveTarget.dispatchEvent(
+//             new MouseEvent("mouseenter", { bubbles: true }),
+//           );
+//           liveTarget.dispatchEvent(
+//             new MouseEvent("mousemove", { bubbles: true }),
+//           );
+//         };
+//         triggerHover();
+
+//         // WhatsApp 中文：回复；英文：Reply
+//         const REPLY_BTN_SEL = '[aria-label="回复"], [aria-label="Reply"]';
+//         let replyBtn = await window.waitFor(
+//           () => document.querySelector(REPLY_BTN_SEL),
+//           1200,
+//           40,
+//         );
+//         if (!replyBtn) {
+//           triggerHover();
+//           replyBtn = await window.waitFor(
+//             () => document.querySelector(REPLY_BTN_SEL),
+//             800,
+//             40,
+//           );
+//         }
+
+//         // 方式3：回复按钮也没有，打开"..."菜单找
+//         if (!replyBtn) {
+//           console.log("[回复] hover 按钮未出现，尝试更多菜单...");
+//           const moreBtn = document.querySelector(
+//             '[aria-label="更多选项"], [aria-label="More options"]',
+//           );
+//           if (moreBtn) {
+//             moreBtn.click();
+//             replyBtn = await window.waitFor(
+//               () => document.querySelector(REPLY_BTN_SEL),
+//               800,
+//               40,
+//             );
+//           }
+//         }
+
+//         if (!replyBtn) {
+//           console.warn("[回复] 三种方式均未找到回复入口，跳过此条");
+//           return false;
+//         }
+
+//         replyBtn.click();
+//         replyPreview = await window.waitFor(
+//           () => document.querySelector(REPLY_PREVIEW_SEL),
+//           1500,
+//           40,
+//         );
+//       }
+
+//       if (!replyPreview) {
+//         console.warn("[回复] footer 引用预览未出现，触发失败");
+//         return false;
+//       }
+
+//       const { text, imgBase64, mode } = payload;
+
+//       // ── 底层：在引用已激活状态下粘贴图片发送（第1条，带引用）──
+//       async function pasteAndSendImage(captionText) {
+//         const input = 群发模块.getInputDom();
+//         if (!input || !imgBase64) return false;
+//         input.focus();
+//         input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+//         const blob = 群发模块.base64转Blob(imgBase64);
+//         const dt = new DataTransfer();
+//         dt.items.add(new File([blob], "image.png", { type: blob.type }));
+//         input.dispatchEvent(
+//           new ClipboardEvent("paste", {
+//             clipboardData: dt,
+//             bubbles: true,
+//             cancelable: true,
+//           }),
+//         );
+//         // 等图片预览弹窗出现
+//         await window.waitFor(
+//           () => document.querySelector('[data-testid="media-editor"]'),
+//           2000,
+//           50,
+//         );
+//         if (captionText) {
+//           const captionBox = document.querySelector(
+//             '[data-testid="media-caption-input-container"] [contenteditable]',
+//           );
+//           if (captionBox) await 模拟真实输入(captionText, captionBox);
+//         }
+//         await 点击文本带图片发送按钮();
+//         await window.sleep(300);
+//         return true;
+//       }
+
+//       // ── 底层：在引用已激活状态下输入文本并发送（带引用）──
+//       async function sendTextWithReply(sendText) {
+//         const inputBox = await 等待目标出现(() =>
+//           document.querySelector(
+//             '[data-testid="conversation-compose-box-input"]',
+//           ),
+//         );
+//         if (!inputBox || !sendText) return false;
+//         await 模拟真实输入(sendText, inputBox);
+//         await window.sleep(200);
+//         inputBox.dispatchEvent(
+//           new KeyboardEvent("keydown", {
+//             key: "Enter",
+//             code: "Enter",
+//             keyCode: 13,
+//             bubbles: true,
+//           }),
+//         );
+//         // 等引用预览消失确认发送完成
+//         await window.waitFor(
+//           () => !document.querySelector(REPLY_PREVIEW_SEL),
+//           2500,
+//           60,
+//         );
+//         await window.sleep(300);
+//         return true;
+//       }
+
+//       // ── 底层：不带引用直接发文本（第2条）──
+//       async function sendTextPlain(sendText) {
+//         const inputBox = await 等待目标出现(() =>
+//           document.querySelector(
+//             '[data-testid="conversation-compose-box-input"]',
+//           ),
+//         );
+//         if (!inputBox || !sendText) return false;
+//         await 模拟真实输入(sendText, inputBox);
+//         await window.sleep(200);
+//         inputBox.dispatchEvent(
+//           new KeyboardEvent("keydown", {
+//             key: "Enter",
+//             code: "Enter",
+//             keyCode: 13,
+//             bubbles: true,
+//           }),
+//         );
+//         await window.sleep(500);
+//         return true;
+//       }
+
+//       // ── 发送模式决定第1条（带引用）是图还是文 ──
+//       switch (mode) {
+//         case "textOnly":
+//         case "default":
+//           // 第1条（带引用）：文本
+//           await sendTextWithReply(text);
+//           break;
+
+//         case "imageOnly":
+//           // 第1条（带引用）：图片
+//           await pasteAndSendImage("");
+//           break;
+
+//         case "imageAndText":
+//           // 第1条（带引用）：图片 + 说明文字同发
+//           await pasteAndSendImage(text);
+//           break;
+
+//         case "LeftimageAndText":
+//           // 先图后文
+//           // 第1条（带引用）：图片
+//           await pasteAndSendImage("");
+//           // 第2条（不带引用）：文本
+//           await sendTextPlain(text);
+//           break;
+
+//         case "TextAndimage":
+//           // 先文后图
+//           // 第1条（带引用）：文本
+//           await sendTextWithReply(text);
+//           // 第2条（不带引用）：图片
+//           await pasteAndSendImage("");
+//           break;
+
+//         default:
+//           await sendTextWithReply(text);
+//       }
+
+//       return true;
+//     } catch (err) {
+//       console.error("[回复] 出错:", err);
+//       return false;
+//     }
+//   }
+
+//   // ── 单个群组回复主流程（复用点赞模块的 findTargetMessages 搜索逻辑）──
+//   async function runReplyForGroup(
+//     groupName,
+//     payload,
+//     target,
+//     keyword,
+//     index,
+//     delayMs,
+//   ) {
+//     setReplyStatus(`${groupName}: 正在打开聊天...`);
+//     const clicked = await 搜索并点击聊天(groupName);
+//     if (!clicked) return;
+
+//     await window.waitFor(() => document.querySelector("[data-id]"), 4000, 80);
+
+//     const scroller = window.getMessageScroller();
+//     if (!scroller) return;
+
+//     await window.scrollToBottom(scroller);
+//     await window.waitFor(() => document.querySelector("[data-id]"), 1000, 40);
+
+//     let targetMessages = [];
+
+//     if (target === "keyword" && keyword) {
+//       setReplyStatus(`${groupName}: 正在搜索关键词 "${keyword}"...`);
+//       const seenIds = new Set();
+
+//       function collectUnique() {
+//         const results = window.findTargetMessages(target, keyword, index);
+//         const fresh = [];
+//         for (const el of results) {
+//           const id = el.getAttribute("data-id") || el.dataset.id;
+//           if (id && seenIds.has(id)) continue;
+//           if (id) seenIds.add(id);
+//           fresh.push(el);
+//         }
+//         return fresh;
+//       }
+
+//       const quickCheck = collectUnique();
+//       if (quickCheck.length > 0) {
+//         targetMessages = quickCheck;
+//         setReplyStatus(
+//           `${groupName}: 找到 ${targetMessages.length} 条匹配消息`,
+//         );
+//       } else {
+//         const SCROLL_STEP = 1200,
+//           MAX_SCROLLS = 400,
+//           LOAD_WAIT = 1500,
+//           STABLE_THRESHOLD = 4;
+//         let scrollCount = 0,
+//           stableCount = 0;
+//         let lastMsgCount = document.querySelectorAll("[data-id]").length;
+
+//         while (
+//           scrollCount < MAX_SCROLLS &&
+//           !replyStopRequested &&
+//           !targetMessages.length
+//         ) {
+//           const prevTop = scroller.scrollTop;
+//           scroller.scrollTop = Math.max(0, scroller.scrollTop - SCROLL_STEP);
+//           if (scroller.scrollTop === 0 && prevTop === 0) break;
+
+//           await window.waitFor(
+//             () => {
+//               const cur = document.querySelectorAll("[data-id]").length;
+//               return cur > lastMsgCount ? cur : null;
+//             },
+//             LOAD_WAIT,
+//             80,
+//           );
+
+//           const newMsgCount = document.querySelectorAll("[data-id]").length;
+//           if (newMsgCount === lastMsgCount) {
+//             if (++stableCount >= STABLE_THRESHOLD) break;
+//           } else {
+//             stableCount = 0;
+//             lastMsgCount = newMsgCount;
+//           }
+
+//           setReplyStatus(
+//             `${groupName}: 搜索中... 已加载 ${newMsgCount} 条 (第${scrollCount + 1}屏)`,
+//           );
+//           const matches = collectUnique();
+//           if (matches.length > 0) {
+//             targetMessages = matches;
+//             setReplyStatus(
+//               `${groupName}: 找到 ${targetMessages.length} 条匹配消息`,
+//             );
+//           }
+//           scrollCount++;
+//         }
+//       }
+
+//       if (!targetMessages.length) {
+//         setReplyStatus(`${groupName}: 未找到包含 "${keyword}" 的消息`);
+//         return;
+//       }
+//     } else {
+//       if (target === "all") await window.scrollUpToLoadMessages(scroller, 40);
+//       targetMessages = window.findTargetMessages(target, keyword, index);
+//       if (!targetMessages.length) {
+//         setReplyStatus(`${groupName}: 未找到目标消息`);
+//         return;
+//       }
+//     }
+
+//     setReplyStatus(
+//       `${groupName}: 找到 ${targetMessages.length} 条消息，开始回复...`,
+//     );
+//     for (let i = 0; i < targetMessages.length; i++) {
+//       if (replyStopRequested) break;
+//       setReplyStatus(`${groupName}: 回复 ${i + 1}/${targetMessages.length}`);
+//       await replyToOneMessage(targetMessages[i], payload);
+//       if (i < targetMessages.length - 1) await window.sleep(delayMs);
+//     }
+//   }
+
+//   // ── 开始按钮 ──
+//   replyStartBtn?.addEventListener("click", async () => {
+//     const selectedGroups = 获取已选群组();
+//     if (!selectedGroups.length) {
+//       setReplyStatus("❌ 请先选择群组");
+//       return;
+//     }
+
+//     // 读取主面板内容
+//     const text = window._shadowRoot.getElementById("messageInput")?.value || "";
+//     const imgBase64 = await 获取已选图片Base64();
+//     const mode = 获取发送模式() || "default";
+
+//     // 校验：根据模式判断是否有有效内容
+//     const needText = [
+//       "default",
+//       "textOnly",
+//       "imageAndText",
+//       "LeftimageAndText",
+//       "TextAndimage",
+//     ].includes(mode);
+//     const needImg = [
+//       "imageOnly",
+//       "imageAndText",
+//       "LeftimageAndText",
+//       "TextAndimage",
+//     ].includes(mode);
+//     if (needText && !text && mode !== "default") {
+//       setReplyStatus("❌ 主面板文本内容为空");
+//       return;
+//     }
+//     if (needImg && !imgBase64) {
+//       setReplyStatus("❌ 主面板未选择图片");
+//       return;
+//     }
+//     if (mode === "default" && !text && !imgBase64) {
+//       setReplyStatus("❌ 主面板无内容");
+//       return;
+//     }
+
+//     const payload = { text, imgBase64, mode };
+
+//     const target =
+//       window._shadowRoot.querySelector('input[name="replyTarget"]:checked')
+//         ?.value || "last";
+//     const keyword =
+//       window._shadowRoot.getElementById("replyKeyword")?.value.trim() || "";
+//     const index =
+//       parseInt(window._shadowRoot.getElementById("replyIndex")?.value) || 1;
+//     const delayMs =
+//       (parseInt(window._shadowRoot.getElementById("replyDelay")?.value) || 1) *
+//       1000;
+
+//     if (target === "keyword" && !keyword) {
+//       setReplyStatus("❌ 请输入关键词");
+//       return;
+//     }
+
+//     replyRunning = true;
+//     replyStopRequested = false;
+//     replyStartBtn.style.display = "none";
+//     replyStopBtn.style.display = "block";
+
+//     let totalGroups = 0;
+//     for (let i = 0; i < selectedGroups.length; i++) {
+//       if (replyStopRequested) break;
+//       const group = selectedGroups[i];
+//       setReplyStatus(`[${i + 1}/${selectedGroups.length}] ${group.name}`);
+//       await runReplyForGroup(
+//         group.name,
+//         payload,
+//         target,
+//         keyword,
+//         index,
+//         delayMs,
+//       );
+//       totalGroups++;
+//       if (i < selectedGroups.length - 1 && !replyStopRequested)
+//         await window.sleep(2000);
+//     }
+
+//     replyRunning = false;
+//     replyStartBtn.style.display = "block";
+//     replyStopBtn.style.display = "none";
+//     setReplyStatus(
+//       replyStopRequested
+//         ? `⏹ 已停止。完成 ${totalGroups} 个群组`
+//         : `🎉 完成！共 ${totalGroups} 个群组`,
+//     );
+//   });
+
+//   // ── 停止按钮 ──
+//   replyStopBtn?.addEventListener("click", () => {
+//     replyStopRequested = true;
+//     setReplyStatus("⏹ 正在停止...");
+//   });
+// })();
