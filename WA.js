@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.3.7";
+const WA_VERSION = "v5.3.8";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -1581,7 +1581,6 @@ async function 标记已读用户列表() {
 
     const oldHeight = 列表外层.offsetHeight;
 
-    // 读取初始数量
     const selector = '[data-testid^="list-item-"] > [data-testid="cell-frame-container"]';
     let oldCount = document.querySelectorAll(selector).length;
 
@@ -1590,42 +1589,31 @@ async function 标记已读用户列表() {
 
     // 等待数量变化
     const newItems = await 等待列表数量变化(selector, oldCount);
-    // const newItems = selector;
 
-    // 恢复高度
-    // 列表外层.style.height = oldHeight + "px";
-
-    // 处理新数据
+    // 遍历新加载的项
     newItems.forEach(item => {
+
+        // 🚨 防止重复标记（关键补丁）
+        if (item.dataset.customerMarked === "1") return;
+
         let 号码 = null;
         let nameEl = null;
-
-        // console.log("新加载的项：", item);
 
         const titleSpan = item.querySelector('[data-testid="cell-frame-title"] span');
         if (!titleSpan) return;
 
         const text = titleSpan.textContent.trim();
-
-        // 去掉空格、括号、短横线
         const clean = text.replace(/[\s\(\)\-]/g, "");
-
-        // 判断是否是电话号码（只剩数字和 +）
         const isPhone = /^[\d+]+$/.test(clean);
 
         if (isPhone) {
-            // console.log("📱 电话号码：", clean);
             号码 = clean;
             nameEl = titleSpan;
         } else {
             const numberSpan = item.querySelector('[data-testid="cell-frame-secondary"] span[dir="auto"]');
-
             if (numberSpan) {
                 const raw = numberSpan.textContent.trim();
                 const clean = raw.replace(/[\s\(\)\-]/g, "");
-                // console.log("📱 电话号码：", clean);
-
-                // console.log("👤 名字：", text);
                 号码 = clean;
                 nameEl = titleSpan;
             }
@@ -1633,26 +1621,25 @@ async function 标记已读用户列表() {
 
         if (!号码 || !nameEl) return;
 
-        //  console.log(号码, nameEl, text);
-
         if (!window.__客户号码列表?.has(号码)) return;
 
+        // ⭐ 插入 badge（只会插一次）
         const badge = document.createElement("span");
         badge.className = "customer-badge";
         badge.innerHTML = "⭐ 客户";
         badge.style.cssText = `
-        background: #25D366; color: white; padding: 2px 6px;
-        border-radius: 10px; font-size: 11px; margin-left: 8px;
-        font-weight: bold; display: inline-block;
-        pointer-events: none; vertical-align: middle;
+            background: #25D366; color: white; padding: 2px 6px;
+            border-radius: 10px; font-size: 11px; margin-left: 8px;
+            font-weight: bold; display: inline-block;
+            pointer-events: none; vertical-align: middle;
         `;
         nameEl.parentNode.appendChild(badge);
-        // 标记数量++;
+
+        // 🚨 标记为已处理（关键补丁）
+        item.dataset.customerMarked = "1";
+
         console.log(`✅ 已读面板标记客户: ${号码}`);
     });
-
-    // if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
-
 }
 
 
@@ -1779,7 +1766,7 @@ async function 启动已读面板监听() {
     const panel = 查找已读面板();
     if (panel) {
         await 绑定已读面板(panel);
-        // 绑定滚动监听();   // ⭐ 面板存在时再绑定滚动监听
+        绑定滚动监听();   // ⭐ 面板存在时再绑定滚动监听
     }
 
 }
