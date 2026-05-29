@@ -1557,53 +1557,83 @@ async function 统计已读客户数() {
     }
 }
 
-function 标记已读用户列表() {
-    // 这是列表的外层
+function 等待列表数量变化(selector, oldCount) {
+    return new Promise(resolve => {
+        const observer = new MutationObserver(() => {
+            const items = document.querySelectorAll(selector);
+            if (items.length > oldCount) {
+                observer.disconnect();
+                resolve(items);
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    });
+}
+
+async function 标记已读用户列表() {
+
     const 列表外层 = document.querySelector('[data-testid="drawer-right"]');
     if (!列表外层) return;
 
-    const oldHeight = 列表外层.offsetHeight;   // 读取原高度
-    console.log("原高度:", oldHeight);
-    列表外层.style.height = (oldHeight + 999999999999999999) + "px";  // 修改高度
+    const oldHeight = 列表外层.offsetHeight;
 
-    // 找到列表所有客户
-    const listItems = document.querySelectorAll('[data-testid^="list-item-"] > [data-testid="cell-frame-container"]');
-    let 标记数量 = 0;
+    // 读取初始数量
+    const selector = '[data-testid^="list-item-"] > [data-testid="cell-frame-container"]';
+    let oldCount = document.querySelectorAll(selector).length;
 
-    listItems.forEach((item) => {
-        if (item.querySelector(".customer-badge")) return;
+    // 拉高触发懒加载
+    列表外层.style.height = (oldHeight + 999999999999999999) + "px";
 
-        // ✅ 兼容两种结构
-        // 结构1：号码在 _ak8i > span._ao3e（有昵称的联系人）
-        // 结构2：号码直接在 _ak8q > span[title]（无昵称，号码即显示名）
+    // 等待数量变化
+    const newItems = await 等待列表数量变化(selector, oldCount);
+
+    // 恢复高度
+    列表外层.style.height = oldHeight + "px";
+
+    // 处理新数据
+    newItems.forEach(item => {
         let 号码 = null;
         let nameEl = null;
 
-        const ak8iSpan = item.querySelector("span._ao3e");
+        // console.log("新加载的项：", item);
 
-        if (ak8iSpan && /\+[\d\s\(\)\-]{9,20}/.test(ak8iSpan.textContent)) {
-            // 结构1
-            const match = ak8iSpan.textContent.match(/\+[\d\s\(\)\-]{9,20}/);
-            if (match) {
-                号码 = match[0].replace(/[\s\(\)\-]/g, "");
-                nameEl = item.querySelector("._ak8q span[dir='auto']");
-            }
+        const titleSpan = item.querySelector('[data-testid="cell-frame-title"] span');
+        if (!titleSpan) return;
+
+        const text = titleSpan.textContent.trim();
+
+        // 去掉空格、括号、短横线
+        const clean = text.replace(/[\s\(\)\-]/g, "");
+
+        // 判断是否是电话号码（只剩数字和 +）
+        const isPhone = /^[\d+]+$/.test(clean);
+
+        if (isPhone) {
+            // console.log("📱 电话号码：", clean);
+            号码 = clean;
+            nameEl = titleSpan;
         } else {
-            // 结构2：_ak8i 为空，号码在 _ak8q 的 span[title]
-            const ak8qSpan = item.querySelector("span[aria-label], span[title]");
+            const numberSpan = item.querySelector('[data-testid="cell-frame-secondary"] span[dir="auto"]');
 
-            if (ak8qSpan) {
-                const titleText =
-                    ak8qSpan.getAttribute("title") || ak8qSpan.textContent || "";
-                const match = titleText.match(/\+[\d\s\(\)\-]{9,20}/);
-                if (match) {
-                    号码 = match[0].replace(/[\s\(\)\-]/g, "");
-                    nameEl = ak8qSpan; // 号码本身就是名字元素
-                }
+            if (numberSpan) {
+                const raw = numberSpan.textContent.trim();
+                const clean = raw.replace(/[\s\(\)\-]/g, "");
+                // console.log("📱 电话号码：", clean);
+
+                // console.log("👤 名字：", text);
+                号码 = clean;
+                nameEl = titleSpan;
             }
         }
 
         if (!号码 || !nameEl) return;
+
+        //  console.log(号码, nameEl, text);
+
         if (!window.__客户号码列表?.has(号码)) return;
 
         const badge = document.createElement("span");
@@ -1621,7 +1651,86 @@ function 标记已读用户列表() {
     });
 
     if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
+
 }
+
+
+//  await 标记已读用户列表();
+
+
+
+
+
+
+
+
+
+//     listItems.forEach((item) => {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//         if (item.querySelector(".customer-badge")) return;
+
+//         // ✅ 兼容两种结构
+//         // 结构1：号码在 _ak8i > span._ao3e（有昵称的联系人）
+//         // 结构2：号码直接在 _ak8q > span[title]（无昵称，号码即显示名）
+//         let 号码 = null;
+//         let nameEl = null;
+
+//         const ak8iSpan = item.querySelector("span._ao3e");
+
+//         if (ak8iSpan && /\+[\d\s\(\)\-]{9,20}/.test(ak8iSpan.textContent)) {
+//             // 结构1
+//             const match = ak8iSpan.textContent.match(/\+[\d\s\(\)\-]{9,20}/);
+//             if (match) {
+//                 号码 = match[0].replace(/[\s\(\)\-]/g, "");
+//                 nameEl = item.querySelector("._ak8q span[dir='auto']");
+//             }
+//         } else {
+//             // 结构2：_ak8i 为空，号码在 _ak8q 的 span[title]
+//             const ak8qSpan = item.querySelector("span[aria-label], span[title]");
+
+//             if (ak8qSpan) {
+//                 const titleText =
+//                     ak8qSpan.getAttribute("title") || ak8qSpan.textContent || "";
+//                 const match = titleText.match(/\+[\d\s\(\)\-]{9,20}/);
+//                 if (match) {
+//                     号码 = match[0].replace(/[\s\(\)\-]/g, "");
+//                     nameEl = ak8qSpan; // 号码本身就是名字元素
+//                 }
+//             }
+//         }
+
+//         if (!号码 || !nameEl) return;
+//         if (!window.__客户号码列表?.has(号码)) return;
+
+//         const badge = document.createElement("span");
+//         badge.className = "customer-badge";
+//         badge.innerHTML = "⭐ 客户";
+//         badge.style.cssText = `
+//         background: #25D366; color: white; padding: 2px 6px;
+//         border-radius: 10px; font-size: 11px; margin-left: 8px;
+//         font-weight: bold; display: inline-block;
+//         pointer-events: none; vertical-align: middle;
+//         `;
+//         nameEl.parentNode.appendChild(badge);
+//         标记数量++;
+//         console.log(`✅ 已读面板标记客户: ${号码}`);
+//     });
+
+//     if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
+// }
 
 
 
