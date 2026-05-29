@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.2.5";
+const WA_VERSION = "v5.2.6";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -984,7 +984,7 @@ async function 标记客户(开启 = true) {
                 启动滚动监听();
             }, 1000);
             启动已读面板监听();
-            标记已读用户列表();
+            await 标记已读用户列表();
         } catch (error) {
             console.error("❌ 开启失败:", error);
         }
@@ -1837,7 +1837,7 @@ function 启动已读面板监听() {
         const observer = new MutationObserver(() => {
             if (防抖) clearTimeout(防抖);
             防抖 = setTimeout(() => {
-                标记已读用户列表();
+                await 标记已读用户列表();
                 // ✅ 只在第一次触发时统计，之后不再重复
                 if (!已统计过) {
                     已统计过 = true;
@@ -1849,7 +1849,7 @@ function 启动已读面板监听() {
         已读面板容器引用 = { _list: virtualList, _observer: observer };
 
         console.log("✅ 已读面板绑定成功");
-        标记已读用户列表();
+        await 标记已读用户列表();
 
         // ✅ 面板打开时立即统计一次
         已统计过 = true;
@@ -1896,65 +1896,65 @@ function 启动已读面板监听() {
     if (panel) 绑定已读面板(panel);
 }
 
-function 标记已读用户列表() {
-    const allLists = document.querySelectorAll(".x1y332i5");
-    let virtualList = null,
-        maxHeight = 0;
-    allLists.forEach((el) => {
-        const h = parseInt(el.style.height) || 0;
-        if (h > maxHeight && el.querySelector('[role="listitem"] ._ak8i')) {
-            maxHeight = h;
-            virtualList = el;
-        }
-    });
-    if (!virtualList) return;
+// function 标记已读用户列表() {
+//     const allLists = document.querySelectorAll(".x1y332i5");
+//     let virtualList = null,
+//         maxHeight = 0;
+//     allLists.forEach((el) => {
+//         const h = parseInt(el.style.height) || 0;
+//         if (h > maxHeight && el.querySelector('[role="listitem"] ._ak8i')) {
+//             maxHeight = h;
+//             virtualList = el;
+//         }
+//     });
+//     if (!virtualList) return;
 
-    const listItems = virtualList.querySelectorAll('[role="listitem"]');
-    let 标记数量 = 0;
+//     const listItems = virtualList.querySelectorAll('[role="listitem"]');
+//     let 标记数量 = 0;
 
-    listItems.forEach((item) => {
-        if (item.querySelector(".customer-badge")) return;
+//     listItems.forEach((item) => {
+//         if (item.querySelector(".customer-badge")) return;
 
-        const ak8qSpan = item.querySelector("._ak8q span[dir='auto']");
-        if (!ak8qSpan) return;
+//         const ak8qSpan = item.querySelector("._ak8q span[dir='auto']");
+//         if (!ak8qSpan) return;
 
-        let 号码 = null;
+//         let 号码 = null;
 
-        const ariaLabel = ak8qSpan.getAttribute("aria-label");
+//         const ariaLabel = ak8qSpan.getAttribute("aria-label");
 
-        if (ariaLabel) {
-            // 结构1：有名字，号码在 _ak8i
-            const ak8iSpan = item.querySelector("._ak8i span._ao3e");
-            if (!ak8iSpan) return;
-            const match = ak8iSpan.textContent.match(/\+[\d\s\(\)\-]{9,20}/);
-            if (!match) return;
-            号码 = match[0].replace(/[\s\(\)\-]/g, "");
-        } else {
-            // 结构2：无名字，号码就在 _ak8q span 的 title 属性
-            const title = ak8qSpan.getAttribute("title") || "";
-            const match = title.match(/\+[\d\s\(\)\-]{9,20}/);
-            if (!match) return;
-            号码 = match[0].replace(/[\s\(\)\-]/g, "");
-        }
+//         if (ariaLabel) {
+//             // 结构1：有名字，号码在 _ak8i
+//             const ak8iSpan = item.querySelector("._ak8i span._ao3e");
+//             if (!ak8iSpan) return;
+//             const match = ak8iSpan.textContent.match(/\+[\d\s\(\)\-]{9,20}/);
+//             if (!match) return;
+//             号码 = match[0].replace(/[\s\(\)\-]/g, "");
+//         } else {
+//             // 结构2：无名字，号码就在 _ak8q span 的 title 属性
+//             const title = ak8qSpan.getAttribute("title") || "";
+//             const match = title.match(/\+[\d\s\(\)\-]{9,20}/);
+//             if (!match) return;
+//             号码 = match[0].replace(/[\s\(\)\-]/g, "");
+//         }
 
-        if (!号码 || !window.__客户号码列表?.has(号码)) return;
+//         if (!号码 || !window.__客户号码列表?.has(号码)) return;
 
-        const badge = document.createElement("span");
-        badge.className = "customer-badge";
-        badge.innerHTML = "⭐ 客户";
-        badge.style.cssText = `
-      background: #25D366; color: white; padding: 2px 6px;
-      border-radius: 10px; font-size: 11px; margin-left: 8px;
-      font-weight: bold; display: inline-block;
-      pointer-events: none; vertical-align: middle;
-    `;
-        ak8qSpan.parentNode.appendChild(badge);
-        标记数量++;
-        console.log(`✅ 已读面板标记客户: ${号码}`);
-    });
+//         const badge = document.createElement("span");
+//         badge.className = "customer-badge";
+//         badge.innerHTML = "⭐ 客户";
+//         badge.style.cssText = `
+//       background: #25D366; color: white; padding: 2px 6px;
+//       border-radius: 10px; font-size: 11px; margin-left: 8px;
+//       font-weight: bold; display: inline-block;
+//       pointer-events: none; vertical-align: middle;
+//     `;
+//         ak8qSpan.parentNode.appendChild(badge);
+//         标记数量++;
+//         console.log(`✅ 已读面板标记客户: ${号码}`);
+//     });
 
-    if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
-}
+//     if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
+// }
 
 // ==================== 通用工具函数 ====================
 
