@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.2.6";
+const WA_VERSION = "v5.2.7";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -1894,6 +1894,86 @@ function 启动已读面板监听() {
     // 立即检测一次（如果已读面板已经打开）
     const panel = 查找已读面板();
     if (panel) 绑定已读面板(panel);
+}
+
+async function 标记已读用户列表() {
+
+    const 列表外层 = document.querySelector('[data-testid="drawer-right"]');
+    if (!列表外层) return;
+
+    const oldHeight = 列表外层.offsetHeight;
+
+    // 读取初始数量
+    const selector = '[data-testid^="list-item-"] > [data-testid="cell-frame-container"]';
+    let oldCount = document.querySelectorAll(selector).length;
+
+    // 拉高触发懒加载
+    列表外层.style.height = (oldHeight + 999999999999999999) + "px";
+
+    // 等待数量变化
+    const newItems = await 等待列表数量变化(selector, oldCount);
+
+    // 恢复高度
+    列表外层.style.height = oldHeight + "px";
+
+    // 处理新数据
+    newItems.forEach(item => {
+        let 号码 = null;
+        let nameEl = null;
+
+        // console.log("新加载的项：", item);
+
+        const titleSpan = item.querySelector('[data-testid="cell-frame-title"] span');
+        if (!titleSpan) return;
+
+        const text = titleSpan.textContent.trim();
+
+        // 去掉空格、括号、短横线
+        const clean = text.replace(/[\s\(\)\-]/g, "");
+
+        // 判断是否是电话号码（只剩数字和 +）
+        const isPhone = /^[\d+]+$/.test(clean);
+
+        if (isPhone) {
+            // console.log("📱 电话号码：", clean);
+            号码 = clean;
+            nameEl = titleSpan;
+        } else {
+            const numberSpan = item.querySelector('[data-testid="cell-frame-secondary"] span[dir="auto"]');
+
+            if (numberSpan) {
+                const raw = numberSpan.textContent.trim();
+                const clean = raw.replace(/[\s\(\)\-]/g, "");
+                // console.log("📱 电话号码：", clean);
+
+                // console.log("👤 名字：", text);
+                号码 = clean;
+                nameEl = titleSpan;
+            }
+        }
+
+        if (!号码 || !nameEl) return;
+
+        //  console.log(号码, nameEl, text);
+
+        if (!window.__客户号码列表?.has(号码)) return;
+
+        const badge = document.createElement("span");
+        badge.className = "customer-badge";
+        badge.innerHTML = "⭐ 客户";
+        badge.style.cssText = `
+        background: #25D366; color: white; padding: 2px 6px;
+        border-radius: 10px; font-size: 11px; margin-left: 8px;
+        font-weight: bold; display: inline-block;
+        pointer-events: none; vertical-align: middle;
+        `;
+        nameEl.parentNode.appendChild(badge);
+        标记数量++;
+        console.log(`✅ 已读面板标记客户: ${号码}`);
+    });
+
+    if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
+
 }
 
 // function 标记已读用户列表() {
