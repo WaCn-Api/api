@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.2.9";
+const WA_VERSION = "v5.2.0";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -1698,15 +1698,16 @@ async function 启动已读面板监听() {
         let 防抖 = null;
         const observer = new MutationObserver(() => {
             if (防抖) clearTimeout(防抖);
-            防抖 = setTimeout(() => {
+            防抖 = setTimeout(async () => {   // ← 加 async
                 await 标记已读用户列表();
-                // ✅ 只在第一次触发时统计，之后不再重复
+
                 if (!已统计过) {
                     已统计过 = true;
                     统计已读客户数();
                 }
             }, 200);
         });
+
         observer.observe(virtualList, { childList: true, subtree: false });
         已读面板容器引用 = { _list: virtualList, _observer: observer };
 
@@ -1737,17 +1738,17 @@ async function 启动已读面板监听() {
         if (!relevant) return;
 
         if (bodyDebounce) clearTimeout(bodyDebounce);
-        bodyDebounce = setTimeout(() => {
+        bodyDebounce = setTimeout(async () => {   // ← 加 async
             const panel = 查找已读面板();
             if (panel) {
                 await 绑定已读面板(panel);
             } else if (已读面板容器引用) {
-                // 面板关闭了，清理
                 已读面板容器引用._observer?.disconnect();
                 已读面板容器引用 = null;
                 console.log("ℹ️ 已读面板已关闭");
             }
         }, 100);
+
     });
 
     bodyObserver.observe(document.body, { childList: true, subtree: true });
