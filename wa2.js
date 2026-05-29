@@ -1632,9 +1632,9 @@ async function 采集未归档群组数据() {
 }
 
 //绑定事件到按钮
-const 采集用户数据 = window._shadowRoot
+window._shadowRoot
   .querySelector("#loadGroupsBtn")
-  .addEventListener("click", await 采集未归档群组数据);
+  .addEventListener("click", () => 采集未归档群组数据());
 
 //-------------------------------------------------------------------------分离标签功能------------------------------------------------------------------------------------
 const btn = window._shadowRoot.getElementById("分离当前页面");
@@ -2045,9 +2045,9 @@ async function 开始群发() {
 }
 
 //绑定事件到按钮
-const 群发按钮 = window._shadowRoot
+window._shadowRoot
   .querySelector("#sendBatchBtn")
-  .addEventListener("click", await 开始群发);
+  .addEventListener("click", () => 开始群发());
 
 //-------------------------------------------------------------------------------------------点赞功能-------------------------------------------------------------------------------------------
 
