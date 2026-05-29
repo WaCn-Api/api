@@ -1,5 +1,5 @@
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSIONS = "v6.0.3";
+const WA_VERSIONS = "v6.0.4";
 
 // 图片出现就要改变布局
 const observer = new MutationObserver(() => {
@@ -1112,99 +1112,99 @@ async function 清空所有输入() {
   }
 }
 
-//-------------------------------------------------------------------------------------------加载未归档群到列表-------------------------------------------------------------------------------------------
-async function 获取未归档群组() {
-  try {
-    if (!window.Store) {
-      window.Store = Object.assign({}, window.require("WAWebCollections"));
-    }
+// //-------------------------------------------------------------------------------------------加载未归档群到列表-------------------------------------------------------------------------------------------
+// async function 获取未归档群组() {
+//   try {
+//     if (!window.Store) {
+//       window.Store = Object.assign({}, window.require("WAWebCollections"));
+//     }
 
-    const groups = window.Store.Chat.getModelsArray()
-      .filter((chat) => {
-        const isGroup =
-          chat.id?._serialized?.endsWith("@g.us") || chat.isGroup === true;
-        const notArchived = !chat.archive;
-        return isGroup && notArchived;
-      })
-      .map((chat) => ({
-        id: chat.id?._serialized,
-        name:
-          chat.name ||
-          chat.formattedTitle ||
-          chat.formattedName ||
-          "未命名群组",
-        participantCount:
-          chat.participantCount ||
-          chat.groupMetadata?.participants?.length ||
-          chat.participants?.length ||
-          0,
-      }));
+//     const groups = window.Store.Chat.getModelsArray()
+//       .filter((chat) => {
+//         const isGroup =
+//           chat.id?._serialized?.endsWith("@g.us") || chat.isGroup === true;
+//         const notArchived = !chat.archive;
+//         return isGroup && notArchived;
+//       })
+//       .map((chat) => ({
+//         id: chat.id?._serialized,
+//         name:
+//           chat.name ||
+//           chat.formattedTitle ||
+//           chat.formattedName ||
+//           "未命名群组",
+//         participantCount:
+//           chat.participantCount ||
+//           chat.groupMetadata?.participants?.length ||
+//           chat.participants?.length ||
+//           0,
+//       }));
 
-    groups.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
-    console.log(`📋 找到 ${groups.length} 个未归档群组`);
-    return groups;
-  } catch (error) {
-    console.error("获取群组失败:", error);
-    return [];
-  }
-}
+//     groups.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+//     console.log(`📋 找到 ${groups.length} 个未归档群组`);
+//     return groups;
+//   } catch (error) {
+//     console.error("获取群组失败:", error);
+//     return [];
+//   }
+// }
 
-async function 加载群组到列表() {
-  const container = window._shadowRoot.querySelector("#contactsContainer");
-  if (!container) {
-    console.error("❌ 找不到联系人容器");
-    return;
-  }
+// async function 加载群组到列表() {
+//   const container = window._shadowRoot.querySelector("#contactsContainer");
+//   if (!container) {
+//     console.error("❌ 找不到联系人容器");
+//     return;
+//   }
 
-  container.innerHTML =
-    '<div style="padding: 8px; color: #999;">加载中...</div>';
+//   container.innerHTML =
+//     '<div style="padding: 8px; color: #999;">加载中...</div>';
 
-  const groups = await 获取未归档群组();
-  if (!groups.length) {
-    container.innerHTML =
-      '<div style="padding: 8px; color: #999;">没有找到群组</div>';
-    return;
-  }
+//   const groups = await 获取未归档群组();
+//   if (!groups.length) {
+//     container.innerHTML =
+//       '<div style="padding: 8px; color: #999;">没有找到群组</div>';
+//     return;
+//   }
 
-  container.innerHTML = groups
-    .map(
-      (group, index) => `
-    <div class="contact-item selected" data-contact-id="contact-${index}">
-      <input type="checkbox" id="contact-${index}" class="contact-checkbox" value="${group.id}" checked>
-      <label for="contact-${index}" class="contact-label" title="${group.name}">
-        ${group.name} (${group.participantCount}人)
-      </label>
-    </div>
-  `,
-    )
-    .join("");
+//   container.innerHTML = groups
+//     .map(
+//       (group, index) => `
+//     <div class="contact-item selected" data-contact-id="contact-${index}">
+//       <input type="checkbox" id="contact-${index}" class="contact-checkbox" value="${group.id}" checked>
+//       <label for="contact-${index}" class="contact-label" title="${group.name}">
+//         ${group.name} (${group.participantCount}人)
+//       </label>
+//     </div>
+//   `,
+//     )
+//     .join("");
 
-  container.style.display = "block";
+//   container.style.display = "block";
 
-  // 通知点赞面板刷新群组展示
-  window._shadowRoot.dispatchEvent(new CustomEvent("contactsUpdated"));
+//   // 通知点赞面板刷新群组展示
+//   window._shadowRoot.dispatchEvent(new CustomEvent("contactsUpdated"));
 
-  console.log(`✅ 已加载 ${groups.length} 个群组`);
-}
+//   console.log(`✅ 已加载 ${groups.length} 个群组`);
+// }
 
-function 获取已选群组() {
-  const checkboxes = window._shadowRoot.querySelectorAll(
-    ".contact-checkbox:checked",
-  );
-  return Array.from(checkboxes).map((cb) => ({
-    id: cb.value,
-    name: cb
-      .closest(".contact-item")
-      .querySelector(".contact-label")
-      .getAttribute("title"),
-  }));
-}
-//初始化列表
-await 加载群组到列表();
-//绑定事件到按钮
-const loadingData = window._shadowRoot
-  .querySelector("#loadContactsBtn")
-  .addEventListener("click", 加载群组到列表);
+// function 获取已选群组() {
+//   const checkboxes = window._shadowRoot.querySelectorAll(
+//     ".contact-checkbox:checked",
+//   );
+//   return Array.from(checkboxes).map((cb) => ({
+//     id: cb.value,
+//     name: cb
+//       .closest(".contact-item")
+//       .querySelector(".contact-label")
+//       .getAttribute("title"),
+//   }));
+// }
+// //初始化列表
+// await 加载群组到列表();
+// //绑定事件到按钮
+// const loadingData = window._shadowRoot
+//   .querySelector("#loadContactsBtn")
+//   .addEventListener("click", 加载群组到列表);
 
 // //------------------------------------------------------------------------------采集未归档群组数据--------------------------------------------------------------------------------------------
 
