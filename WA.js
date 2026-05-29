@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.3.2";
+const WA_VERSION = "v5.3.3";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -1586,11 +1586,11 @@ async function 标记已读用户列表() {
     let oldCount = document.querySelectorAll(selector).length;
 
     // 拉高触发懒加载
-    // 列表外层.style.height = (oldHeight + 999999999999999999) + "px";
+    列表外层.style.height = (oldHeight + 100) + "px";
 
     // 等待数量变化
-    // const newItems = await 等待列表数量变化(selector, oldCount);
-    const newItems = selector;
+    const newItems = await 等待列表数量变化(selector, oldCount);
+    // const newItems = selector;
 
     // 恢复高度
     // 列表外层.style.height = oldHeight + "px";
