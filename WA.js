@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.3.3";
+const WA_VERSION = "v5.3.4";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -1728,42 +1728,83 @@ async function 启动已读面板监听() {
         统计已读客户数();
     }
 
-    // 监听 body 变化（新版）
-    let bodyDebounce = null;
+    // // 监听 body 变化（新版）
+    // let bodyDebounce = null;
 
-    const bodyObserver = new MutationObserver((mutations) => {
-        if (!客户标记监控开启) return;
+    // const bodyObserver = new MutationObserver((mutations) => {
+    //     if (!客户标记监控开启) return;
 
-        // 只监控 listitem 的变化（稳定特征）
-        const relevant = mutations.some(m =>
-            [...m.addedNodes, ...m.removedNodes].some(n =>
-                n.nodeType === 1 &&
-                (
-                    n.matches?.('[role="listitem"]') ||
-                    n.querySelector?.('[role="listitem"]')
-                )
-            )
-        );
+    //     // 只监控 listitem 的变化（稳定特征）
+    //     const relevant = mutations.some(m =>
+    //         [...m.addedNodes, ...m.removedNodes].some(n =>
+    //             n.nodeType === 1 &&
+    //             (
+    //                 n.matches?.('[role="listitem"]') ||
+    //                 n.querySelector?.('[role="listitem"]')
+    //             )
+    //         )
+    //     );
 
-        if (!relevant) return;
+    //     if (!relevant) return;
 
-        if (bodyDebounce) clearTimeout(bodyDebounce);
+    //     if (bodyDebounce) clearTimeout(bodyDebounce);
 
-        bodyDebounce = setTimeout(async () => {
-            const panel = 查找已读面板();
+    //     bodyDebounce = setTimeout(async () => {
+    //         const panel = 查找已读面板();
 
-            if (panel) {
-                await 绑定已读面板(panel);
-            } else if (已读面板容器引用) {
-                已读面板容器引用._observer?.disconnect();
-                已读面板容器引用 = null;
-                console.log("ℹ️ 已读面板已关闭");
-            }
-        }, 100);
-    });
+    //         if (panel) {
+    //             await 绑定已读面板(panel);
+    //         } else if (已读面板容器引用) {
+    //             已读面板容器引用._observer?.disconnect();
+    //             已读面板容器引用 = null;
+    //             console.log("ℹ️ 已读面板已关闭");
+    //         }
+    //     }, 100);
+    // });
 
-    bodyObserver.observe(document.body, { childList: true, subtree: true });
-    已读面板监听定时器 = bodyObserver;
+    // ⭐ 新版：基于虚拟列表滚动事件监听，而不是监听 body MutationObserver
+    async function 绑定滚动监听() {
+        // 找到虚拟列表的最外层可滚动容器
+        const scrollEl = document.querySelector(
+            '[data-testid^="list-item-"] > [data-testid="cell-frame-container"]'
+        )?.parentElement?.parentElement?.parentElement?.parentElement?.parentElement;
+
+        if (!scrollEl) {
+            console.log("⚠️ 未找到已读面板滚动容器，等待中...");
+            return;
+        }
+
+        console.log("✅ 已找到已读面板滚动容器，绑定滚动监听");
+
+        let 滚动防抖 = null;
+
+        scrollEl.addEventListener("scroll", async () => {
+            if (!客户标记监控开启) return;
+
+            if (滚动防抖) clearTimeout(滚动防抖);
+
+            滚动防抖 = setTimeout(async () => {
+                console.log("📜 已读面板滚动触发检测...", scrollEl.scrollTop);
+
+                const panel = 查找已读面板();
+
+                if (panel) {
+                    await 绑定已读面板(panel);
+                } else if (已读面板容器引用) {
+                    已读面板容器引用._observer?.disconnect();
+                    已读面板容器引用 = null;
+                    console.log("ℹ️ 已读面板已关闭");
+                }
+            }, 120);
+        });
+    }
+
+    // ⭐ 使用滚动监听替代 MutationObserver
+    绑定滚动监听();
+
+
+    // bodyObserver.observe(document.body, { childList: true, subtree: true });
+    // 已读面板监听定时器 = bodyObserver;
 
     // 初次检测
     const panel = 查找已读面板();
