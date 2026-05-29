@@ -1,5 +1,5 @@
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSIONS = "v6.0.2";
+const WA_VERSIONS = "v6.0.1";
 
 // 图片出现就要改变布局
 const observer = new MutationObserver(() => {
@@ -1072,982 +1072,982 @@ async function 模拟真实输入(text, element) {
   return true;
 }
 
-//--------------------------------------------------------------------------------------图片操作--------------------------------------------------------------------------------------
-
-function 获取已选图片() {
-  const fileInput = window._shadowRoot.querySelector("#IpImg");
-  return fileInput.files[0] || false;
-}
-
-async function 获取已选图片Base64() {
-  const file = 获取已选图片();
-  if (!file) return false;
-
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result); // data:image/png;base64,xxx
-    reader.readAsDataURL(file);
-  });
-}
-
-async function 清空图片输入() {
-  return await 模拟真实点击(window._shadowRoot.querySelector("#clear-btn"));
-}
-
-function 清空文本输入框() {
-  const inputEl = window._shadowRoot.getElementById("messageInput");
-  if (inputEl) {
-    inputEl.value = "";
-    // 触发 input 事件，确保界面同步更新
-    inputEl.dispatchEvent(new Event("input", { bubbles: true }));
-  }
-}
-
-async function 清空所有输入() {
-  if (await 清空图片输入()) {
-    清空文本输入框();
-    return true;
-  } else {
-    return false;
-  }
-}
-
-//-------------------------------------------------------------------------------------------加载未归档群到列表-------------------------------------------------------------------------------------------
-async function 获取未归档群组() {
-  try {
-    if (!window.Store) {
-      window.Store = Object.assign({}, window.require("WAWebCollections"));
-    }
-
-    const groups = window.Store.Chat.getModelsArray()
-      .filter((chat) => {
-        const isGroup =
-          chat.id?._serialized?.endsWith("@g.us") || chat.isGroup === true;
-        const notArchived = !chat.archive;
-        return isGroup && notArchived;
-      })
-      .map((chat) => ({
-        id: chat.id?._serialized,
-        name:
-          chat.name ||
-          chat.formattedTitle ||
-          chat.formattedName ||
-          "未命名群组",
-        participantCount:
-          chat.participantCount ||
-          chat.groupMetadata?.participants?.length ||
-          chat.participants?.length ||
-          0,
-      }));
-
-    groups.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
-    console.log(`📋 找到 ${groups.length} 个未归档群组`);
-    return groups;
-  } catch (error) {
-    console.error("获取群组失败:", error);
-    return [];
-  }
-}
-
-async function 加载群组到列表() {
-  const container = window._shadowRoot.querySelector("#contactsContainer");
-  if (!container) {
-    console.error("❌ 找不到联系人容器");
-    return;
-  }
-
-  container.innerHTML =
-    '<div style="padding: 8px; color: #999;">加载中...</div>';
-
-  const groups = await 获取未归档群组();
-  if (!groups.length) {
-    container.innerHTML =
-      '<div style="padding: 8px; color: #999;">没有找到群组</div>';
-    return;
-  }
-
-  container.innerHTML = groups
-    .map(
-      (group, index) => `
-    <div class="contact-item selected" data-contact-id="contact-${index}">
-      <input type="checkbox" id="contact-${index}" class="contact-checkbox" value="${group.id}" checked>
-      <label for="contact-${index}" class="contact-label" title="${group.name}">
-        ${group.name} (${group.participantCount}人)
-      </label>
-    </div>
-  `,
-    )
-    .join("");
-
-  container.style.display = "block";
-
-  // 通知点赞面板刷新群组展示
-  window._shadowRoot.dispatchEvent(new CustomEvent("contactsUpdated"));
-
-  console.log(`✅ 已加载 ${groups.length} 个群组`);
-}
-
-function 获取已选群组() {
-  const checkboxes = window._shadowRoot.querySelectorAll(
-    ".contact-checkbox:checked",
-  );
-  return Array.from(checkboxes).map((cb) => ({
-    id: cb.value,
-    name: cb
-      .closest(".contact-item")
-      .querySelector(".contact-label")
-      .getAttribute("title"),
-  }));
-}
-//初始化列表
-await 加载群组到列表();
-//绑定事件到按钮
-const loadingData = window._shadowRoot
-  .querySelector("#loadContactsBtn")
-  .addEventListener("click", 加载群组到列表);
-
-//------------------------------------------------------------------------------采集未归档群组数据--------------------------------------------------------------------------------------------
-
-// 添加手机号码归属地查询函数（全球国家/地区）
-function 查询号码归属地(phoneNumber) {
-  // 去掉+号，只保留数字
-  const num = phoneNumber.replace("+", "");
-
-  // 全球国家/地区代码数据库（按代码长度排序，长的优先）
-  const countryCodes = [
-    { code: "1", country: "美国/加拿大", region: "北美" },
-    { code: "7", country: "俄罗斯/哈萨克斯坦", region: "东欧" },
-    { code: "20", country: "埃及", region: "非洲" },
-    { code: "27", country: "南非", region: "非洲" },
-    { code: "30", country: "希腊", region: "南欧" },
-    { code: "31", country: "荷兰", region: "西欧" },
-    { code: "32", country: "比利时", region: "西欧" },
-    { code: "33", country: "法国", region: "西欧" },
-    { code: "34", country: "西班牙", region: "南欧" },
-    { code: "36", country: "匈牙利", region: "东欧" },
-    { code: "39", country: "意大利", region: "南欧" },
-    { code: "40", country: "罗马尼亚", region: "东欧" },
-    { code: "41", country: "瑞士", region: "西欧" },
-    { code: "43", country: "奥地利", region: "中欧" },
-    { code: "44", country: "英国", region: "西欧" },
-    { code: "45", country: "丹麦", region: "北欧" },
-    { code: "46", country: "瑞典", region: "北欧" },
-    { code: "47", country: "挪威", region: "北欧" },
-    { code: "48", country: "波兰", region: "东欧" },
-    { code: "49", country: "德国", region: "西欧" },
-    { code: "51", country: "秘鲁", region: "南美" },
-    { code: "52", country: "墨西哥", region: "北美" },
-    { code: "53", country: "古巴", region: "加勒比海" },
-    { code: "54", country: "阿根廷", region: "南美" },
-    { code: "55", country: "巴西", region: "南美" },
-    { code: "56", country: "智利", region: "南美" },
-    { code: "57", country: "哥伦比亚", region: "南美" },
-    { code: "58", country: "委内瑞拉", region: "南美" },
-    { code: "60", country: "马来西亚", region: "东南亚" },
-    { code: "61", country: "澳大利亚", region: "大洋洲" },
-    { code: "62", country: "印度尼西亚", region: "东南亚" },
-    { code: "63", country: "菲律宾", region: "东南亚" },
-    { code: "64", country: "新西兰", region: "大洋洲" },
-    { code: "65", country: "新加坡", region: "东南亚" },
-    { code: "66", country: "泰国", region: "东南亚" },
-    { code: "81", country: "日本", region: "东亚" },
-    { code: "82", country: "韩国", region: "东亚" },
-    { code: "84", country: "越南", region: "东南亚" },
-    { code: "86", country: "中国", region: "东亚" },
-    { code: "90", country: "土耳其", region: "中东" },
-    { code: "91", country: "印度", region: "南亚" },
-    { code: "92", country: "巴基斯坦", region: "南亚" },
-    { code: "93", country: "阿富汗", region: "南亚" },
-    { code: "94", country: "斯里兰卡", region: "南亚" },
-    { code: "95", country: "缅甸", region: "东南亚" },
-    { code: "98", country: "伊朗", region: "中东" },
-    { code: "211", country: "南苏丹", region: "非洲" },
-    { code: "212", country: "摩洛哥", region: "非洲" },
-    { code: "213", country: "阿尔及利亚", region: "非洲" },
-    { code: "216", country: "突尼斯", region: "非洲" },
-    { code: "218", country: "利比亚", region: "非洲" },
-    { code: "220", country: "冈比亚", region: "非洲" },
-    { code: "221", country: "塞内加尔", region: "非洲" },
-    { code: "222", country: "毛里塔尼亚", region: "非洲" },
-    { code: "223", country: "马里", region: "非洲" },
-    { code: "224", country: "几内亚", region: "非洲" },
-    { code: "225", country: "科特迪瓦", region: "非洲" },
-    { code: "226", country: "布基纳法索", region: "非洲" },
-    { code: "227", country: "尼日尔", region: "非洲" },
-    { code: "228", country: "多哥", region: "非洲" },
-    { code: "229", country: "贝宁", region: "非洲" },
-    { code: "230", country: "毛里求斯", region: "非洲" },
-    { code: "231", country: "利比里亚", region: "非洲" },
-    { code: "232", country: "塞拉利昂", region: "非洲" },
-    { code: "233", country: "加纳", region: "非洲" },
-    { code: "234", country: "尼日利亚", region: "非洲" },
-    { code: "235", country: "乍得", region: "非洲" },
-    { code: "236", country: "中非共和国", region: "非洲" },
-    { code: "237", country: "喀麦隆", region: "非洲" },
-    { code: "238", country: "佛得角", region: "非洲" },
-    { code: "239", country: "圣多美和普林西比", region: "非洲" },
-    { code: "240", country: "赤道几内亚", region: "非洲" },
-    { code: "241", country: "加蓬", region: "非洲" },
-    { code: "242", country: "刚果共和国", region: "非洲" },
-    { code: "243", country: "刚果民主共和国", region: "非洲" },
-    { code: "244", country: "安哥拉", region: "非洲" },
-    { code: "245", country: "几内亚比绍", region: "非洲" },
-    { code: "246", country: "迪戈加西亚岛", region: "非洲" },
-    { code: "247", country: "阿森松岛", region: "非洲" },
-    { code: "248", country: "塞舌尔", region: "非洲" },
-    { code: "249", country: "苏丹", region: "非洲" },
-    { code: "250", country: "卢旺达", region: "非洲" },
-    { code: "251", country: "埃塞俄比亚", region: "非洲" },
-    { code: "252", country: "索马里", region: "非洲" },
-    { code: "253", country: "吉布提", region: "非洲" },
-    { code: "254", country: "肯尼亚", region: "非洲" },
-    { code: "255", country: "坦桑尼亚", region: "非洲" },
-    { code: "256", country: "乌干达", region: "非洲" },
-    { code: "257", country: "布隆迪", region: "非洲" },
-    { code: "258", country: "莫桑比克", region: "非洲" },
-    { code: "260", country: "赞比亚", region: "非洲" },
-    { code: "261", country: "马达加斯加", region: "非洲" },
-    { code: "262", country: "留尼汪/马约特", region: "非洲" },
-    { code: "263", country: "津巴布韦", region: "非洲" },
-    { code: "264", country: "纳米比亚", region: "非洲" },
-    { code: "265", country: "马拉维", region: "非洲" },
-    { code: "266", country: "莱索托", region: "非洲" },
-    { code: "267", country: "博茨瓦纳", region: "非洲" },
-    { code: "268", country: "斯威士兰", region: "非洲" },
-    { code: "269", country: "科摩罗", region: "非洲" },
-    { code: "290", country: "圣赫勒拿", region: "非洲" },
-    { code: "291", country: "厄立特里亚", region: "非洲" },
-    { code: "297", country: "阿鲁巴", region: "加勒比海" },
-    { code: "298", country: "法罗群岛", region: "北欧" },
-    { code: "299", country: "格陵兰", region: "北美" },
-    { code: "350", country: "直布罗陀", region: "南欧" },
-    { code: "351", country: "葡萄牙", region: "南欧" },
-    { code: "352", country: "卢森堡", region: "西欧" },
-    { code: "353", country: "爱尔兰", region: "西欧" },
-    { code: "354", country: "冰岛", region: "北欧" },
-    { code: "355", country: "阿尔巴尼亚", region: "南欧" },
-    { code: "356", country: "马耳他", region: "南欧" },
-    { code: "357", country: "塞浦路斯", region: "南欧" },
-    { code: "358", country: "芬兰", region: "北欧" },
-    { code: "359", country: "保加利亚", region: "东欧" },
-    { code: "370", country: "立陶宛", region: "东欧" },
-    { code: "371", country: "拉脱维亚", region: "东欧" },
-    { code: "372", country: "爱沙尼亚", region: "东欧" },
-    { code: "373", country: "摩尔多瓦", region: "东欧" },
-    { code: "374", country: "亚美尼亚", region: "中东" },
-    { code: "375", country: "白俄罗斯", region: "东欧" },
-    { code: "376", country: "安道尔", region: "南欧" },
-    { code: "377", country: "摩纳哥", region: "西欧" },
-    { code: "378", country: "圣马力诺", region: "南欧" },
-    { code: "379", country: "梵蒂冈", region: "南欧" },
-    { code: "380", country: "乌克兰", region: "东欧" },
-    { code: "381", country: "塞尔维亚", region: "南欧" },
-    { code: "382", country: "黑山", region: "南欧" },
-    { code: "383", country: "科索沃", region: "南欧" },
-    { code: "385", country: "克罗地亚", region: "南欧" },
-    { code: "386", country: "斯洛文尼亚", region: "中欧" },
-    { code: "387", country: "波黑", region: "南欧" },
-    { code: "389", country: "北马其顿", region: "南欧" },
-    { code: "420", country: "捷克", region: "中欧" },
-    { code: "421", country: "斯洛伐克", region: "中欧" },
-    { code: "423", country: "列支敦士登", region: "中欧" },
-    { code: "500", country: "福克兰群岛", region: "南美" },
-    { code: "501", country: "伯利兹", region: "中美" },
-    { code: "502", country: "危地马拉", region: "中美" },
-    { code: "503", country: "萨尔瓦多", region: "中美" },
-    { code: "504", country: "洪都拉斯", region: "中美" },
-    { code: "505", country: "尼加拉瓜", region: "中美" },
-    { code: "506", country: "哥斯达黎加", region: "中美" },
-    { code: "507", country: "巴拿马", region: "中美" },
-    { code: "508", country: "圣皮埃尔和密克隆", region: "北美" },
-    { code: "509", country: "海地", region: "加勒比海" },
-    { code: "590", country: "瓜德罗普", region: "加勒比海" },
-    { code: "591", country: "玻利维亚", region: "南美" },
-    { code: "592", country: "圭亚那", region: "南美" },
-    { code: "593", country: "厄瓜多尔", region: "南美" },
-    { code: "594", country: "法属圭亚那", region: "南美" },
-    { code: "595", country: "巴拉圭", region: "南美" },
-    { code: "596", country: "马提尼克", region: "加勒比海" },
-    { code: "597", country: "苏里南", region: "南美" },
-    { code: "598", country: "乌拉圭", region: "南美" },
-    { code: "599", country: "荷属安的列斯", region: "加勒比海" },
-    { code: "670", country: "东帝汶", region: "东南亚" },
-    { code: "672", country: "诺福克岛", region: "大洋洲" },
-    { code: "673", country: "文莱", region: "东南亚" },
-    { code: "674", country: "瑙鲁", region: "大洋洲" },
-    { code: "675", country: "巴布亚新几内亚", region: "大洋洲" },
-    { code: "676", country: "汤加", region: "大洋洲" },
-    { code: "677", country: "所罗门群岛", region: "大洋洲" },
-    { code: "678", country: "瓦努阿图", region: "大洋洲" },
-    { code: "679", country: "斐济", region: "大洋洲" },
-    { code: "680", country: "帕劳", region: "大洋洲" },
-    { code: "681", country: "瓦利斯和富图纳", region: "大洋洲" },
-    { code: "682", country: "库克群岛", region: "大洋洲" },
-    { code: "683", country: "纽埃", region: "大洋洲" },
-    { code: "684", country: "美属萨摩亚", region: "大洋洲" },
-    { code: "685", country: "萨摩亚", region: "大洋洲" },
-    { code: "686", country: "基里巴斯", region: "大洋洲" },
-    { code: "687", country: "新喀里多尼亚", region: "大洋洲" },
-    { code: "688", country: "图瓦卢", region: "大洋洲" },
-    { code: "689", country: "法属波利尼西亚", region: "大洋洲" },
-    { code: "690", country: "托克劳", region: "大洋洲" },
-    { code: "691", country: "密克罗尼西亚", region: "大洋洲" },
-    { code: "692", country: "马绍尔群岛", region: "大洋洲" },
-    { code: "850", country: "朝鲜", region: "东亚" },
-    { code: "852", country: "香港", region: "东亚" },
-    { code: "853", country: "澳门", region: "东亚" },
-    { code: "855", country: "柬埔寨", region: "东南亚" },
-    { code: "856", country: "老挝", region: "东南亚" },
-    { code: "880", country: "孟加拉国", region: "南亚" },
-    { code: "886", country: "台湾", region: "东亚" },
-    { code: "960", country: "马尔代夫", region: "南亚" },
-    { code: "961", country: "黎巴嫩", region: "中东" },
-    { code: "962", country: "约旦", region: "中东" },
-    { code: "963", country: "叙利亚", region: "中东" },
-    { code: "964", country: "伊拉克", region: "中东" },
-    { code: "965", country: "科威特", region: "中东" },
-    { code: "966", country: "沙特阿拉伯", region: "中东" },
-    { code: "967", country: "也门", region: "中东" },
-    { code: "968", country: "阿曼", region: "中东" },
-    { code: "970", country: "巴勒斯坦", region: "中东" },
-    { code: "971", country: "阿联酋", region: "中东" },
-    { code: "972", country: "以色列", region: "中东" },
-    { code: "973", country: "巴林", region: "中东" },
-    { code: "974", country: "卡塔尔", region: "中东" },
-    { code: "975", country: "不丹", region: "南亚" },
-    { code: "976", country: "蒙古", region: "东亚" },
-    { code: "977", country: "尼泊尔", region: "南亚" },
-    { code: "992", country: "塔吉克斯坦", region: "中亚" },
-    { code: "993", country: "土库曼斯坦", region: "中亚" },
-    { code: "994", country: "阿塞拜疆", region: "中东" },
-    { code: "995", country: "格鲁吉亚", region: "中东" },
-    { code: "996", country: "吉尔吉斯斯坦", region: "中亚" },
-    { code: "998", country: "乌兹别克斯坦", region: "中亚" },
-  ];
-
-  // 按代码长度降序排序，确保长的优先匹配
-  countryCodes.sort((a, b) => b.code.length - a.code.length);
-
-  for (const item of countryCodes) {
-    if (num.startsWith(item.code)) {
-      return `${item.country} (${item.region})`;
-    }
-  }
-
-  return "未知地区";
-}
-
-// 从文本提取手机号 【修复：保留+号，修正过滤条件】
-function 提取号码(text) {
-  if (!text) return [];
-
-  const regex = /\+[\d\s\(\)\-]{9,20}/g;
-  const matches = text.match(regex) || [];
-
-  return [
-    ...new Set(
-      matches
-        .map((p) => p.replace(/[\s\(\)\-]/g, "")) // 保留 + 号，只去掉空格括号横线
-        .filter((p) => /^\+\d{7,15}$/.test(p)), // 必须以+开头，后接7-15位数字
-    ),
-  ];
-}
-
-async function 采集未归档群组数据() {
-  const groups = await 获取未归档群组();
-  if (!groups.length) {
-    console.error("❌ 没有找到未归档群组");
-    return;
-  }
-
-  console.log(`🚀 开始依次点击 ${groups.length} 个群组`);
-
-  let 聚合号码数据 = [];
-
-  for (let i = 0; i < groups.length; i++) {
-    const group = groups[i];
-    console.log(`📌 [${i + 1}/${groups.length}] 正在打开: ${group.name}`);
-
-    const success = await 搜索并点击聊天(group.name);
-
-    if (!success) {
-      console.warn(`⚠️ 跳过: ${group.name}`);
-      continue;
-    }
-
-    // 等待群手机号码出现，说明聊天已完全加载
-    const inputBox = await 等待目标出现(() => {
-      const el = document.querySelector('[data-testid="selectable-text"]');
-      if (!el) return null;
-
-      const text = el.innerText || el.textContent;
-      // 检查是否包含电话号码（有 + 号或数字）
-      if (text && /[\+][\d\s\(\)\-]{8,}/.test(text)) {
-        return el; // 是号码，返回元素
-      }
-      return null; // 不是号码，继续等待
-    }, 10000);
-
-    if (inputBox) {
-      const groupPhoneNumber = document.querySelector(
-        '[data-testid="selectable-text"]',
-      ).innerText;
-      //   console.log(`✅ 群组: ${group.name}，号码: ${groupPhoneNumber}`);
-      聚合号码数据.push({
-        name: group.name,
-        phoneNumber: 提取号码(groupPhoneNumber),
-      });
-    }
-  }
-
-  async function 保存号码JSON(聚合数据) {
-    // 1. 统计每个号码
-    const 号码映射 = new Map();
-
-    for (const 群组 of 聚合数据) {
-      const 群组名 = 群组.name;
-      const 号码列表 = 群组.phoneNumber || [];
-
-      for (const 号码 of 号码列表) {
-        if (!号码映射.has(号码)) {
-          号码映射.set(号码, {
-            号码: 号码,
-            归属地: 查询号码归属地(号码),
-            出现次数: 0,
-            所在群组: [],
-          });
-        }
-        const 记录 = 号码映射.get(号码);
-        记录.出现次数++;
-        if (!记录.所在群组.includes(群组名)) {
-          记录.所在群组.push(群组名);
-        }
-      }
-    }
-
-    // 2. 分类：独立号码 / 重复号码
-    const 独立号码 = [];
-    const 重复号码 = [];
-
-    for (const 记录 of 号码映射.values()) {
-      if (记录.出现次数 === 1) {
-        独立号码.push(记录);
-      } else {
-        重复号码.push(记录);
-      }
-    }
-
-    // 3. 按国家统计
-    const 国家统计 = new Map();
-    for (const 记录 of 号码映射.values()) {
-      const 国家 = 记录.归属地;
-      if (!国家统计.has(国家)) {
-        国家统计.set(国家, { 国家, 数量: 0, 独立: 0, 重复: 0 });
-      }
-      const 统计 = 国家统计.get(国家);
-      统计.数量++;
-      if (记录.出现次数 === 1) {
-        统计.独立++;
-      } else {
-        统计.重复++;
-      }
-    }
-    const 国家统计列表 = Array.from(国家统计.values()).sort(
-      (a, b) => b.数量 - a.数量,
-    );
-
-    // 4. 按群组统计
-    const 群组统计 = 聚合数据.map((群组) => ({
-      群组名: 群组.name,
-      总号码数: 群组.phoneNumber?.length || 0,
-      独立号码数: 0,
-      重复号码数: 0,
-    }));
-
-    // 计算每个群组的独立/重复号码数
-    for (const 群组 of 聚合数据) {
-      const 群组名 = 群组.name;
-      const 号码列表 = 群组.phoneNumber || [];
-      for (const 号码 of 号码列表) {
-        const 记录 = 号码映射.get(号码);
-        const 群组统计项 = 群组统计.find((g) => g.群组名 === 群组名);
-        if (记录.出现次数 === 1) {
-          群组统计项.独立号码数++;
-        } else {
-          群组统计项.重复号码数++;
-        }
-      }
-    }
-
-    // 5. 构建最终JSON
-    const 结果 = {
-      元数据: {
-        生成时间: new Date().toLocaleString("zh-CN"),
-        数据来源: "WhatsApp未归档群组采集",
-        群组数量: 聚合数据.length,
-        总号码数: 号码映射.size,
-        独立号码数: 独立号码.length,
-        重复号码数: 重复号码.length,
-        重复率: ((重复号码.length / 号码映射.size) * 100).toFixed(2) + "%",
-      },
-      按国家统计: 国家统计列表,
-      按群组统计: 群组统计,
-      独立号码列表: 独立号码,
-      重复号码列表: 重复号码.sort((a, b) => b.出现次数 - a.出现次数),
-    };
-
-    // 6. 保存文件
-    const json = JSON.stringify(结果, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const 时间 = `${new Date().getFullYear()}_${new Date().getMonth() + 1}_${new Date().getDate()}_${new Date().getHours()}_${new Date().getMinutes()}`;
-    a.download = `号码分析报告_${时间}.json`;
-    a.href = url;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    const appDir = await api.getAppDirectory();
-
-    const results = await api.saveDataToFile(
-      appDir + "whatsapp_customers.json",
-      json,
-    );
-
-    const result = await api.saveDataToFile(
-      appDir + "群组数据\\" + `号码分析报告_${时间}.json`,
-      json,
-    );
-
-    if (results.success) {
-      console.log("✅ 文件已保存");
-    } else {
-      console.error("❌ 保存失败", results.error);
-    }
-  }
-
-  await 保存号码JSON(聚合号码数据);
-  console.log("✅ 所有群组已遍历完毕");
-  //   console.log(聚合号码数据);
-}
-
-//绑定事件到按钮
-window._shadowRoot
-  .querySelector("#loadGroupsBtn")
-  .addEventListener("click", () => 采集未归档群组数据());
-
-//-------------------------------------------------------------------------分离标签功能------------------------------------------------------------------------------------
-const btn = window._shadowRoot.getElementById("分离当前页面");
-
-btn.addEventListener("click", async () => {
-  const result = await api.popOutCurrentTab();
-  if (result.success) {
-    console.log("标签页已弹出，ID:", result.tabId);
-  }
-});
-
-//-------------------------------------------------------------------------------------------打开群聊并发送消息-------------------------------------------------------------------------------------------
-
-// 等待文本发送按钮懒加载出现后再点击
-async function 点击文本发送按钮() {
-  const xpath =
-    '//button[@aria-label="发送"]//*[local-name()="svg"]//*[local-name()="path" and contains(@d, "M5.4 19.425")]/ancestor::button';
-
-  const button = await 等待目标出现(
-    () =>
-      document.evaluate(
-        xpath,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null,
-      ).singleNodeValue,
-  );
-
-  return await 模拟真实点击(button);
-}
-
-// 等待图文发送按钮懒加载出现后再点击  图文同发 和发送图片 用这个函数点击发送按钮
-async function 点击文本带图片发送按钮() {
-  const xpath =
-    '//div[@role="button"]//*[local-name()="svg"]//*[local-name()="path" and contains(@d, "M5.4 19.425")]/ancestor::div[@role="button"]';
-
-  const button = await 等待目标出现(
-    () =>
-      document.evaluate(
-        xpath,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null,
-      ).singleNodeValue,
-  );
-
-  return await 模拟真实点击(button);
-}
-
-async function 搜索并点击聊天(chatName) {
-  const searchBox = await 等待目标出现(() =>
-    document.querySelector('input[data-tab="3"]'),
-  );
-  if (!searchBox) {
-    console.error("❌ 搜索框未找到");
-    return false;
-  }
-
-  searchBox.focus();
-  await new Promise((r) => setTimeout(r, 300));
-
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
-    "value",
-  ).set;
-  nativeInputValueSetter.call(searchBox, chatName);
-  searchBox.dispatchEvent(new Event("input", { bubbles: true }));
-
-  // 等待搜索结果中的 span 出现
-  const span = await 等待目标出现(() => {
-    const spans = document.querySelectorAll(
-      '[role="grid"] span[dir="auto"][title]',
-    );
-    for (let s of spans) {
-      if (s.getAttribute("title") === chatName) return s;
-    }
-    return null;
-  }, 8000);
-
-  if (!span) {
-    console.error(`❌ 搜索无结果: "${chatName}"`);
-    return false;
-  }
-
-  // ✅ 直接对 span 触发 mousedown/mouseup/click，不 focus cell 避免列表消失
-  span.dispatchEvent(
-    new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-  );
-  await new Promise((r) => setTimeout(r, 50));
-  span.dispatchEvent(
-    new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
-  );
-  await new Promise((r) => setTimeout(r, 50));
-  span.dispatchEvent(
-    new MouseEvent("click", { bubbles: true, cancelable: true }),
-  );
-
-  await new Promise((r) => setTimeout(r, 300));
-
-  // 清空搜索框
-  nativeInputValueSetter.call(searchBox, "");
-  searchBox.dispatchEvent(new Event("input", { bubbles: true }));
-
-  console.log(`✅ 已打开: "${chatName}"`);
-  return true;
-}
-
-const 群发模块 = {
-  // base64 -> Blob（用于 clipboard paste）
-  base64转Blob(base64) {
-    const arr = base64.split(",");
-    const mime = arr[0].match(/:(.*?);/)[1];
-
-    const binary = atob(arr[1]);
-    const u8arr = new Uint8Array(binary.length);
-
-    for (let i = 0; i < binary.length; i++) {
-      u8arr[i] = binary.charCodeAt(i);
-    }
-
-    return new Blob([u8arr], { type: mime });
-  },
-
-  // 获取输入框
-  getInputDom() {
-    const selectors = [
-      "footer p._aupe.copyable-text",
-      'footer div[contenteditable="true"]',
-      'div[role="textbox"][contenteditable="true"]',
-      '.lexical-rich-text-input div[contenteditable="true"]',
-      '.x1hx0egp[contenteditable="true"]',
-    ];
-
-    for (const s of selectors) {
-      const el = document.querySelector(s);
-      if (el) return el;
-    }
-    return null;
-  },
-
-  // =========================
-  // ✍️ 文本发送
-  // =========================
-  async 发送文本消息(groupName, text, 是否打开聊天 = true) {
-    if (!groupName || !text) {
-      console.warn("⚠️ 群名或文本为空");
-      return false;
-    }
-
-    if (是否打开聊天) {
-      const ok = await 搜索并点击聊天(groupName);
-      if (!ok) return false;
-    }
-
-    if (await 模拟真实输入(text)) {
-      if (!(await 点击文本发送按钮())) {
-        console.error("❌ 点击发送按钮失败");
-        return false;
-      }
-      return true;
-    }
-    return false;
-  },
-
-  // =========================
-  // 🖼️ 图片发送（paste版）
-  // =========================
-  async 发送图片消息(groupName, imgBase64, 是否打开聊天 = true) {
-    if (!groupName || !imgBase64) {
-      console.warn("⚠️ 群名或图片为空");
-      return false;
-    }
-
-    if (是否打开聊天) {
-      const ok = await 搜索并点击聊天(groupName);
-      if (!ok) return false;
-    }
-
-    // const opened = await 搜索并点击聊天(groupName);
-    // if (!opened) {
-    //   console.warn("❌ 打开聊天失败");
-    //   return false;
-    // }
-
-    const input = this.getInputDom();
-    if (!input) {
-      console.error("❌ 找不到输入框");
-      return false;
-    }
-
-    input.focus();
-    input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-
-    // 🔥 关键：模拟 paste（稳定核心）
-    const blob = this.base64转Blob(imgBase64);
-
-    const clipboardData = new DataTransfer();
-    clipboardData.items.add(new File([blob], "image.png", { type: blob.type }));
-
-    const pasteEvent = new ClipboardEvent("paste", {
-      clipboardData,
-      bubbles: true,
-      cancelable: true,
-    });
-
-    input.dispatchEvent(pasteEvent);
-
-    // console.log("🖼️ 已触发 paste 注入图片");
-
-    if (!(await 点击文本带图片发送按钮())) {
-      console.error("❌ 点击发送按钮失败");
-      return false;
-    }
-
-    // console.log(`✅ 图片发送完成 -> ${groupName}`);
-    return true;
-  },
-  // =========================
-  // 🖼️+✍️ 图文
-  // =========================
-  async 发送图文同发消息(groupName, imgBase64, text) {
-    if (!groupName || !imgBase64 || !text) {
-      console.error("❌ 参数不完整");
-      return false;
-    }
-
-    const opened = await 搜索并点击聊天(groupName);
-    if (!opened) return false;
-
-    const 输入状态 = await 模拟真实输入(text);
-    if (!输入状态) return false;
-
-    const input = this.getInputDom();
-    if (!input) return false;
-
-    input.focus();
-
-    const blob = this.base64转Blob(imgBase64);
-
-    const clipboardData = new DataTransfer();
-    clipboardData.items.add(new File([blob], "image.png", { type: blob.type }));
-
-    const pasteEvent = new ClipboardEvent("paste", {
-      clipboardData,
-      bubbles: true,
-    });
-
-    input.dispatchEvent(pasteEvent);
-
-    if (!(await 点击文本带图片发送按钮())) {
-      console.error("❌ 点击发送按钮失败");
-      return false;
-    }
-
-    // console.log(`✅ 图文同发完成 -> ${groupName}`);
-    return true;
-  },
-  async 发送先文本后图片消息(groupName, imgBase64, text) {
-    if (!groupName || !imgBase64 || !text) {
-      console.error("❌ 参数不完整");
-      return false;
-    }
-
-    if (await 群发模块.发送文本消息(groupName, text)) {
-      if (await 群发模块.发送图片消息(groupName, imgBase64, false)) {
-        return true;
-      } else {
-        console.error("❌ 发送图片失败");
-        return false;
-      }
-    } else {
-      console.error("❌ 发送文本失败");
-      return false;
-    }
-  },
-  async 发送先图片后文本消息(groupName, imgBase64, text) {
-    if (!groupName || !imgBase64 || !text) {
-      console.error("❌ 参数不完整");
-      return false;
-    }
-
-    if (await 群发模块.发送图片消息(groupName, imgBase64)) {
-      if (await 群发模块.发送文本消息(groupName, text, false)) {
-        return true;
-      } else {
-        console.error("❌ 发送文本失败");
-        return false;
-      }
-    } else {
-      console.error("❌ 发送图片失败");
-      return false;
-    }
-  },
-  //有什么发什么 （文本、图片都有就图文同发，只有文本就文本，只有图片就图片）
-  async 发送默认消息(groupName, imgBase64, text) {
-    // 参数校验
-    if (!groupName) {
-      console.error("❌ 群名不能为空");
-      return false;
-    }
-
-    const hasText = text && text.trim().length > 0;
-    const hasImage = imgBase64 && imgBase64.length > 0;
-
-    // 情况1：什么都没有
-    if (!hasText && !hasImage) {
-      console.error("❌ 文本和图片都为空，无法发送");
-      return false;
-    }
-
-    // 情况2：图文都有 → 图文同发
-    if (hasText && hasImage) {
-      console.log("📝🖼️ 检测到图文，使用图文同发模式");
-      return await this.发送图文同发消息(groupName, imgBase64, text);
-    }
-
-    // 情况3：只有文本
-    if (hasText && !hasImage) {
-      console.log("📝 只有文本，发送文本消息");
-      return await this.发送文本消息(groupName, text);
-    }
-
-    // 情况4：只有图片
-    if (!hasText && hasImage) {
-      console.log("🖼️ 只有图片，发送图片消息");
-      return await this.发送图片消息(groupName, imgBase64);
-    }
-
-    return false;
-  },
-};
-
-function 获取发送模式() {
-  const selected = window._shadowRoot.querySelector(
-    'input[name="sendOption"]:checked',
-  );
-  return selected ? selected.value : null;
-}
-
-let 群发按钮是否可用 = true;
-async function 开始群发() {
-  if (!群发按钮是否可用) {
-    console.error("❌ 正在群发中，请勿重复点击");
-    return;
-  }
-  群发按钮是否可用 = false;
-  const groups = 获取已选群组();
-  if (!groups.length) {
-    console.error("❌ 没有选择群组");
-    return;
-  }
-
-  for (let i = 0; i < groups.length; i++) {
-    const group = groups[i];
-    console.log(`📌 [${i + 1}/${groups.length}] 正在打开: ${group.name}`);
-    const 发送模式 = 获取发送模式();
-    switch (发送模式) {
-      case "default":
-        await 群发模块.发送默认消息(
-          group.name,
-          await 获取已选图片Base64(),
-          window._shadowRoot.getElementById("messageInput").value,
-        );
-        break;
-
-      case "imageAndText":
-        await 群发模块.发送图文同发消息(
-          group.name,
-          await 获取已选图片Base64(),
-          window._shadowRoot.getElementById("messageInput").value,
-        );
-        break;
-
-      case "LeftimageAndText":
-        await 群发模块.发送先图片后文本消息(
-          group.name,
-          await 获取已选图片Base64(),
-          window._shadowRoot.getElementById("messageInput").value,
-        );
-        break;
-      case "TextAndimage":
-        await 群发模块.发送先文本后图片消息(
-          group.name,
-          await 获取已选图片Base64(),
-          window._shadowRoot.getElementById("messageInput").value,
-        );
-        break;
-
-      case "textOnly":
-        await 群发模块.发送文本消息(
-          group.name,
-          window._shadowRoot.getElementById("messageInput").value,
-        );
-        break;
-
-      case "imageOnly":
-        await 群发模块.发送图片消息(group.name, await 获取已选图片Base64());
-        break;
-    }
-  }
-
-  console.log("✅ 所有消息发送完毕");
-
-  await 清空所有输入();
-  群发按钮是否可用 = true;
-}
-
-//绑定事件到按钮
-window._shadowRoot
-  .querySelector("#sendBatchBtn")
-  .addEventListener("click", () => 开始群发());
+// //--------------------------------------------------------------------------------------图片操作--------------------------------------------------------------------------------------
+
+// function 获取已选图片() {
+//   const fileInput = window._shadowRoot.querySelector("#IpImg");
+//   return fileInput.files[0] || false;
+// }
+
+// async function 获取已选图片Base64() {
+//   const file = 获取已选图片();
+//   if (!file) return false;
+
+//   return new Promise((resolve) => {
+//     const reader = new FileReader();
+//     reader.onload = (e) => resolve(e.target.result); // data:image/png;base64,xxx
+//     reader.readAsDataURL(file);
+//   });
+// }
+
+// async function 清空图片输入() {
+//   return await 模拟真实点击(window._shadowRoot.querySelector("#clear-btn"));
+// }
+
+// function 清空文本输入框() {
+//   const inputEl = window._shadowRoot.getElementById("messageInput");
+//   if (inputEl) {
+//     inputEl.value = "";
+//     // 触发 input 事件，确保界面同步更新
+//     inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+//   }
+// }
+
+// async function 清空所有输入() {
+//   if (await 清空图片输入()) {
+//     清空文本输入框();
+//     return true;
+//   } else {
+//     return false;
+//   }
+// }
+
+// //-------------------------------------------------------------------------------------------加载未归档群到列表-------------------------------------------------------------------------------------------
+// async function 获取未归档群组() {
+//   try {
+//     if (!window.Store) {
+//       window.Store = Object.assign({}, window.require("WAWebCollections"));
+//     }
+
+//     const groups = window.Store.Chat.getModelsArray()
+//       .filter((chat) => {
+//         const isGroup =
+//           chat.id?._serialized?.endsWith("@g.us") || chat.isGroup === true;
+//         const notArchived = !chat.archive;
+//         return isGroup && notArchived;
+//       })
+//       .map((chat) => ({
+//         id: chat.id?._serialized,
+//         name:
+//           chat.name ||
+//           chat.formattedTitle ||
+//           chat.formattedName ||
+//           "未命名群组",
+//         participantCount:
+//           chat.participantCount ||
+//           chat.groupMetadata?.participants?.length ||
+//           chat.participants?.length ||
+//           0,
+//       }));
+
+//     groups.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+//     console.log(`📋 找到 ${groups.length} 个未归档群组`);
+//     return groups;
+//   } catch (error) {
+//     console.error("获取群组失败:", error);
+//     return [];
+//   }
+// }
+
+// async function 加载群组到列表() {
+//   const container = window._shadowRoot.querySelector("#contactsContainer");
+//   if (!container) {
+//     console.error("❌ 找不到联系人容器");
+//     return;
+//   }
+
+//   container.innerHTML =
+//     '<div style="padding: 8px; color: #999;">加载中...</div>';
+
+//   const groups = await 获取未归档群组();
+//   if (!groups.length) {
+//     container.innerHTML =
+//       '<div style="padding: 8px; color: #999;">没有找到群组</div>';
+//     return;
+//   }
+
+//   container.innerHTML = groups
+//     .map(
+//       (group, index) => `
+//     <div class="contact-item selected" data-contact-id="contact-${index}">
+//       <input type="checkbox" id="contact-${index}" class="contact-checkbox" value="${group.id}" checked>
+//       <label for="contact-${index}" class="contact-label" title="${group.name}">
+//         ${group.name} (${group.participantCount}人)
+//       </label>
+//     </div>
+//   `,
+//     )
+//     .join("");
+
+//   container.style.display = "block";
+
+//   // 通知点赞面板刷新群组展示
+//   window._shadowRoot.dispatchEvent(new CustomEvent("contactsUpdated"));
+
+//   console.log(`✅ 已加载 ${groups.length} 个群组`);
+// }
+
+// function 获取已选群组() {
+//   const checkboxes = window._shadowRoot.querySelectorAll(
+//     ".contact-checkbox:checked",
+//   );
+//   return Array.from(checkboxes).map((cb) => ({
+//     id: cb.value,
+//     name: cb
+//       .closest(".contact-item")
+//       .querySelector(".contact-label")
+//       .getAttribute("title"),
+//   }));
+// }
+// //初始化列表
+// await 加载群组到列表();
+// //绑定事件到按钮
+// const loadingData = window._shadowRoot
+//   .querySelector("#loadContactsBtn")
+//   .addEventListener("click", 加载群组到列表);
+
+// //------------------------------------------------------------------------------采集未归档群组数据--------------------------------------------------------------------------------------------
+
+// // 添加手机号码归属地查询函数（全球国家/地区）
+// function 查询号码归属地(phoneNumber) {
+//   // 去掉+号，只保留数字
+//   const num = phoneNumber.replace("+", "");
+
+//   // 全球国家/地区代码数据库（按代码长度排序，长的优先）
+//   const countryCodes = [
+//     { code: "1", country: "美国/加拿大", region: "北美" },
+//     { code: "7", country: "俄罗斯/哈萨克斯坦", region: "东欧" },
+//     { code: "20", country: "埃及", region: "非洲" },
+//     { code: "27", country: "南非", region: "非洲" },
+//     { code: "30", country: "希腊", region: "南欧" },
+//     { code: "31", country: "荷兰", region: "西欧" },
+//     { code: "32", country: "比利时", region: "西欧" },
+//     { code: "33", country: "法国", region: "西欧" },
+//     { code: "34", country: "西班牙", region: "南欧" },
+//     { code: "36", country: "匈牙利", region: "东欧" },
+//     { code: "39", country: "意大利", region: "南欧" },
+//     { code: "40", country: "罗马尼亚", region: "东欧" },
+//     { code: "41", country: "瑞士", region: "西欧" },
+//     { code: "43", country: "奥地利", region: "中欧" },
+//     { code: "44", country: "英国", region: "西欧" },
+//     { code: "45", country: "丹麦", region: "北欧" },
+//     { code: "46", country: "瑞典", region: "北欧" },
+//     { code: "47", country: "挪威", region: "北欧" },
+//     { code: "48", country: "波兰", region: "东欧" },
+//     { code: "49", country: "德国", region: "西欧" },
+//     { code: "51", country: "秘鲁", region: "南美" },
+//     { code: "52", country: "墨西哥", region: "北美" },
+//     { code: "53", country: "古巴", region: "加勒比海" },
+//     { code: "54", country: "阿根廷", region: "南美" },
+//     { code: "55", country: "巴西", region: "南美" },
+//     { code: "56", country: "智利", region: "南美" },
+//     { code: "57", country: "哥伦比亚", region: "南美" },
+//     { code: "58", country: "委内瑞拉", region: "南美" },
+//     { code: "60", country: "马来西亚", region: "东南亚" },
+//     { code: "61", country: "澳大利亚", region: "大洋洲" },
+//     { code: "62", country: "印度尼西亚", region: "东南亚" },
+//     { code: "63", country: "菲律宾", region: "东南亚" },
+//     { code: "64", country: "新西兰", region: "大洋洲" },
+//     { code: "65", country: "新加坡", region: "东南亚" },
+//     { code: "66", country: "泰国", region: "东南亚" },
+//     { code: "81", country: "日本", region: "东亚" },
+//     { code: "82", country: "韩国", region: "东亚" },
+//     { code: "84", country: "越南", region: "东南亚" },
+//     { code: "86", country: "中国", region: "东亚" },
+//     { code: "90", country: "土耳其", region: "中东" },
+//     { code: "91", country: "印度", region: "南亚" },
+//     { code: "92", country: "巴基斯坦", region: "南亚" },
+//     { code: "93", country: "阿富汗", region: "南亚" },
+//     { code: "94", country: "斯里兰卡", region: "南亚" },
+//     { code: "95", country: "缅甸", region: "东南亚" },
+//     { code: "98", country: "伊朗", region: "中东" },
+//     { code: "211", country: "南苏丹", region: "非洲" },
+//     { code: "212", country: "摩洛哥", region: "非洲" },
+//     { code: "213", country: "阿尔及利亚", region: "非洲" },
+//     { code: "216", country: "突尼斯", region: "非洲" },
+//     { code: "218", country: "利比亚", region: "非洲" },
+//     { code: "220", country: "冈比亚", region: "非洲" },
+//     { code: "221", country: "塞内加尔", region: "非洲" },
+//     { code: "222", country: "毛里塔尼亚", region: "非洲" },
+//     { code: "223", country: "马里", region: "非洲" },
+//     { code: "224", country: "几内亚", region: "非洲" },
+//     { code: "225", country: "科特迪瓦", region: "非洲" },
+//     { code: "226", country: "布基纳法索", region: "非洲" },
+//     { code: "227", country: "尼日尔", region: "非洲" },
+//     { code: "228", country: "多哥", region: "非洲" },
+//     { code: "229", country: "贝宁", region: "非洲" },
+//     { code: "230", country: "毛里求斯", region: "非洲" },
+//     { code: "231", country: "利比里亚", region: "非洲" },
+//     { code: "232", country: "塞拉利昂", region: "非洲" },
+//     { code: "233", country: "加纳", region: "非洲" },
+//     { code: "234", country: "尼日利亚", region: "非洲" },
+//     { code: "235", country: "乍得", region: "非洲" },
+//     { code: "236", country: "中非共和国", region: "非洲" },
+//     { code: "237", country: "喀麦隆", region: "非洲" },
+//     { code: "238", country: "佛得角", region: "非洲" },
+//     { code: "239", country: "圣多美和普林西比", region: "非洲" },
+//     { code: "240", country: "赤道几内亚", region: "非洲" },
+//     { code: "241", country: "加蓬", region: "非洲" },
+//     { code: "242", country: "刚果共和国", region: "非洲" },
+//     { code: "243", country: "刚果民主共和国", region: "非洲" },
+//     { code: "244", country: "安哥拉", region: "非洲" },
+//     { code: "245", country: "几内亚比绍", region: "非洲" },
+//     { code: "246", country: "迪戈加西亚岛", region: "非洲" },
+//     { code: "247", country: "阿森松岛", region: "非洲" },
+//     { code: "248", country: "塞舌尔", region: "非洲" },
+//     { code: "249", country: "苏丹", region: "非洲" },
+//     { code: "250", country: "卢旺达", region: "非洲" },
+//     { code: "251", country: "埃塞俄比亚", region: "非洲" },
+//     { code: "252", country: "索马里", region: "非洲" },
+//     { code: "253", country: "吉布提", region: "非洲" },
+//     { code: "254", country: "肯尼亚", region: "非洲" },
+//     { code: "255", country: "坦桑尼亚", region: "非洲" },
+//     { code: "256", country: "乌干达", region: "非洲" },
+//     { code: "257", country: "布隆迪", region: "非洲" },
+//     { code: "258", country: "莫桑比克", region: "非洲" },
+//     { code: "260", country: "赞比亚", region: "非洲" },
+//     { code: "261", country: "马达加斯加", region: "非洲" },
+//     { code: "262", country: "留尼汪/马约特", region: "非洲" },
+//     { code: "263", country: "津巴布韦", region: "非洲" },
+//     { code: "264", country: "纳米比亚", region: "非洲" },
+//     { code: "265", country: "马拉维", region: "非洲" },
+//     { code: "266", country: "莱索托", region: "非洲" },
+//     { code: "267", country: "博茨瓦纳", region: "非洲" },
+//     { code: "268", country: "斯威士兰", region: "非洲" },
+//     { code: "269", country: "科摩罗", region: "非洲" },
+//     { code: "290", country: "圣赫勒拿", region: "非洲" },
+//     { code: "291", country: "厄立特里亚", region: "非洲" },
+//     { code: "297", country: "阿鲁巴", region: "加勒比海" },
+//     { code: "298", country: "法罗群岛", region: "北欧" },
+//     { code: "299", country: "格陵兰", region: "北美" },
+//     { code: "350", country: "直布罗陀", region: "南欧" },
+//     { code: "351", country: "葡萄牙", region: "南欧" },
+//     { code: "352", country: "卢森堡", region: "西欧" },
+//     { code: "353", country: "爱尔兰", region: "西欧" },
+//     { code: "354", country: "冰岛", region: "北欧" },
+//     { code: "355", country: "阿尔巴尼亚", region: "南欧" },
+//     { code: "356", country: "马耳他", region: "南欧" },
+//     { code: "357", country: "塞浦路斯", region: "南欧" },
+//     { code: "358", country: "芬兰", region: "北欧" },
+//     { code: "359", country: "保加利亚", region: "东欧" },
+//     { code: "370", country: "立陶宛", region: "东欧" },
+//     { code: "371", country: "拉脱维亚", region: "东欧" },
+//     { code: "372", country: "爱沙尼亚", region: "东欧" },
+//     { code: "373", country: "摩尔多瓦", region: "东欧" },
+//     { code: "374", country: "亚美尼亚", region: "中东" },
+//     { code: "375", country: "白俄罗斯", region: "东欧" },
+//     { code: "376", country: "安道尔", region: "南欧" },
+//     { code: "377", country: "摩纳哥", region: "西欧" },
+//     { code: "378", country: "圣马力诺", region: "南欧" },
+//     { code: "379", country: "梵蒂冈", region: "南欧" },
+//     { code: "380", country: "乌克兰", region: "东欧" },
+//     { code: "381", country: "塞尔维亚", region: "南欧" },
+//     { code: "382", country: "黑山", region: "南欧" },
+//     { code: "383", country: "科索沃", region: "南欧" },
+//     { code: "385", country: "克罗地亚", region: "南欧" },
+//     { code: "386", country: "斯洛文尼亚", region: "中欧" },
+//     { code: "387", country: "波黑", region: "南欧" },
+//     { code: "389", country: "北马其顿", region: "南欧" },
+//     { code: "420", country: "捷克", region: "中欧" },
+//     { code: "421", country: "斯洛伐克", region: "中欧" },
+//     { code: "423", country: "列支敦士登", region: "中欧" },
+//     { code: "500", country: "福克兰群岛", region: "南美" },
+//     { code: "501", country: "伯利兹", region: "中美" },
+//     { code: "502", country: "危地马拉", region: "中美" },
+//     { code: "503", country: "萨尔瓦多", region: "中美" },
+//     { code: "504", country: "洪都拉斯", region: "中美" },
+//     { code: "505", country: "尼加拉瓜", region: "中美" },
+//     { code: "506", country: "哥斯达黎加", region: "中美" },
+//     { code: "507", country: "巴拿马", region: "中美" },
+//     { code: "508", country: "圣皮埃尔和密克隆", region: "北美" },
+//     { code: "509", country: "海地", region: "加勒比海" },
+//     { code: "590", country: "瓜德罗普", region: "加勒比海" },
+//     { code: "591", country: "玻利维亚", region: "南美" },
+//     { code: "592", country: "圭亚那", region: "南美" },
+//     { code: "593", country: "厄瓜多尔", region: "南美" },
+//     { code: "594", country: "法属圭亚那", region: "南美" },
+//     { code: "595", country: "巴拉圭", region: "南美" },
+//     { code: "596", country: "马提尼克", region: "加勒比海" },
+//     { code: "597", country: "苏里南", region: "南美" },
+//     { code: "598", country: "乌拉圭", region: "南美" },
+//     { code: "599", country: "荷属安的列斯", region: "加勒比海" },
+//     { code: "670", country: "东帝汶", region: "东南亚" },
+//     { code: "672", country: "诺福克岛", region: "大洋洲" },
+//     { code: "673", country: "文莱", region: "东南亚" },
+//     { code: "674", country: "瑙鲁", region: "大洋洲" },
+//     { code: "675", country: "巴布亚新几内亚", region: "大洋洲" },
+//     { code: "676", country: "汤加", region: "大洋洲" },
+//     { code: "677", country: "所罗门群岛", region: "大洋洲" },
+//     { code: "678", country: "瓦努阿图", region: "大洋洲" },
+//     { code: "679", country: "斐济", region: "大洋洲" },
+//     { code: "680", country: "帕劳", region: "大洋洲" },
+//     { code: "681", country: "瓦利斯和富图纳", region: "大洋洲" },
+//     { code: "682", country: "库克群岛", region: "大洋洲" },
+//     { code: "683", country: "纽埃", region: "大洋洲" },
+//     { code: "684", country: "美属萨摩亚", region: "大洋洲" },
+//     { code: "685", country: "萨摩亚", region: "大洋洲" },
+//     { code: "686", country: "基里巴斯", region: "大洋洲" },
+//     { code: "687", country: "新喀里多尼亚", region: "大洋洲" },
+//     { code: "688", country: "图瓦卢", region: "大洋洲" },
+//     { code: "689", country: "法属波利尼西亚", region: "大洋洲" },
+//     { code: "690", country: "托克劳", region: "大洋洲" },
+//     { code: "691", country: "密克罗尼西亚", region: "大洋洲" },
+//     { code: "692", country: "马绍尔群岛", region: "大洋洲" },
+//     { code: "850", country: "朝鲜", region: "东亚" },
+//     { code: "852", country: "香港", region: "东亚" },
+//     { code: "853", country: "澳门", region: "东亚" },
+//     { code: "855", country: "柬埔寨", region: "东南亚" },
+//     { code: "856", country: "老挝", region: "东南亚" },
+//     { code: "880", country: "孟加拉国", region: "南亚" },
+//     { code: "886", country: "台湾", region: "东亚" },
+//     { code: "960", country: "马尔代夫", region: "南亚" },
+//     { code: "961", country: "黎巴嫩", region: "中东" },
+//     { code: "962", country: "约旦", region: "中东" },
+//     { code: "963", country: "叙利亚", region: "中东" },
+//     { code: "964", country: "伊拉克", region: "中东" },
+//     { code: "965", country: "科威特", region: "中东" },
+//     { code: "966", country: "沙特阿拉伯", region: "中东" },
+//     { code: "967", country: "也门", region: "中东" },
+//     { code: "968", country: "阿曼", region: "中东" },
+//     { code: "970", country: "巴勒斯坦", region: "中东" },
+//     { code: "971", country: "阿联酋", region: "中东" },
+//     { code: "972", country: "以色列", region: "中东" },
+//     { code: "973", country: "巴林", region: "中东" },
+//     { code: "974", country: "卡塔尔", region: "中东" },
+//     { code: "975", country: "不丹", region: "南亚" },
+//     { code: "976", country: "蒙古", region: "东亚" },
+//     { code: "977", country: "尼泊尔", region: "南亚" },
+//     { code: "992", country: "塔吉克斯坦", region: "中亚" },
+//     { code: "993", country: "土库曼斯坦", region: "中亚" },
+//     { code: "994", country: "阿塞拜疆", region: "中东" },
+//     { code: "995", country: "格鲁吉亚", region: "中东" },
+//     { code: "996", country: "吉尔吉斯斯坦", region: "中亚" },
+//     { code: "998", country: "乌兹别克斯坦", region: "中亚" },
+//   ];
+
+//   // 按代码长度降序排序，确保长的优先匹配
+//   countryCodes.sort((a, b) => b.code.length - a.code.length);
+
+//   for (const item of countryCodes) {
+//     if (num.startsWith(item.code)) {
+//       return `${item.country} (${item.region})`;
+//     }
+//   }
+
+//   return "未知地区";
+// }
+
+// // 从文本提取手机号 【修复：保留+号，修正过滤条件】
+// function 提取号码(text) {
+//   if (!text) return [];
+
+//   const regex = /\+[\d\s\(\)\-]{9,20}/g;
+//   const matches = text.match(regex) || [];
+
+//   return [
+//     ...new Set(
+//       matches
+//         .map((p) => p.replace(/[\s\(\)\-]/g, "")) // 保留 + 号，只去掉空格括号横线
+//         .filter((p) => /^\+\d{7,15}$/.test(p)), // 必须以+开头，后接7-15位数字
+//     ),
+//   ];
+// }
+
+// async function 采集未归档群组数据() {
+//   const groups = await 获取未归档群组();
+//   if (!groups.length) {
+//     console.error("❌ 没有找到未归档群组");
+//     return;
+//   }
+
+//   console.log(`🚀 开始依次点击 ${groups.length} 个群组`);
+
+//   let 聚合号码数据 = [];
+
+//   for (let i = 0; i < groups.length; i++) {
+//     const group = groups[i];
+//     console.log(`📌 [${i + 1}/${groups.length}] 正在打开: ${group.name}`);
+
+//     const success = await 搜索并点击聊天(group.name);
+
+//     if (!success) {
+//       console.warn(`⚠️ 跳过: ${group.name}`);
+//       continue;
+//     }
+
+//     // 等待群手机号码出现，说明聊天已完全加载
+//     const inputBox = await 等待目标出现(() => {
+//       const el = document.querySelector('[data-testid="selectable-text"]');
+//       if (!el) return null;
+
+//       const text = el.innerText || el.textContent;
+//       // 检查是否包含电话号码（有 + 号或数字）
+//       if (text && /[\+][\d\s\(\)\-]{8,}/.test(text)) {
+//         return el; // 是号码，返回元素
+//       }
+//       return null; // 不是号码，继续等待
+//     }, 10000);
+
+//     if (inputBox) {
+//       const groupPhoneNumber = document.querySelector(
+//         '[data-testid="selectable-text"]',
+//       ).innerText;
+//       //   console.log(`✅ 群组: ${group.name}，号码: ${groupPhoneNumber}`);
+//       聚合号码数据.push({
+//         name: group.name,
+//         phoneNumber: 提取号码(groupPhoneNumber),
+//       });
+//     }
+//   }
+
+//   async function 保存号码JSON(聚合数据) {
+//     // 1. 统计每个号码
+//     const 号码映射 = new Map();
+
+//     for (const 群组 of 聚合数据) {
+//       const 群组名 = 群组.name;
+//       const 号码列表 = 群组.phoneNumber || [];
+
+//       for (const 号码 of 号码列表) {
+//         if (!号码映射.has(号码)) {
+//           号码映射.set(号码, {
+//             号码: 号码,
+//             归属地: 查询号码归属地(号码),
+//             出现次数: 0,
+//             所在群组: [],
+//           });
+//         }
+//         const 记录 = 号码映射.get(号码);
+//         记录.出现次数++;
+//         if (!记录.所在群组.includes(群组名)) {
+//           记录.所在群组.push(群组名);
+//         }
+//       }
+//     }
+
+//     // 2. 分类：独立号码 / 重复号码
+//     const 独立号码 = [];
+//     const 重复号码 = [];
+
+//     for (const 记录 of 号码映射.values()) {
+//       if (记录.出现次数 === 1) {
+//         独立号码.push(记录);
+//       } else {
+//         重复号码.push(记录);
+//       }
+//     }
+
+//     // 3. 按国家统计
+//     const 国家统计 = new Map();
+//     for (const 记录 of 号码映射.values()) {
+//       const 国家 = 记录.归属地;
+//       if (!国家统计.has(国家)) {
+//         国家统计.set(国家, { 国家, 数量: 0, 独立: 0, 重复: 0 });
+//       }
+//       const 统计 = 国家统计.get(国家);
+//       统计.数量++;
+//       if (记录.出现次数 === 1) {
+//         统计.独立++;
+//       } else {
+//         统计.重复++;
+//       }
+//     }
+//     const 国家统计列表 = Array.from(国家统计.values()).sort(
+//       (a, b) => b.数量 - a.数量,
+//     );
+
+//     // 4. 按群组统计
+//     const 群组统计 = 聚合数据.map((群组) => ({
+//       群组名: 群组.name,
+//       总号码数: 群组.phoneNumber?.length || 0,
+//       独立号码数: 0,
+//       重复号码数: 0,
+//     }));
+
+//     // 计算每个群组的独立/重复号码数
+//     for (const 群组 of 聚合数据) {
+//       const 群组名 = 群组.name;
+//       const 号码列表 = 群组.phoneNumber || [];
+//       for (const 号码 of 号码列表) {
+//         const 记录 = 号码映射.get(号码);
+//         const 群组统计项 = 群组统计.find((g) => g.群组名 === 群组名);
+//         if (记录.出现次数 === 1) {
+//           群组统计项.独立号码数++;
+//         } else {
+//           群组统计项.重复号码数++;
+//         }
+//       }
+//     }
+
+//     // 5. 构建最终JSON
+//     const 结果 = {
+//       元数据: {
+//         生成时间: new Date().toLocaleString("zh-CN"),
+//         数据来源: "WhatsApp未归档群组采集",
+//         群组数量: 聚合数据.length,
+//         总号码数: 号码映射.size,
+//         独立号码数: 独立号码.length,
+//         重复号码数: 重复号码.length,
+//         重复率: ((重复号码.length / 号码映射.size) * 100).toFixed(2) + "%",
+//       },
+//       按国家统计: 国家统计列表,
+//       按群组统计: 群组统计,
+//       独立号码列表: 独立号码,
+//       重复号码列表: 重复号码.sort((a, b) => b.出现次数 - a.出现次数),
+//     };
+
+//     // 6. 保存文件
+//     const json = JSON.stringify(结果, null, 2);
+//     const blob = new Blob([json], { type: "application/json" });
+//     const url = URL.createObjectURL(blob);
+//     const a = document.createElement("a");
+//     const 时间 = `${new Date().getFullYear()}_${new Date().getMonth() + 1}_${new Date().getDate()}_${new Date().getHours()}_${new Date().getMinutes()}`;
+//     a.download = `号码分析报告_${时间}.json`;
+//     a.href = url;
+//     a.click();
+//     URL.revokeObjectURL(url);
+
+//     const appDir = await api.getAppDirectory();
+
+//     const results = await api.saveDataToFile(
+//       appDir + "whatsapp_customers.json",
+//       json,
+//     );
+
+//     const result = await api.saveDataToFile(
+//       appDir + "群组数据\\" + `号码分析报告_${时间}.json`,
+//       json,
+//     );
+
+//     if (results.success) {
+//       console.log("✅ 文件已保存");
+//     } else {
+//       console.error("❌ 保存失败", results.error);
+//     }
+//   }
+
+//   await 保存号码JSON(聚合号码数据);
+//   console.log("✅ 所有群组已遍历完毕");
+//   //   console.log(聚合号码数据);
+// }
+
+// //绑定事件到按钮
+// window._shadowRoot
+//   .querySelector("#loadGroupsBtn")
+//   .addEventListener("click", () => 采集未归档群组数据());
+
+// //-------------------------------------------------------------------------分离标签功能------------------------------------------------------------------------------------
+// const btn = window._shadowRoot.getElementById("分离当前页面");
+
+// btn.addEventListener("click", async () => {
+//   const result = await api.popOutCurrentTab();
+//   if (result.success) {
+//     console.log("标签页已弹出，ID:", result.tabId);
+//   }
+// });
+
+// //-------------------------------------------------------------------------------------------打开群聊并发送消息-------------------------------------------------------------------------------------------
+
+// // 等待文本发送按钮懒加载出现后再点击
+// async function 点击文本发送按钮() {
+//   const xpath =
+//     '//button[@aria-label="发送"]//*[local-name()="svg"]//*[local-name()="path" and contains(@d, "M5.4 19.425")]/ancestor::button';
+
+//   const button = await 等待目标出现(
+//     () =>
+//       document.evaluate(
+//         xpath,
+//         document,
+//         null,
+//         XPathResult.FIRST_ORDERED_NODE_TYPE,
+//         null,
+//       ).singleNodeValue,
+//   );
+
+//   return await 模拟真实点击(button);
+// }
+
+// // 等待图文发送按钮懒加载出现后再点击  图文同发 和发送图片 用这个函数点击发送按钮
+// async function 点击文本带图片发送按钮() {
+//   const xpath =
+//     '//div[@role="button"]//*[local-name()="svg"]//*[local-name()="path" and contains(@d, "M5.4 19.425")]/ancestor::div[@role="button"]';
+
+//   const button = await 等待目标出现(
+//     () =>
+//       document.evaluate(
+//         xpath,
+//         document,
+//         null,
+//         XPathResult.FIRST_ORDERED_NODE_TYPE,
+//         null,
+//       ).singleNodeValue,
+//   );
+
+//   return await 模拟真实点击(button);
+// }
+
+// async function 搜索并点击聊天(chatName) {
+//   const searchBox = await 等待目标出现(() =>
+//     document.querySelector('input[data-tab="3"]'),
+//   );
+//   if (!searchBox) {
+//     console.error("❌ 搜索框未找到");
+//     return false;
+//   }
+
+//   searchBox.focus();
+//   await new Promise((r) => setTimeout(r, 300));
+
+//   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+//     window.HTMLInputElement.prototype,
+//     "value",
+//   ).set;
+//   nativeInputValueSetter.call(searchBox, chatName);
+//   searchBox.dispatchEvent(new Event("input", { bubbles: true }));
+
+//   // 等待搜索结果中的 span 出现
+//   const span = await 等待目标出现(() => {
+//     const spans = document.querySelectorAll(
+//       '[role="grid"] span[dir="auto"][title]',
+//     );
+//     for (let s of spans) {
+//       if (s.getAttribute("title") === chatName) return s;
+//     }
+//     return null;
+//   }, 8000);
+
+//   if (!span) {
+//     console.error(`❌ 搜索无结果: "${chatName}"`);
+//     return false;
+//   }
+
+//   // ✅ 直接对 span 触发 mousedown/mouseup/click，不 focus cell 避免列表消失
+//   span.dispatchEvent(
+//     new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+//   );
+//   await new Promise((r) => setTimeout(r, 50));
+//   span.dispatchEvent(
+//     new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
+//   );
+//   await new Promise((r) => setTimeout(r, 50));
+//   span.dispatchEvent(
+//     new MouseEvent("click", { bubbles: true, cancelable: true }),
+//   );
+
+//   await new Promise((r) => setTimeout(r, 300));
+
+//   // 清空搜索框
+//   nativeInputValueSetter.call(searchBox, "");
+//   searchBox.dispatchEvent(new Event("input", { bubbles: true }));
+
+//   console.log(`✅ 已打开: "${chatName}"`);
+//   return true;
+// }
+
+// const 群发模块 = {
+//   // base64 -> Blob（用于 clipboard paste）
+//   base64转Blob(base64) {
+//     const arr = base64.split(",");
+//     const mime = arr[0].match(/:(.*?);/)[1];
+
+//     const binary = atob(arr[1]);
+//     const u8arr = new Uint8Array(binary.length);
+
+//     for (let i = 0; i < binary.length; i++) {
+//       u8arr[i] = binary.charCodeAt(i);
+//     }
+
+//     return new Blob([u8arr], { type: mime });
+//   },
+
+//   // 获取输入框
+//   getInputDom() {
+//     const selectors = [
+//       "footer p._aupe.copyable-text",
+//       'footer div[contenteditable="true"]',
+//       'div[role="textbox"][contenteditable="true"]',
+//       '.lexical-rich-text-input div[contenteditable="true"]',
+//       '.x1hx0egp[contenteditable="true"]',
+//     ];
+
+//     for (const s of selectors) {
+//       const el = document.querySelector(s);
+//       if (el) return el;
+//     }
+//     return null;
+//   },
+
+//   // =========================
+//   // ✍️ 文本发送
+//   // =========================
+//   async 发送文本消息(groupName, text, 是否打开聊天 = true) {
+//     if (!groupName || !text) {
+//       console.warn("⚠️ 群名或文本为空");
+//       return false;
+//     }
+
+//     if (是否打开聊天) {
+//       const ok = await 搜索并点击聊天(groupName);
+//       if (!ok) return false;
+//     }
+
+//     if (await 模拟真实输入(text)) {
+//       if (!(await 点击文本发送按钮())) {
+//         console.error("❌ 点击发送按钮失败");
+//         return false;
+//       }
+//       return true;
+//     }
+//     return false;
+//   },
+
+//   // =========================
+//   // 🖼️ 图片发送（paste版）
+//   // =========================
+//   async 发送图片消息(groupName, imgBase64, 是否打开聊天 = true) {
+//     if (!groupName || !imgBase64) {
+//       console.warn("⚠️ 群名或图片为空");
+//       return false;
+//     }
+
+//     if (是否打开聊天) {
+//       const ok = await 搜索并点击聊天(groupName);
+//       if (!ok) return false;
+//     }
+
+//     // const opened = await 搜索并点击聊天(groupName);
+//     // if (!opened) {
+//     //   console.warn("❌ 打开聊天失败");
+//     //   return false;
+//     // }
+
+//     const input = this.getInputDom();
+//     if (!input) {
+//       console.error("❌ 找不到输入框");
+//       return false;
+//     }
+
+//     input.focus();
+//     input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+//     // 🔥 关键：模拟 paste（稳定核心）
+//     const blob = this.base64转Blob(imgBase64);
+
+//     const clipboardData = new DataTransfer();
+//     clipboardData.items.add(new File([blob], "image.png", { type: blob.type }));
+
+//     const pasteEvent = new ClipboardEvent("paste", {
+//       clipboardData,
+//       bubbles: true,
+//       cancelable: true,
+//     });
+
+//     input.dispatchEvent(pasteEvent);
+
+//     // console.log("🖼️ 已触发 paste 注入图片");
+
+//     if (!(await 点击文本带图片发送按钮())) {
+//       console.error("❌ 点击发送按钮失败");
+//       return false;
+//     }
+
+//     // console.log(`✅ 图片发送完成 -> ${groupName}`);
+//     return true;
+//   },
+//   // =========================
+//   // 🖼️+✍️ 图文
+//   // =========================
+//   async 发送图文同发消息(groupName, imgBase64, text) {
+//     if (!groupName || !imgBase64 || !text) {
+//       console.error("❌ 参数不完整");
+//       return false;
+//     }
+
+//     const opened = await 搜索并点击聊天(groupName);
+//     if (!opened) return false;
+
+//     const 输入状态 = await 模拟真实输入(text);
+//     if (!输入状态) return false;
+
+//     const input = this.getInputDom();
+//     if (!input) return false;
+
+//     input.focus();
+
+//     const blob = this.base64转Blob(imgBase64);
+
+//     const clipboardData = new DataTransfer();
+//     clipboardData.items.add(new File([blob], "image.png", { type: blob.type }));
+
+//     const pasteEvent = new ClipboardEvent("paste", {
+//       clipboardData,
+//       bubbles: true,
+//     });
+
+//     input.dispatchEvent(pasteEvent);
+
+//     if (!(await 点击文本带图片发送按钮())) {
+//       console.error("❌ 点击发送按钮失败");
+//       return false;
+//     }
+
+//     // console.log(`✅ 图文同发完成 -> ${groupName}`);
+//     return true;
+//   },
+//   async 发送先文本后图片消息(groupName, imgBase64, text) {
+//     if (!groupName || !imgBase64 || !text) {
+//       console.error("❌ 参数不完整");
+//       return false;
+//     }
+
+//     if (await 群发模块.发送文本消息(groupName, text)) {
+//       if (await 群发模块.发送图片消息(groupName, imgBase64, false)) {
+//         return true;
+//       } else {
+//         console.error("❌ 发送图片失败");
+//         return false;
+//       }
+//     } else {
+//       console.error("❌ 发送文本失败");
+//       return false;
+//     }
+//   },
+//   async 发送先图片后文本消息(groupName, imgBase64, text) {
+//     if (!groupName || !imgBase64 || !text) {
+//       console.error("❌ 参数不完整");
+//       return false;
+//     }
+
+//     if (await 群发模块.发送图片消息(groupName, imgBase64)) {
+//       if (await 群发模块.发送文本消息(groupName, text, false)) {
+//         return true;
+//       } else {
+//         console.error("❌ 发送文本失败");
+//         return false;
+//       }
+//     } else {
+//       console.error("❌ 发送图片失败");
+//       return false;
+//     }
+//   },
+//   //有什么发什么 （文本、图片都有就图文同发，只有文本就文本，只有图片就图片）
+//   async 发送默认消息(groupName, imgBase64, text) {
+//     // 参数校验
+//     if (!groupName) {
+//       console.error("❌ 群名不能为空");
+//       return false;
+//     }
+
+//     const hasText = text && text.trim().length > 0;
+//     const hasImage = imgBase64 && imgBase64.length > 0;
+
+//     // 情况1：什么都没有
+//     if (!hasText && !hasImage) {
+//       console.error("❌ 文本和图片都为空，无法发送");
+//       return false;
+//     }
+
+//     // 情况2：图文都有 → 图文同发
+//     if (hasText && hasImage) {
+//       console.log("📝🖼️ 检测到图文，使用图文同发模式");
+//       return await this.发送图文同发消息(groupName, imgBase64, text);
+//     }
+
+//     // 情况3：只有文本
+//     if (hasText && !hasImage) {
+//       console.log("📝 只有文本，发送文本消息");
+//       return await this.发送文本消息(groupName, text);
+//     }
+
+//     // 情况4：只有图片
+//     if (!hasText && hasImage) {
+//       console.log("🖼️ 只有图片，发送图片消息");
+//       return await this.发送图片消息(groupName, imgBase64);
+//     }
+
+//     return false;
+//   },
+// };
+
+// function 获取发送模式() {
+//   const selected = window._shadowRoot.querySelector(
+//     'input[name="sendOption"]:checked',
+//   );
+//   return selected ? selected.value : null;
+// }
+
+// let 群发按钮是否可用 = true;
+// async function 开始群发() {
+//   if (!群发按钮是否可用) {
+//     console.error("❌ 正在群发中，请勿重复点击");
+//     return;
+//   }
+//   群发按钮是否可用 = false;
+//   const groups = 获取已选群组();
+//   if (!groups.length) {
+//     console.error("❌ 没有选择群组");
+//     return;
+//   }
+
+//   for (let i = 0; i < groups.length; i++) {
+//     const group = groups[i];
+//     console.log(`📌 [${i + 1}/${groups.length}] 正在打开: ${group.name}`);
+//     const 发送模式 = 获取发送模式();
+//     switch (发送模式) {
+//       case "default":
+//         await 群发模块.发送默认消息(
+//           group.name,
+//           await 获取已选图片Base64(),
+//           window._shadowRoot.getElementById("messageInput").value,
+//         );
+//         break;
+
+//       case "imageAndText":
+//         await 群发模块.发送图文同发消息(
+//           group.name,
+//           await 获取已选图片Base64(),
+//           window._shadowRoot.getElementById("messageInput").value,
+//         );
+//         break;
+
+//       case "LeftimageAndText":
+//         await 群发模块.发送先图片后文本消息(
+//           group.name,
+//           await 获取已选图片Base64(),
+//           window._shadowRoot.getElementById("messageInput").value,
+//         );
+//         break;
+//       case "TextAndimage":
+//         await 群发模块.发送先文本后图片消息(
+//           group.name,
+//           await 获取已选图片Base64(),
+//           window._shadowRoot.getElementById("messageInput").value,
+//         );
+//         break;
+
+//       case "textOnly":
+//         await 群发模块.发送文本消息(
+//           group.name,
+//           window._shadowRoot.getElementById("messageInput").value,
+//         );
+//         break;
+
+//       case "imageOnly":
+//         await 群发模块.发送图片消息(group.name, await 获取已选图片Base64());
+//         break;
+//     }
+//   }
+
+//   console.log("✅ 所有消息发送完毕");
+
+//   await 清空所有输入();
+//   群发按钮是否可用 = true;
+// }
+
+// //绑定事件到按钮
+// window._shadowRoot
+//   .querySelector("#sendBatchBtn")
+//   .addEventListener("click", () => 开始群发());
 
 // //-------------------------------------------------------------------------------------------点赞功能-------------------------------------------------------------------------------------------
 
