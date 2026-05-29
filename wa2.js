@@ -1,5 +1,5 @@
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSIONS = "v6.0.1";
+const WA_VERSIONS = "v6.0.2";
 
 // 图片出现就要改变布局
 const observer = new MutationObserver(() => {
