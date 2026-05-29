@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.3.8";
+const WA_VERSION = "v5.3.9";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -1557,22 +1557,22 @@ async function 统计已读客户数() {
     }
 }
 
-function 等待列表数量变化(selector, oldCount) {
-    return new Promise(resolve => {
-        const observer = new MutationObserver(() => {
-            const items = document.querySelectorAll(selector);
-            if (items.length > oldCount) {
-                observer.disconnect();
-                resolve(items);
-            }
-        });
+// function 等待列表数量变化(selector, oldCount) {
+//     return new Promise(resolve => {
+//         const observer = new MutationObserver(() => {
+//             const items = document.querySelectorAll(selector);
+//             if (items.length > oldCount) {
+//                 observer.disconnect();
+//                 resolve(items);
+//             }
+//         });
 
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    });
-}
+//         observer.observe(document.body, {
+//             childList: true,
+//             subtree: true
+//         });
+//     });
+// }
 
 async function 标记已读用户列表() {
 
@@ -1582,13 +1582,14 @@ async function 标记已读用户列表() {
     const oldHeight = 列表外层.offsetHeight;
 
     const selector = '[data-testid^="list-item-"] > [data-testid="cell-frame-container"]';
-    let oldCount = document.querySelectorAll(selector).length;
+    // let oldCount = document.querySelectorAll(selector).length;
 
     // 拉高触发懒加载
-    列表外层.style.height = (oldHeight + 100) + "px";
+    // 列表外层.style.height = (oldHeight + 100) + "px";
 
     // 等待数量变化
-    const newItems = await 等待列表数量变化(selector, oldCount);
+    const newItems = document.querySelectorAll(selector);
+    // await 等待列表数量变化(selector, oldCount);
 
     // 遍历新加载的项
     newItems.forEach(item => {
