@@ -978,13 +978,17 @@ async function 注入控制面板(WA_VERSION) {
   初始化列表操作按钮();
 }
 
-if (window.location.hostname.includes("web.whatsapp.com")) {
-  console.log("当前在 WhatsApp Web");
-  // 缩小布局窗口
-  //document.body.style.zoom = "75%";
-  // 调用函数注入浮动窗口
-  await 注入控制面板("1.0.1");
-}
+(async () => {
+  if (window.location.hostname.includes("web.whatsapp.com")) {
+    console.log("当前在 WhatsApp Web");
+
+    // 缩小布局窗口
+    // document.body.style.zoom = "75%";
+
+    // 调用函数注入浮动窗口
+    await 注入控制面板("1.0.1");
+  }
+})();
 
 // //-------------------------------------------------------------------------------------通用工具函数-------------------------------------------------------------------------------------
 
