@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.2.0";
+const WA_VERSION = "v5.3.1";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -1660,7 +1660,6 @@ async function 标记已读用户列表() {
 
 // ==================== 已读面板监听（MutationObserver，零轮询） ====================
 
-// 变量说明：已读面板监听定时器 复用存 bodyObserver
 async function 启动已读面板监听() {
     // 清理旧监听
     if (已读面板监听定时器) {
@@ -1672,33 +1671,42 @@ async function 启动已读面板监听() {
         已读面板容器引用 = null;
     }
 
-    // 查找已读面板虚拟列表
+    // 查找已读面板虚拟列表（新版）
     function 查找已读面板() {
-        const allLists = document.querySelectorAll(".x1y332i5");
-        let best = null,
-            maxH = 0;
-        allLists.forEach((el) => {
-            const h = parseInt(el.style.height) || 0;
-            if (h > maxH && el.querySelector('[role="listitem"] ._ak8i')) {
-                maxH = h;
+        const drawer = document.querySelector('[data-testid="drawer-right"]');
+        if (!drawer) return null;
+
+        // 找所有带 height 的容器（虚拟列表特征）
+        const allLists = drawer.querySelectorAll('[style*="height"]');
+
+        let best = null;
+        let maxItems = 0;
+
+        allLists.forEach(el => {
+            const items = el.querySelectorAll('[role="listitem"]');
+            if (items.length > maxItems) {
+                maxItems = items.length;
                 best = el;
             }
         });
+
         return best;
     }
 
     // 绑定已读面板内部懒加载监听
-    let 已统计过 = false; // ✅ 每次面板打开只统计一次
+    let 已统计过 = false;
 
     async function 绑定已读面板(virtualList) {
         if (已读面板容器引用?._list === virtualList) return;
+
         已读面板容器引用?._observer?.disconnect();
-        已统计过 = false; // ✅ 新面板重置
+        已统计过 = false;
 
         let 防抖 = null;
+
         const observer = new MutationObserver(() => {
             if (防抖) clearTimeout(防抖);
-            防抖 = setTimeout(async () => {   // ← 加 async
+            防抖 = setTimeout(async () => {
                 await 标记已读用户列表();
 
                 if (!已统计过) {
@@ -1708,38 +1716,41 @@ async function 启动已读面板监听() {
             }, 200);
         });
 
-        observer.observe(virtualList, { childList: true, subtree: false });
+        observer.observe(virtualList, { childList: true, subtree: true });
+
         已读面板容器引用 = { _list: virtualList, _observer: observer };
 
         console.log("✅ 已读面板绑定成功");
-        await 标记已读用户列表();
 
-        // ✅ 面板打开时立即统计一次
+        await 标记已读用户列表();
         已统计过 = true;
         统计已读客户数();
     }
 
-    // 防抖，避免 body 变化过于频繁
+    // 监听 body 变化（新版）
     let bodyDebounce = null;
 
     const bodyObserver = new MutationObserver((mutations) => {
         if (!客户标记监控开启) return;
 
-        // 快速过滤：只处理涉及 x1y332i5 或 _ak8i 的变化
-        const relevant = mutations.some((m) =>
-            [...m.addedNodes, ...m.removedNodes].some(
-                (n) =>
-                    n.nodeType === 1 &&
-                    (n.classList?.contains("x1y332i5") ||
-                        n.querySelector?.("._ak8i") ||
-                        n.classList?.contains("_ak8i")),
-            ),
+        // 只监控 listitem 的变化（稳定特征）
+        const relevant = mutations.some(m =>
+            [...m.addedNodes, ...m.removedNodes].some(n =>
+                n.nodeType === 1 &&
+                (
+                    n.matches?.('[role="listitem"]') ||
+                    n.querySelector?.('[role="listitem"]')
+                )
+            )
         );
+
         if (!relevant) return;
 
         if (bodyDebounce) clearTimeout(bodyDebounce);
-        bodyDebounce = setTimeout(async () => {   // ← 加 async
+
+        bodyDebounce = setTimeout(async () => {
             const panel = 查找已读面板();
+
             if (panel) {
                 await 绑定已读面板(panel);
             } else if (已读面板容器引用) {
@@ -1748,16 +1759,119 @@ async function 启动已读面板监听() {
                 console.log("ℹ️ 已读面板已关闭");
             }
         }, 100);
-
     });
 
     bodyObserver.observe(document.body, { childList: true, subtree: true });
     已读面板监听定时器 = bodyObserver;
 
-    // 立即检测一次（如果已读面板已经打开）
+    // 初次检测
     const panel = 查找已读面板();
     if (panel) await 绑定已读面板(panel);
 }
+
+
+
+
+
+// 变量说明：已读面板监听定时器 复用存 bodyObserver
+// async function 启动已读面板监听() {
+//     // 清理旧监听
+//     if (已读面板监听定时器) {
+//         已读面板监听定时器.disconnect();
+//         已读面板监听定时器 = null;
+//     }
+//     if (已读面板容器引用) {
+//         已读面板容器引用._observer?.disconnect();
+//         已读面板容器引用 = null;
+//     }
+
+//     // 查找已读面板虚拟列表
+//     function 查找已读面板() {
+//         const allLists = document.querySelectorAll(".x1y332i5");
+//         let best = null,
+//             maxH = 0;
+//         allLists.forEach((el) => {
+//             const h = parseInt(el.style.height) || 0;
+//             if (h > maxH && el.querySelector('[role="listitem"] ._ak8i')) {
+//                 maxH = h;
+//                 best = el;
+//             }
+//         });
+//         return best;
+//     }
+
+//     // 绑定已读面板内部懒加载监听
+//     let 已统计过 = false; // ✅ 每次面板打开只统计一次
+
+//     async function 绑定已读面板(virtualList) {
+//         if (已读面板容器引用?._list === virtualList) return;
+//         已读面板容器引用?._observer?.disconnect();
+//         已统计过 = false; // ✅ 新面板重置
+
+//         let 防抖 = null;
+//         const observer = new MutationObserver(() => {
+//             if (防抖) clearTimeout(防抖);
+//             防抖 = setTimeout(async () => {   // ← 加 async
+//                 await 标记已读用户列表();
+
+//                 if (!已统计过) {
+//                     已统计过 = true;
+//                     统计已读客户数();
+//                 }
+//             }, 200);
+//         });
+
+//         observer.observe(virtualList, { childList: true, subtree: false });
+//         已读面板容器引用 = { _list: virtualList, _observer: observer };
+
+//         console.log("✅ 已读面板绑定成功");
+//         await 标记已读用户列表();
+
+//         // ✅ 面板打开时立即统计一次
+//         已统计过 = true;
+//         统计已读客户数();
+//     }
+
+//     // 防抖，避免 body 变化过于频繁
+//     let bodyDebounce = null;
+
+//     const bodyObserver = new MutationObserver((mutations) => {
+//         if (!客户标记监控开启) return;
+
+//             // 快速过滤：只处理涉及的变化
+//             const relevant = mutations.some(m =>
+//         [...m.addedNodes, ...m.removedNodes].some(n =>
+//             n.nodeType === 1 &&
+//             (
+//                 n.matches?.('[role="listitem"]') ||
+//                 n.querySelector?.('[role="listitem"]')
+//             )
+//         )
+//     );
+
+//         if (!relevant) return;
+
+//         if (bodyDebounce) clearTimeout(bodyDebounce);
+//         bodyDebounce = setTimeout(async () => {   // ← 加 async
+//             const panel = 查找已读面板();
+//             if (panel) {
+//                 await 绑定已读面板(panel);
+//             } else if (已读面板容器引用) {
+//                 已读面板容器引用._observer?.disconnect();
+//                 已读面板容器引用 = null;
+//                 console.log("ℹ️ 已读面板已关闭");
+//             }
+//         }, 100);
+
+//     });
+
+//     bodyObserver.observe(document.body, { childList: true, subtree: true });
+//     已读面板监听定时器 = bodyObserver;
+
+//     // 立即检测一次（如果已读面板已经打开）
+//     const panel = 查找已读面板();
+//     if (panel) await 绑定已读面板(panel);
+// }
 
 // ==================== 通用工具函数 ====================
 
