@@ -14,7 +14,7 @@
 // }
 
 // ✅ 版本号：修改这里即可，无需在代码里逐处查找
-const WA_VERSION = "v5.2.2";
+const WA_VERSION = "v5.2.3";
 
 // ==================== 本地数据库管理 ====================
 // 数据库名称和版本
@@ -1583,7 +1583,8 @@ function 标记已读用户列表() {
     let 号码 = null;
     let nameEl = null;
 
-    const ak8iSpan = item.querySelector("._ak8i span._ao3e");
+    const ak8iSpan = item.querySelector("span._ao3e");
+
     if (ak8iSpan && /\+[\d\s\(\)\-]{9,20}/.test(ak8iSpan.textContent)) {
       // 结构1
       const match = ak8iSpan.textContent.match(/\+[\d\s\(\)\-]{9,20}/);
@@ -1593,7 +1594,8 @@ function 标记已读用户列表() {
       }
     } else {
       // 结构2：_ak8i 为空，号码在 _ak8q 的 span[title]
-      const ak8qSpan = item.querySelector("._ak8q span[dir='auto']");
+      const ak8qSpan = item.querySelector("span[aria-label], span[title]");
+
       if (ak8qSpan) {
         const titleText =
           ak8qSpan.getAttribute("title") || ak8qSpan.textContent || "";
@@ -1624,6 +1626,71 @@ function 标记已读用户列表() {
 
   if (标记数量 > 0) console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
 }
+
+
+
+// function 标记已读用户列表() {
+//   const allLists = document.querySelectorAll(".x1y332i5");
+//   let virtualList = null, maxHeight = 0;
+
+//   allLists.forEach(el => {
+//     const h = parseInt(el.style.height) || 0;
+//     if (h > maxHeight) {
+//       maxHeight = h;
+//       virtualList = el;
+//     }
+//   });
+
+//   if (!virtualList) return;
+
+//   const listItems = virtualList.querySelectorAll('[role="listitem"]');
+//   let 标记数量 = 0;
+
+//   listItems.forEach(item => {
+//     if (item.querySelector(".customer-badge")) return;
+
+//     // 号码：直接找 span._ao3e
+//     const numberSpan = item.querySelector("span._ao3e");
+//     let 号码 = null;
+
+//     if (numberSpan) {
+//       const match = numberSpan.textContent.match(/\+[\d\s\(\)\-]{9,20}/);
+//       if (match) {
+//         号码 = match[0].replace(/[\s\(\)\-]/g, "");
+//       }
+//     }
+
+//     if (!号码) return;
+//     if (!window.__客户号码列表?.has(号码)) return;
+
+//     // 名称元素：找 aria-label 或 title 的 span
+//     let nameEl = item.querySelector("span[aria-label], span[title]");
+//     if (!nameEl) return;
+
+//     const badge = document.createElement("span");
+//     badge.className = "customer-badge";
+//     badge.innerHTML = "⭐ 客户";
+//     badge.style.cssText = `
+//       background: #25D366; color: white; padding: 2px 6px;
+//       border-radius: 10px; font-size: 11px; margin-left: 8px;
+//       font-weight: bold; display: inline-block;
+//       pointer-events: none; vertical-align: middle;
+//     `;
+
+//     nameEl.parentNode.appendChild(badge);
+//     标记数量++;
+//     console.log(`✅ 已标记客户: ${号码}`);
+//   });
+
+//   if (标记数量 > 0) {
+//     console.log(`📊 已读面板标记完成，共 ${标记数量} 个客户`);
+//   }
+// }
+
+
+
+
+
 // ==================== 已读面板监听（MutationObserver，零轮询） ====================
 
 // 变量说明：已读面板监听定时器 复用存 bodyObserver
